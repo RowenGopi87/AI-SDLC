@@ -33,6 +33,8 @@ export function Sidebar() {
   const { sidebarOpen, toggleSidebar, currentWorkflowStep, getWorkflowProgress } = useAppStore();
   const [collapsed, setCollapsed] = useState(false);
 
+  const workflowProgress = getWorkflowProgress();
+
   const getModuleIcon = (moduleId: string) => {
     const icons = {
       'use-cases': FileText,
@@ -102,9 +104,9 @@ export function Sidebar() {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm text-gray-600">
               <span>Workflow Progress</span>
-              <span>{getWorkflowProgress()}%</span>
+              <span>{workflowProgress}%</span>
             </div>
-            <Progress value={getWorkflowProgress()} className="h-2" />
+            <Progress value={workflowProgress} className="h-2" />
             <div className="text-xs text-gray-500">
               Step {currentWorkflowStep} of {WORKFLOW_STEPS.length}
             </div>

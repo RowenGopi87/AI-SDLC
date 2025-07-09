@@ -277,7 +277,11 @@ export default function UseCasesPage() {
                 </div>
                 <div className="flex items-center text-sm text-gray-500">
                   <Calendar size={14} className="mr-2" />
-                  {useCase.submittedAt.toLocaleDateString()}
+                  {new Intl.DateTimeFormat('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  }).format(useCase.submittedAt)}
                 </div>
               </div>
               
