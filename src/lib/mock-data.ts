@@ -9,6 +9,31 @@ export interface UseCase {
   submittedAt: Date;
   status: "draft" | "submitted" | "in_review" | "approved" | "rejected";
   priority: "low" | "medium" | "high" | "critical";
+  // Business Brief fields
+  businessOwner?: string;
+  leadBusinessUnit?: string;
+  additionalBusinessUnits?: string[];
+  primaryStrategicTheme?: string;
+  businessObjective?: string;
+  quantifiableBusinessOutcomes?: string;
+  inScope?: string;
+  impactOfDoNothing?: string;
+  happyPath?: string;
+  exceptions?: string;
+  // End users and stakeholders
+  impactedEndUsers?: string;
+  changeImpactExpected?: string;
+  impactToOtherDepartments?: string;
+  otherDepartmentsImpacted?: string[];
+  // Technology impact
+  impactsExistingTechnology?: boolean;
+  technologySolutions?: string;
+  relevantBusinessOwners?: string;
+  otherTechnologyInfo?: string;
+  supportingDocuments?: string[];
+  // Workflow tracking
+  workflowStage?: "idea" | "discovery" | "design" | "execution";
+  completionPercentage?: number;
 }
 
 export interface Requirement {
@@ -74,51 +99,92 @@ export interface Defect {
 export const mockUseCases: UseCase[] = [
   {
     id: "uc-001",
-    title: "User Authentication System",
-    description: "Implement a secure user authentication system with multi-factor authentication support",
-    businessValue: "Increase security and user trust by implementing robust authentication mechanisms",
+    title: "Customer Portal Enhancement",
+    description: "Enhance the customer portal with self-service capabilities",
+    businessValue: "Reduce support costs and improve customer satisfaction",
     acceptanceCriteria: [
-      "Users can login with username/password",
-      "Multi-factor authentication is supported",
-      "Password reset functionality is available",
-      "Session management is implemented"
+      "Self-service account management",
+      "Real-time order tracking",
+      "Automated billing inquiries",
+      "Mobile-responsive design"
     ],
-    submittedBy: "John Doe",
+    submittedBy: "Joshua Payne",
     submittedAt: new Date("2024-01-15"),
     status: "approved",
-    priority: "high"
+    priority: "high",
+    businessOwner: "joshua-payne",
+    leadBusinessUnit: "technology",
+    additionalBusinessUnits: ["operations", "customer-service"],
+    primaryStrategicTheme: "customer-experience",
+    businessObjective: "Modernize customer interactions by providing comprehensive self-service capabilities that reduce operational overhead while enhancing customer satisfaction and engagement.",
+    quantifiableBusinessOutcomes: "Reduce customer service calls by 40%, improve customer satisfaction scores by 25%, and decrease response time to customer inquiries from 24 hours to 2 hours.",
+    inScope: "Customer account management, order tracking, billing inquiries, support ticket creation",
+    impactOfDoNothing: "Continued high support costs, declining customer satisfaction, competitive disadvantage",
+    happyPath: "Customer logs in, views account status, tracks orders, resolves billing questions without calling support",
+    exceptions: "Complex billing issues, refund requests, technical support needs",
+    impactedEndUsers: "External customers, internal customer service representatives, billing team members",
+    changeImpactExpected: "Customers will need to adapt to new self-service processes. Training materials and gradual rollout required.",
+    impactToOtherDepartments: "Customer Service: Reduced call volume, need for process updates. Finance: New billing inquiry automation. IT: Infrastructure and security updates required.",
+    otherDepartmentsImpacted: ["Customer Service", "Finance", "IT Security"],
+    impactsExistingTechnology: true,
+    technologySolutions: "Current customer portal (legacy ASP.NET), CRM system (Salesforce), billing system (SAP)",
+    relevantBusinessOwners: "Customer Service Director, Finance Manager, IT Director",
+    otherTechnologyInfo: "Integration with existing SSO, compliance with GDPR requirements",
+    supportingDocuments: ["customer_survey_results.pdf", "competitor_analysis.docx", "technical_architecture.pptx"],
+    workflowStage: "execution",
+    completionPercentage: 75
   },
   {
     id: "uc-002",
-    title: "Product Catalog Management",
-    description: "Create a comprehensive product catalog with search and filtering capabilities",
-    businessValue: "Improve customer experience and increase sales through better product discovery",
+    title: "Mobile Payment Integration",
+    description: "Integrate mobile payment solutions into the existing e-commerce platform",
+    businessValue: "Increase conversion rates and improve checkout experience",
     acceptanceCriteria: [
-      "Products can be added, edited, and deleted",
-      "Search functionality works across all product attributes",
-      "Filtering by category, price, and availability",
-      "Product images and descriptions are supported"
+      "Apple Pay integration",
+      "Google Pay support",
+      "Samsung Pay compatibility",
+      "Security compliance (PCI DSS)"
     ],
     submittedBy: "Jane Smith",
     submittedAt: new Date("2024-01-20"),
     status: "in_review",
-    priority: "medium"
+    priority: "medium",
+    businessOwner: "jane-smith",
+    leadBusinessUnit: "marketing",
+    primaryStrategicTheme: "digital-transformation",
+    businessObjective: "Reduce cart abandonment and increase mobile sales by implementing modern payment solutions that meet customer expectations.",
+    quantifiableBusinessOutcomes: "Increase mobile conversion rate by 30%, reduce cart abandonment by 20%, achieve 15% growth in mobile sales revenue.",
+    impactedEndUsers: "Mobile app users, e-commerce customers, payment processing team",
+    changeImpactExpected: "Customers will have new payment options. Marketing team needs to promote new features.",
+    impactsExistingTechnology: true,
+    technologySolutions: "Current payment gateway (Stripe), mobile app (React Native), fraud detection system",
+    workflowStage: "discovery",
+    completionPercentage: 35
   },
   {
     id: "uc-003",
-    title: "Order Processing System",
-    description: "Implement end-to-end order processing from cart to delivery",
-    businessValue: "Streamline sales operations and improve customer satisfaction",
+    title: "AI-Powered Inventory Optimization",
+    description: "Implement machine learning for predictive inventory management",
+    businessValue: "Reduce inventory costs while maintaining optimal stock levels",
     acceptanceCriteria: [
-      "Shopping cart functionality",
-      "Checkout process with payment integration",
-      "Order tracking and status updates",
-      "Email notifications for order updates"
+      "ML model for demand forecasting",
+      "Automated reorder point calculation",
+      "Integration with existing ERP",
+      "Real-time analytics dashboard"
     ],
     submittedBy: "Mike Johnson",
     submittedAt: new Date("2024-01-25"),
     status: "draft",
-    priority: "high"
+    priority: "high",
+    businessOwner: "mike-johnson",
+    leadBusinessUnit: "operations",
+    primaryStrategicTheme: "operational-efficiency",
+    businessObjective: "Optimize inventory levels using AI to reduce carrying costs while preventing stockouts and improving supply chain efficiency.",
+    quantifiableBusinessOutcomes: "Reduce inventory carrying costs by 18%, decrease stockouts by 35%, improve inventory turnover ratio by 25%.",
+    impactedEndUsers: "Warehouse staff, procurement team, supply chain managers, finance team",
+    impactsExistingTechnology: false,
+    workflowStage: "idea",
+    completionPercentage: 10
   }
 ];
 

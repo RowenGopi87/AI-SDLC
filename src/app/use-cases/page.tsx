@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { 
   Plus, 
   FileText, 
@@ -19,12 +20,23 @@ import {
   CheckCircle, 
   Clock,
   Search,
-  Filter
+  Filter,
+  Building2,
+  Target,
+  Lightbulb,
+  Upload,
+  Users,
+  Settings,
+  TrendingUp,
+  ChevronRight
 } from 'lucide-react';
 
 export default function UseCasesPage() {
   const { useCases, addUseCase, updateUseCase, selectUseCase, selectedUseCase } = useUseCaseStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
+  const [viewingUseCase, setViewingUseCase] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [formData, setFormData] = useState({
@@ -35,6 +47,28 @@ export default function UseCasesPage() {
     submittedBy: '',
     priority: 'medium' as const,
     status: 'draft' as const,
+    // Business Brief fields
+    businessOwner: '',
+    leadBusinessUnit: '',
+    additionalBusinessUnits: [] as string[],
+    primaryStrategicTheme: '',
+    businessObjective: '',
+    quantifiableBusinessOutcomes: '',
+    inScope: '',
+    impactOfDoNothing: '',
+    happyPath: '',
+    exceptions: '',
+    // End users and stakeholders
+    impactedEndUsers: '',
+    changeImpactExpected: '',
+    impactToOtherDepartments: '',
+    otherDepartmentsImpacted: [] as string[],
+    // Technology impact
+    impactsExistingTechnology: false,
+    technologySolutions: '',
+    relevantBusinessOwners: '',
+    otherTechnologyInfo: '',
+    supportingDocuments: [] as string[],
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -48,6 +82,11 @@ export default function UseCasesPage() {
     addUseCase({
       ...formData,
       acceptanceCriteria: acceptanceCriteriaArray,
+      additionalBusinessUnits: formData.additionalBusinessUnits,
+      otherDepartmentsImpacted: formData.otherDepartmentsImpacted,
+      supportingDocuments: formData.supportingDocuments,
+      workflowStage: 'idea' as const,
+      completionPercentage: 10,
     });
 
     // Reset form
@@ -59,6 +98,25 @@ export default function UseCasesPage() {
       submittedBy: '',
       priority: 'medium',
       status: 'draft',
+      businessOwner: '',
+      leadBusinessUnit: '',
+      additionalBusinessUnits: [],
+      primaryStrategicTheme: '',
+      businessObjective: '',
+      quantifiableBusinessOutcomes: '',
+      inScope: '',
+      impactOfDoNothing: '',
+      happyPath: '',
+      exceptions: '',
+      impactedEndUsers: '',
+      changeImpactExpected: '',
+      impactToOtherDepartments: '',
+      otherDepartmentsImpacted: [],
+      impactsExistingTechnology: false,
+      technologySolutions: '',
+      relevantBusinessOwners: '',
+      otherTechnologyInfo: '',
+      supportingDocuments: [],
     });
     
     setIsDialogOpen(false);
@@ -66,6 +124,29 @@ export default function UseCasesPage() {
 
   const handleStatusChange = (id: string, newStatus: any) => {
     updateUseCase(id, { status: newStatus });
+  };
+
+  const handleGenerateRequirements = (useCaseId: string) => {
+    // UI-only functionality for now
+    alert(`Generating requirements for use case ${useCaseId}...`);
+  };
+
+  const handleViewDetails = (useCase: any) => {
+    setViewingUseCase(useCase);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleWorkflowView = (useCase: any) => {
+    setViewingUseCase(useCase);
+    setIsWorkflowDialogOpen(true);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // UI-only file upload for now
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      alert(`File "${files[0].name}" uploaded successfully. Business brief will be auto-populated.`);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -95,6 +176,22 @@ export default function UseCasesPage() {
     }
   };
 
+  const getWorkflowStageColor = (stage: string) => {
+    switch (stage) {
+      case 'execution': return 'bg-green-100 text-green-800';
+      case 'design': return 'bg-blue-100 text-blue-800';
+      case 'discovery': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getWorkflowStages = () => [
+    { name: 'Idea', key: 'idea', percentage: 25 },
+    { name: 'Discovery & Funding', key: 'discovery', percentage: 50 },
+    { name: 'Design', key: 'design', percentage: 75 },
+    { name: 'Execution', key: 'execution', percentage: 100 },
+  ];
+
   const filteredUseCases = useCases.filter(useCase => {
     const matchesSearch = useCase.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          useCase.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -107,116 +204,439 @@ export default function UseCasesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Use Cases</h1>
-          <p className="text-gray-600 mt-1">Submit and manage business use cases</p>
+          <h1 className="text-3xl font-bold text-gray-900">Business Brief</h1>
+          <p className="text-gray-600 mt-1">Submit and manage business brief use cases</p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center space-x-2">
-              <Plus size={16} />
-              <span>New Use Case</span>
+        <div className="flex space-x-3">
+          {/* File Upload Button */}
+          <div className="relative">
+            <input
+              type="file"
+              id="file-upload"
+              className="hidden"
+              accept=".pdf,.doc,.docx,.ppt,.pptx"
+              onChange={handleFileUpload}
+            />
+            <Button 
+              variant="outline" 
+              className="flex items-center space-x-2"
+              onClick={() => document.getElementById('file-upload')?.click()}
+            >
+              <Upload size={16} />
+              <span>Upload Document</span>
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Submit New Use Case</DialogTitle>
-              <DialogDescription>
-                Provide details about your business use case for review and processing.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title *
-                </label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter use case title"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description *
-                </label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe the use case in detail"
-                  rows={4}
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Business Value *
-                </label>
-                <Textarea
-                  value={formData.businessValue}
-                  onChange={(e) => setFormData({ ...formData, businessValue: e.target.value })}
-                  placeholder="Explain the business value and impact"
-                  rows={3}
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Acceptance Criteria *
-                </label>
-                <Textarea
-                  value={formData.acceptanceCriteria}
-                  onChange={(e) => setFormData({ ...formData, acceptanceCriteria: e.target.value })}
-                  placeholder="List acceptance criteria (one per line)"
-                  rows={4}
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Submitted By *
-                  </label>
-                  <Input
-                    value={formData.submittedBy}
-                    onChange={(e) => setFormData({ ...formData, submittedBy: e.target.value })}
-                    placeholder="Your name"
-                    required
-                  />
+          </div>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center space-x-2">
+                <Plus size={16} />
+                <span>New Business Brief</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Business Brief</DialogTitle>
+                <DialogDescription>
+                  NEW IDEA REQUEST BY Joshua Payne
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Idea Name *
+                    </label>
+                    <Input
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Enter idea name"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Sponsor *
+                    </label>
+                    <Select value={formData.businessOwner} onValueChange={(value) => setFormData({ ...formData, businessOwner: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select sponsor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="joshua-payne">Joshua Payne</SelectItem>
+                        <SelectItem value="john-doe">John Doe</SelectItem>
+                        <SelectItem value="jane-smith">Jane Smith</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Business Owner *
+                    </label>
+                    <Select value={formData.businessOwner} onValueChange={(value) => setFormData({ ...formData, businessOwner: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select business owner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="joshua-payne">Joshua Payne</SelectItem>
+                        <SelectItem value="john-doe">John Doe</SelectItem>
+                        <SelectItem value="jane-smith">Jane Smith</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      IT Portfolio *
+                    </label>
+                    <Select value={formData.primaryStrategicTheme} onValueChange={(value) => setFormData({ ...formData, primaryStrategicTheme: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select portfolio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="digital-transformation">Digital Transformation</SelectItem>
+                        <SelectItem value="customer-experience">Customer Experience</SelectItem>
+                        <SelectItem value="operational-efficiency">Operational Efficiency</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Lead Business Unit *
+                    </label>
+                    <Select value={formData.leadBusinessUnit} onValueChange={(value) => setFormData({ ...formData, leadBusinessUnit: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select business unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="technology">Technology</SelectItem>
+                        <SelectItem value="operations">Operations</SelectItem>
+                        <SelectItem value="marketing">Marketing</SelectItem>
+                        <SelectItem value="finance">Finance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Additional Business Units
+                    </label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select additional units" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hr">Human Resources</SelectItem>
+                        <SelectItem value="legal">Legal</SelectItem>
+                        <SelectItem value="compliance">Compliance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Priority
+                    Primary Strategic Theme *
                   </label>
-                  <Select value={formData.priority} onValueChange={(value: any) => setFormData({ ...formData, priority: value })}>
+                  <Select value={formData.primaryStrategicTheme} onValueChange={(value) => setFormData({ ...formData, primaryStrategicTheme: value })}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select strategic theme" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="growth">Growth</SelectItem>
+                      <SelectItem value="efficiency">Efficiency</SelectItem>
+                      <SelectItem value="innovation">Innovation</SelectItem>
+                      <SelectItem value="customer-focus">Customer Focus</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Submit Use Case</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    1. What would you like to change and why?
+                  </label>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-gray-600">Business Objective & Description of Change *</label>
+                      <Textarea
+                        value={formData.businessObjective}
+                        onChange={(e) => setFormData({ ...formData, businessObjective: e.target.value })}
+                        placeholder="Describe the business change, challenges/opportunities, and objective to ensure technology solutions proposed will directly support business objectives."
+                        rows={3}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Quantifiable Business Outcomes *</label>
+                      <Textarea
+                        value={formData.quantifiableBusinessOutcomes}
+                        onChange={(e) => setFormData({ ...formData, quantifiableBusinessOutcomes: e.target.value })}
+                        placeholder="Identify quantifiable/tangible benefits. Indicate the business value (ROI) that will be improved by this initiative."
+                        rows={3}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">In-scope</label>
+                      <Textarea
+                        value={formData.inScope}
+                        onChange={(e) => setFormData({ ...formData, inScope: e.target.value })}
+                        placeholder="Identify processes, capabilities or channels."
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Impact of Do Nothing option</label>
+                      <Textarea
+                        value={formData.impactOfDoNothing}
+                        onChange={(e) => setFormData({ ...formData, impactOfDoNothing: e.target.value })}
+                        placeholder="Mention risk if demand is not done or key risks."
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Happy Path</label>
+                      <Textarea
+                        value={formData.happyPath}
+                        onChange={(e) => setFormData({ ...formData, happyPath: e.target.value })}
+                        placeholder="Identify the happy path."
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Exceptions</label>
+                      <Textarea
+                        value={formData.exceptions}
+                        onChange={(e) => setFormData({ ...formData, exceptions: e.target.value })}
+                        placeholder="Identify unhappy paths and exception cases."
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Acceptance Criteria</label>
+                      <Textarea
+                        value={formData.acceptanceCriteria}
+                        onChange={(e) => setFormData({ ...formData, acceptanceCriteria: e.target.value })}
+                        placeholder="Indicate the business acceptance criteria i.e. solution availability, performance, business volumes to manage, security, privacy etc."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: End Users and Stakeholders */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    2. Who are the end-users or stakeholders affected by this change?
+                  </label>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-gray-600">Impacted end-users / stakeholders *</label>
+                      <Textarea
+                        value={formData.impactedEndUsers}
+                        onChange={(e) => setFormData({ ...formData, impactedEndUsers: e.target.value })}
+                        placeholder="Indicate any impacted stakeholders, customers or end-users"
+                        rows={3}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Change Impact Expected *</label>
+                      <Textarea
+                        value={formData.changeImpactExpected}
+                        onChange={(e) => setFormData({ ...formData, changeImpactExpected: e.target.value })}
+                        placeholder="Indicate expected changes for end users"
+                        rows={3}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Impact to other Departments</label>
+                      <Textarea
+                        value={formData.impactToOtherDepartments}
+                        onChange={(e) => setFormData({ ...formData, impactToOtherDepartments: e.target.value })}
+                        placeholder="Identify the impact to other departments by function"
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Other Departments Impacted</label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select departments" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="finance">Finance</SelectItem>
+                          <SelectItem value="hr">Human Resources</SelectItem>
+                          <SelectItem value="legal">Legal</SelectItem>
+                          <SelectItem value="marketing">Marketing</SelectItem>
+                          <SelectItem value="operations">Operations</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Technology Impact */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    3. What is the impact on existing technology solutions?
+                  </label>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <label className="text-sm text-gray-600">Will this initiative impact or replace an existing technical solution?</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.impactsExistingTechnology}
+                          onChange={(e) => setFormData({ ...formData, impactsExistingTechnology: e.target.checked })}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm">Yes</span>
+                      </div>
+                    </div>
+                    
+                    {formData.impactsExistingTechnology && (
+                      <>
+                        <div>
+                          <label className="text-sm text-gray-600">Specify the technology solutions</label>
+                          <Textarea
+                            value={formData.technologySolutions}
+                            onChange={(e) => setFormData({ ...formData, technologySolutions: e.target.value })}
+                            placeholder="List the technology solutions that will be impacted"
+                            rows={3}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="text-sm text-gray-600">Relevant Channeled Business Owners</label>
+                          <Textarea
+                            value={formData.relevantBusinessOwners}
+                            onChange={(e) => setFormData({ ...formData, relevantBusinessOwners: e.target.value })}
+                            placeholder="For products and services, what channels will be needed (business owners)"
+                            rows={2}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="text-sm text-gray-600">Other</label>
+                          <Textarea
+                            value={formData.otherTechnologyInfo}
+                            onChange={(e) => setFormData({ ...formData, otherTechnologyInfo: e.target.value })}
+                            placeholder="Any additional information to share (i.e. time considerations)"
+                            rows={2}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Supporting Documents */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Supporting documents (.pdf, .docx, .doc, .pptx, .ppt, .xls or .xlsx)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-600">
+                        Attach supporting documents that justify your request. You can attach document or images files.
+                      </p>
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                        className="hidden"
+                        id="supporting-docs"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setFormData({ 
+                            ...formData, 
+                            supportingDocuments: files.map(f => f.name) 
+                          });
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mt-2"
+                        onClick={() => document.getElementById('supporting-docs')?.click()}
+                      >
+                        Choose Files
+                      </Button>
+                    </div>
+                  </div>
+                  {formData.supportingDocuments.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-600">Selected files:</p>
+                      <ul className="text-sm text-gray-500">
+                        {formData.supportingDocuments.map((file, index) => (
+                          <li key={index}>• {file}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Submitted By *
+                    </label>
+                    <Input
+                      value={formData.submittedBy}
+                      onChange={(e) => setFormData({ ...formData, submittedBy: e.target.value })}
+                      placeholder="Your name"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Priority
+                    </label>
+                    <Select value={formData.priority} onValueChange={(value: any) => setFormData({ ...formData, priority: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Submit Business Brief</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -224,7 +644,7 @@ export default function UseCasesPage() {
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder="Search use cases..."
+            placeholder="Search business briefs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -247,10 +667,14 @@ export default function UseCasesPage() {
         </Select>
       </div>
 
-      {/* Use Cases List */}
+      {/* Business Brief Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredUseCases.map((useCase) => (
-          <Card key={useCase.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Card 
+            key={useCase.id} 
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => handleWorkflowView(useCase)}
+          >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-2">
@@ -264,17 +688,43 @@ export default function UseCasesPage() {
                   <Badge variant="outline" className={getPriorityColor(useCase.priority)}>
                     {useCase.priority}
                   </Badge>
+                  {useCase.workflowStage && (
+                    <Badge variant="outline" className={getWorkflowStageColor(useCase.workflowStage)}>
+                      {useCase.workflowStage}
+                    </Badge>
+                  )}
                 </div>
               </div>
+              {useCase.completionPercentage && (
+                <div className="mt-2">
+                  <div className="flex justify-between text-sm text-gray-600 mb-1">
+                    <span>Progress</span>
+                    <span>{useCase.completionPercentage}%</span>
+                  </div>
+                  <Progress value={useCase.completionPercentage} className="h-2" />
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-600 line-clamp-3">{useCase.description}</p>
+              <p className="text-sm text-gray-600 line-clamp-2">{useCase.businessObjective || useCase.description}</p>
               
               <div className="space-y-2">
                 <div className="flex items-center text-sm text-gray-500">
                   <User size={14} className="mr-2" />
-                  {useCase.submittedBy}
+                  {useCase.businessOwner || useCase.submittedBy}
                 </div>
+                {useCase.leadBusinessUnit && (
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Building2 size={14} className="mr-2" />
+                    {useCase.leadBusinessUnit}
+                  </div>
+                )}
+                {useCase.primaryStrategicTheme && (
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Target size={14} className="mr-2" />
+                    {useCase.primaryStrategicTheme}
+                  </div>
+                )}
                 <div className="flex items-center text-sm text-gray-500">
                   <Calendar size={14} className="mr-2" />
                   {new Intl.DateTimeFormat('en-US', { 
@@ -285,29 +735,14 @@ export default function UseCasesPage() {
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">Business Value:</p>
-                <p className="text-sm text-gray-600 line-clamp-2">{useCase.businessValue}</p>
-              </div>
+              {useCase.quantifiableBusinessOutcomes && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Business Outcomes:</p>
+                  <p className="text-sm text-gray-600 line-clamp-2">{useCase.quantifiableBusinessOutcomes}</p>
+                </div>
+              )}
               
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">Acceptance Criteria:</p>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  {useCase.acceptanceCriteria.slice(0, 2).map((criteria, index) => (
-                    <li key={index} className="flex items-start">
-                      <span className="mr-2">•</span>
-                      <span className="line-clamp-1">{criteria}</span>
-                    </li>
-                  ))}
-                  {useCase.acceptanceCriteria.length > 2 && (
-                    <li className="text-gray-400 text-xs">
-                      +{useCase.acceptanceCriteria.length - 2} more...
-                    </li>
-                  )}
-                </ul>
-              </div>
-              
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center justify-between pt-2" onClick={(e) => e.stopPropagation()}>
                 <Select
                   value={useCase.status}
                   onValueChange={(value) => handleStatusChange(useCase.id, value)}
@@ -324,9 +759,32 @@ export default function UseCasesPage() {
                   </SelectContent>
                 </Select>
                 
-                <Button variant="outline" size="sm">
-                  View Details
-                </Button>
+                <div className="flex space-x-2">
+                  {useCase.status === 'approved' && (
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGenerateRequirements(useCase.id);
+                      }}
+                      className="flex items-center space-x-1"
+                    >
+                      <Lightbulb size={14} />
+                      <span>Generate Requirements</span>
+                    </Button>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewDetails(useCase);
+                    }}
+                  >
+                    View Details
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -336,15 +794,149 @@ export default function UseCasesPage() {
       {filteredUseCases.length === 0 && (
         <div className="text-center py-12">
           <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No use cases found</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No business briefs found</h3>
           <p className="text-gray-600">
             {searchTerm || filterStatus !== 'all' 
               ? 'Try adjusting your search or filters'
-              : 'Get started by creating your first use case'
+              : 'Get started by creating your first business brief'
             }
           </p>
         </div>
       )}
-    </div>
-  );
-} 
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewingUseCase?.title}</DialogTitle>
+            <DialogDescription>
+              Business Brief Details
+            </DialogDescription>
+          </DialogHeader>
+          {viewingUseCase && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Business Owner</label>
+                  <p className="text-sm text-gray-600">{viewingUseCase.businessOwner || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Lead Business Unit</label>
+                  <p className="text-sm text-gray-600">{viewingUseCase.leadBusinessUnit || 'Not specified'}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700">Business Objective</label>
+                <p className="text-sm text-gray-600 mt-1">{viewingUseCase.businessObjective || 'Not specified'}</p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700">Quantifiable Business Outcomes</label>
+                <p className="text-sm text-gray-600 mt-1">{viewingUseCase.quantifiableBusinessOutcomes || 'Not specified'}</p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700">Impacted End Users</label>
+                <p className="text-sm text-gray-600 mt-1">{viewingUseCase.impactedEndUsers || 'Not specified'}</p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700">Technology Impact</label>
+                <p className="text-sm text-gray-600 mt-1">
+                  {viewingUseCase.impactsExistingTechnology ? 'Yes' : 'No'}
+                  {viewingUseCase.technologySolutions && ` - ${viewingUseCase.technologySolutions}`}
+                </p>
+              </div>
+              
+              {viewingUseCase.supportingDocuments && viewingUseCase.supportingDocuments.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Supporting Documents</label>
+                  <ul className="text-sm text-gray-600 mt-1">
+                    {viewingUseCase.supportingDocuments.map((doc: string, index: number) => (
+                      <li key={index}>• {doc}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Workflow Progress Dialog */}
+      <Dialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{viewingUseCase?.title}</DialogTitle>
+            <DialogDescription>
+              End to End Workflow Progress
+            </DialogDescription>
+          </DialogHeader>
+          {viewingUseCase && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Overall Progress</h3>
+                <span className="text-2xl font-bold text-blue-600">{viewingUseCase.completionPercentage}%</span>
+              </div>
+              
+              <Progress value={viewingUseCase.completionPercentage} className="h-3" />
+              
+              <div className="space-y-4">
+                {getWorkflowStages().map((stage, index) => {
+                  const isActive = viewingUseCase.workflowStage === stage.key;
+                  const isCompleted = viewingUseCase.completionPercentage >= stage.percentage;
+                  
+                  return (
+                    <div 
+                      key={stage.key}
+                      className={`flex items-center p-4 rounded-lg border-2 ${
+                        isActive 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : isCompleted 
+                            ? 'border-green-500 bg-green-50' 
+                            : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                        isCompleted ? 'bg-green-500' : isActive ? 'bg-blue-500' : 'bg-gray-400'
+                      }`}>
+                        {isCompleted ? '✓' : index + 1}
+                      </div>
+                      
+                      <div className="ml-4 flex-grow">
+                        <h4 className="font-medium text-gray-900">{stage.name}</h4>
+                        <p className="text-sm text-gray-600">
+                          {isCompleted 
+                            ? 'Completed' 
+                            : isActive 
+                              ? 'In Progress' 
+                              : 'Not Started'
+                          }
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-600">{stage.percentage}%</span>
+                        <ChevronRight size={16} className="text-gray-400" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">Current Stage: {viewingUseCase.workflowStage?.toUpperCase()}</h4>
+                <p className="text-sm text-blue-800">
+                  {viewingUseCase.workflowStage === 'execution' && 'Implementation in progress. Testing and deployment activities underway.'}
+                  {viewingUseCase.workflowStage === 'discovery' && 'Conducting discovery activities. Analyzing requirements and technical feasibility.'}
+                  {viewingUseCase.workflowStage === 'idea' && 'Initial idea capture phase. Awaiting review and approval for next steps.'}
+                </p>
+              </div>
+            </div>
+          )}
+                 </DialogContent>
+       </Dialog>
+     </div>
+   );
+ } 
