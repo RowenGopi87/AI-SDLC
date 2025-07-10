@@ -5,23 +5,28 @@ interface AppStore {
   currentModule: string;
   currentWorkflowStep: number;
   sidebarOpen: boolean;
+  sidebarCollapsed: boolean;
   isLoading: boolean;
   setCurrentModule: (module: string) => void;
   setCurrentWorkflowStep: (step: number) => void;
   setSidebarOpen: (open: boolean) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebar: () => void;
+  toggleSidebarCollapsed: () => void;
   setLoading: (loading: boolean) => void;
   getModuleById: (id: string) => typeof MODULES[number] | undefined;
   getWorkflowStepById: (id: number) => typeof WORKFLOW_STEPS[number] | undefined;
   getNextWorkflowStep: () => typeof WORKFLOW_STEPS[number] | undefined;
   getPreviousWorkflowStep: () => typeof WORKFLOW_STEPS[number] | undefined;
   getWorkflowProgress: () => number;
+  getSidebarWidth: () => number;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
   currentModule: 'dashboard',
   currentWorkflowStep: 1,
   sidebarOpen: true,
+  sidebarCollapsed: false,
   isLoading: false,
 
   setCurrentModule: (module) => {
@@ -36,8 +41,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ sidebarOpen: open });
   },
 
+  setSidebarCollapsed: (collapsed) => {
+    set({ sidebarCollapsed: collapsed });
+  },
+
   toggleSidebar: () => {
     set((state) => ({ sidebarOpen: !state.sidebarOpen }));
+  },
+
+  toggleSidebarCollapsed: () => {
+    set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
   },
 
   setLoading: (loading) => {
@@ -65,5 +78,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   getWorkflowProgress: () => {
     const currentStep = get().currentWorkflowStep;
     return Math.round((currentStep / WORKFLOW_STEPS.length) * 100);
+  },
+
+  getSidebarWidth: () => {
+    const { sidebarOpen, sidebarCollapsed } = get();
+    if (!sidebarOpen) return 0;
+    return sidebarCollapsed ? 64 : 320; // 16 * 4 = 64px (w-16), 80 * 4 = 320px (w-80)
   },
 })); 

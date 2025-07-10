@@ -47,8 +47,7 @@ export function setSelectedItem(id: string, type: string, data: any) {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarOpen, toggleSidebar, currentWorkflowStep, getWorkflowProgress } = useAppStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const { sidebarOpen, sidebarCollapsed, toggleSidebar, toggleSidebarCollapsed, currentWorkflowStep, getWorkflowProgress } = useAppStore();
   const [selectedItem, setSelectedItemLocal] = useState(selectedItemState);
 
   const workflowProgress = getWorkflowProgress();
@@ -198,7 +197,7 @@ export function Sidebar() {
   };
 
   const renderTraceabilitySection = () => {
-    if (collapsed || !selectedItem.id) return null;
+    if (sidebarCollapsed || !selectedItem.id) return null;
 
     const traceInfo = getTraceabilityInfo();
     if (!traceInfo) return null;
@@ -307,16 +306,18 @@ export function Sidebar() {
     );
   };
 
-  if (!sidebarOpen) return null;
+  // Always render on desktop, handle mobile via CSS classes
 
   return (
     <div className={cn(
       "fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ease-in-out overflow-y-auto",
-      collapsed ? "w-16" : "w-80"
+      "md:block",
+      sidebarCollapsed ? "w-16" : "w-80",
+      !sidebarOpen && "md:block hidden"
     )}>
       {/* Header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 flex-shrink-0">
-        {!collapsed && (
+        {!sidebarCollapsed && (
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">A</span>
@@ -327,15 +328,15 @@ export function Sidebar() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleSidebarCollapsed}
           className="p-2"
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                      {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </Button>
       </div>
 
       {/* Progress Section */}
-      {!collapsed && (
+      {!sidebarCollapsed && (
         <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm text-gray-600">
@@ -362,11 +363,11 @@ export function Sidebar() {
                 variant={isActive ? "default" : "ghost"}
                 className={cn(
                   "w-full justify-start h-10 px-3",
-                  collapsed && "justify-center px-2"
+                  sidebarCollapsed && "justify-center px-2"
                 )}
               >
                 <Icon size={18} />
-                {!collapsed && <span className="ml-3">{module.name}</span>}
+                {!sidebarCollapsed && <span className="ml-3">{module.name}</span>}
               </Button>
             </Link>
           );
@@ -374,7 +375,7 @@ export function Sidebar() {
       </nav>
 
       {/* Selected Item Info */}
-      {!collapsed && selectedItem.id && (
+      {!sidebarCollapsed && selectedItem.id && (
         <div className="border-t border-gray-200 p-4 flex-shrink-0">
           <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
             <Target size={14} className="mr-2" />
@@ -397,7 +398,7 @@ export function Sidebar() {
       {renderTraceabilitySection()}
 
       {/* Workflow Steps */}
-      {!collapsed && (
+      {!sidebarCollapsed && (
         <div className="border-t border-gray-200 p-4 flex-shrink-0">
           <h3 className="text-sm font-medium text-gray-900 mb-3">Workflow Steps</h3>
           <div className="space-y-2">

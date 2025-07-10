@@ -17,24 +17,24 @@ export function Header() {
   
   return (
     <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="flex h-16 items-center justify-between px-4">
-        <div className="flex items-center space-x-4">
+      <div className="flex h-16 items-center justify-between px-6">
+        <div className="flex items-center space-x-4 min-w-0 flex-1">
           <MobileSidebarToggle />
           
-          <div className="flex items-center space-x-2">
-            <h1 className="text-xl font-semibold text-gray-900">
+          <div className="flex items-center space-x-3 min-w-0">
+            <h1 className="text-2xl font-semibold text-gray-900 truncate">
               {currentModule?.name || APP_NAME}
             </h1>
             
             {currentStep && (
-              <Badge variant="outline" className="ml-2">
+              <Badge variant="outline" className="whitespace-nowrap">
                 Step {currentStep.id}: {currentStep.name}
               </Badge>
             )}
           </div>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-shrink-0">
           <Button variant="ghost" size="sm" className="p-2">
             <Search size={18} />
           </Button>
