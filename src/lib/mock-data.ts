@@ -47,6 +47,9 @@ export interface Requirement {
   status: "draft" | "enhanced" | "approved" | "rejected";
   reviewedBy?: string;
   reviewedAt?: Date;
+  // Workflow tracking
+  workflowStage?: "analysis" | "enhancement" | "review" | "approved";
+  completionPercentage?: number;
 }
 
 export interface WorkItem {
@@ -61,6 +64,9 @@ export interface WorkItem {
   priority: "low" | "medium" | "high" | "critical";
   status: "backlog" | "in_progress" | "done";
   assignee?: string;
+  // Workflow tracking
+  workflowStage?: "planning" | "development" | "testing" | "done";
+  completionPercentage?: number;
 }
 
 export interface TestCase {
@@ -78,6 +84,9 @@ export interface TestCase {
   createdBy: string;
   createdAt: Date;
   lastExecuted?: Date;
+  // Workflow tracking
+  workflowStage?: "design" | "ready" | "execution" | "completed";
+  completionPercentage?: number;
 }
 
 export interface Defect {
@@ -93,9 +102,12 @@ export interface Defect {
   createdAt: Date;
   resolvedAt?: Date;
   aiSummary?: string;
+  // Workflow tracking
+  workflowStage?: "triage" | "investigation" | "fixing" | "verification";
+  completionPercentage?: number;
 }
 
-// Mock Data
+// Mock Data - Customer Portal Enhancement (Execution Stage)
 export const mockUseCases: UseCase[] = [
   {
     id: "uc-001",
@@ -189,169 +201,297 @@ export const mockUseCases: UseCase[] = [
 ];
 
 export const mockRequirements: Requirement[] = [
+  // Customer Portal Enhancement Requirements
   {
     id: "req-001",
     useCaseId: "uc-001",
-    originalText: "Users should be able to login",
-    enhancedText: "The system shall provide a login interface that authenticates users using their registered email address and password, with failed login attempts being logged for security monitoring. The login process must complete within 3 seconds under normal load conditions.",
+    originalText: "Users should be able to login to their account",
+    enhancedText: "The system shall provide a secure login interface that authenticates customers using their registered email address and password. The login process must complete within 3 seconds under normal load conditions and include proper error handling for invalid credentials.",
     isUnambiguous: true,
     isTestable: true,
     hasAcceptanceCriteria: true,
     status: "approved",
     reviewedBy: "Technical Lead",
-    reviewedAt: new Date("2024-01-16")
+    reviewedAt: new Date("2024-01-16"),
+    workflowStage: "approved",
+    completionPercentage: 100
   },
   {
     id: "req-002",
     useCaseId: "uc-001",
-    originalText: "Support two-factor authentication",
-    enhancedText: "The system shall support Time-based One-Time Password (TOTP) two-factor authentication using standard authenticator apps (Google Authenticator, Authy). Users must be able to enable/disable 2FA from their account settings, and the system shall enforce 2FA for admin accounts.",
+    originalText: "Customers need to track their orders in real-time",
+    enhancedText: "The system shall provide real-time order tracking functionality that displays current order status, expected delivery date, and shipping information. Updates must be reflected within 5 minutes of status changes in the fulfillment system.",
     isUnambiguous: true,
     isTestable: true,
     hasAcceptanceCriteria: true,
     status: "approved",
-    reviewedBy: "Security Team",
-    reviewedAt: new Date("2024-01-17")
+    reviewedBy: "Product Owner",
+    reviewedAt: new Date("2024-01-17"),
+    workflowStage: "approved",
+    completionPercentage: 100
   },
   {
     id: "req-003",
+    useCaseId: "uc-001",
+    originalText: "Self-service billing inquiry capability",
+    enhancedText: "The system shall allow customers to view their billing history, download invoices, and submit billing inquiries through a self-service portal. The system must integrate with the existing SAP billing system and provide responses to common billing questions automatically.",
+    isUnambiguous: true,
+    isTestable: true,
+    hasAcceptanceCriteria: true,
+    status: "approved",
+    reviewedBy: "Finance Team",
+    reviewedAt: new Date("2024-01-18"),
+    workflowStage: "approved",
+    completionPercentage: 100
+  },
+  {
+    id: "req-004",
+    useCaseId: "uc-001",
+    originalText: "Mobile responsive design for all portal features",
+    enhancedText: "The customer portal shall be fully responsive and optimized for mobile devices with screen sizes from 320px to 1920px. All functionality must be accessible on mobile devices with touch-friendly interfaces and fast loading times (under 3 seconds on 3G networks).",
+    isUnambiguous: true,
+    isTestable: true,
+    hasAcceptanceCriteria: true,
+    status: "approved",
+    reviewedBy: "UX Team",
+    reviewedAt: new Date("2024-01-19"),
+    workflowStage: "approved",
+    completionPercentage: 100
+  },
+  // Mobile Payment Integration Requirements
+  {
+    id: "req-005",
     useCaseId: "uc-002",
-    originalText: "Products should be searchable",
-    enhancedText: "The system shall provide a search interface that allows users to search products by name, description, category, and SKU. Search results must be returned within 2 seconds and be ranked by relevance. The search shall support partial matches and common misspellings.",
+    originalText: "Support for Apple Pay payments",
+    enhancedText: "The e-commerce platform shall integrate with Apple Pay to enable one-touch payments for iOS users. The integration must support all Apple Pay compatible devices and provide seamless checkout experience with proper error handling.",
     isUnambiguous: true,
     isTestable: true,
     hasAcceptanceCriteria: true,
     status: "enhanced",
-    reviewedBy: "Product Owner",
-    reviewedAt: new Date("2024-01-21")
+    reviewedBy: "Payment Team",
+    reviewedAt: new Date("2024-01-22"),
+    workflowStage: "review",
+    completionPercentage: 60
+  },
+  {
+    id: "req-006",
+    useCaseId: "uc-002",
+    originalText: "Google Pay integration for Android users",
+    enhancedText: "The system shall support Google Pay integration for Android devices, enabling quick and secure payments through the Google Pay API. Implementation must include proper tokenization and fraud detection.",
+    isUnambiguous: true,
+    isTestable: true,
+    hasAcceptanceCriteria: true,
+    status: "enhanced",
+    reviewedBy: "Payment Team",
+    reviewedAt: new Date("2024-01-23"),
+    workflowStage: "review",
+    completionPercentage: 60
   }
 ];
 
 export const mockWorkItems: WorkItem[] = [
-  // Initiative
+  // Customer Portal Enhancement Work Items
   {
     id: "wi-001",
     type: "initiative",
-    title: "E-commerce Platform",
-    description: "Build a complete e-commerce platform with modern features",
+    title: "Customer Portal Enhancement Initiative",
+    description: "Transform customer experience through comprehensive self-service capabilities",
     requirementId: "req-001",
-    acceptanceCriteria: ["All features implemented", "Performance benchmarks met", "Security requirements satisfied"],
+    acceptanceCriteria: ["All portal features implemented", "Performance benchmarks met", "User acceptance testing passed"],
     priority: "high",
-    status: "in_progress"
+    status: "in_progress",
+    workflowStage: "development",
+    completionPercentage: 75
   },
-  // Feature
   {
     id: "wi-002",
     type: "feature",
-    title: "User Management",
-    description: "Complete user management system with authentication and authorization",
+    title: "Customer Authentication System",
+    description: "Secure login and session management for customer portal",
     parentId: "wi-001",
     requirementId: "req-001",
-    acceptanceCriteria: ["User registration", "Login/logout", "Profile management"],
-    priority: "high",
-    status: "in_progress"
-  },
-  // Epic
-  {
-    id: "wi-003",
-    type: "epic",
-    title: "Authentication System",
-    description: "Secure authentication with multi-factor support",
-    parentId: "wi-002",
-    requirementId: "req-001",
-    acceptanceCriteria: ["Basic login", "2FA support", "Password reset"],
-    priority: "high",
-    status: "in_progress"
-  },
-  // Stories
-  {
-    id: "wi-004",
-    type: "story",
-    title: "User Login",
-    description: "As a user, I want to login with my credentials",
-    parentId: "wi-003",
-    requirementId: "req-001",
-    acceptanceCriteria: ["Email/password validation", "Session creation", "Error handling"],
-    storyPoints: 5,
+    acceptanceCriteria: ["Secure login", "Session management", "Password reset"],
     priority: "high",
     status: "done",
-    assignee: "Dev Team A"
+    assignee: "Dev Team A",
+    workflowStage: "done",
+    completionPercentage: 100
+  },
+  {
+    id: "wi-003",
+    type: "feature",
+    title: "Order Tracking System",
+    description: "Real-time order tracking and status updates",
+    parentId: "wi-001",
+    requirementId: "req-002",
+    acceptanceCriteria: ["Real-time updates", "Status visualization", "Delivery estimates"],
+    priority: "high",
+    status: "in_progress",
+    assignee: "Dev Team B",
+    workflowStage: "development",
+    completionPercentage: 80
+  },
+  {
+    id: "wi-004",
+    type: "feature",
+    title: "Self-Service Billing Portal",
+    description: "Automated billing inquiries and invoice management",
+    parentId: "wi-001",
+    requirementId: "req-003",
+    acceptanceCriteria: ["Billing history", "Invoice downloads", "Automated responses"],
+    priority: "medium",
+    status: "in_progress",
+    assignee: "Dev Team C",
+    workflowStage: "development",
+    completionPercentage: 60
   },
   {
     id: "wi-005",
-    type: "story",
-    title: "Two-Factor Authentication",
-    description: "As a user, I want to enable 2FA for additional security",
-    parentId: "wi-003",
-    requirementId: "req-002",
-    acceptanceCriteria: ["TOTP setup", "QR code generation", "Backup codes"],
-    storyPoints: 8,
+    type: "epic",
+    title: "Mobile Responsive Design",
+    description: "Ensure all portal features work seamlessly on mobile devices",
+    parentId: "wi-001",
+    requirementId: "req-004",
+    acceptanceCriteria: ["Responsive layout", "Touch optimization", "Performance optimization"],
     priority: "medium",
     status: "in_progress",
-    assignee: "Dev Team B"
+    assignee: "Frontend Team",
+    workflowStage: "testing",
+    completionPercentage: 90
+  },
+  // Mobile Payment Work Items
+  {
+    id: "wi-006",
+    type: "feature",
+    title: "Apple Pay Integration",
+    description: "Implement Apple Pay support for iOS checkout",
+    requirementId: "req-005",
+    acceptanceCriteria: ["Apple Pay API integration", "Tokenization", "Error handling"],
+    priority: "medium",
+    status: "backlog",
+    workflowStage: "planning",
+    completionPercentage: 20
+  },
+  {
+    id: "wi-007",
+    type: "feature",
+    title: "Google Pay Integration",
+    description: "Implement Google Pay support for Android checkout",
+    requirementId: "req-006",
+    acceptanceCriteria: ["Google Pay API integration", "Security compliance", "Testing"],
+    priority: "medium",
+    status: "backlog",
+    workflowStage: "planning",
+    completionPercentage: 20
   }
 ];
 
 export const mockTestCases: TestCase[] = [
+  // Customer Portal Authentication Tests
   {
     id: "tc-001",
-    workItemId: "wi-004",
-    title: "Valid User Login",
-    description: "Test successful login with valid credentials",
+    workItemId: "wi-002",
+    title: "Valid Customer Login",
+    description: "Test successful login with valid customer credentials",
     type: "positive",
-    preconditions: ["User account exists", "User is not already logged in"],
-    steps: ["Navigate to login page", "Enter valid email", "Enter valid password", "Click login button"],
-    expectedResult: "User is successfully logged in and redirected to dashboard",
-    actualResult: "User logged in successfully",
+    preconditions: ["Customer account exists", "Customer is not logged in"],
+    steps: ["Navigate to customer portal", "Enter valid email", "Enter valid password", "Click login button"],
+    expectedResult: "Customer is successfully logged in and redirected to dashboard",
+    actualResult: "Customer logged in successfully",
     status: "passed",
     priority: "high",
     createdBy: "QA Team",
     createdAt: new Date("2024-01-18"),
-    lastExecuted: new Date("2024-01-19")
+    lastExecuted: new Date("2024-01-25"),
+    workflowStage: "completed",
+    completionPercentage: 100
   },
   {
     id: "tc-002",
-    workItemId: "wi-004",
+    workItemId: "wi-002",
     title: "Invalid Password Login",
-    description: "Test login with invalid password",
+    description: "Test login with incorrect password",
     type: "negative",
-    preconditions: ["User account exists"],
-    steps: ["Navigate to login page", "Enter valid email", "Enter invalid password", "Click login button"],
-    expectedResult: "Error message displayed, user not logged in",
-    actualResult: "Unexpected error occurred",
+    preconditions: ["Customer account exists"],
+    steps: ["Navigate to customer portal", "Enter valid email", "Enter invalid password", "Click login button"],
+    expectedResult: "Error message displayed, customer not logged in",
+    actualResult: "Generic error message shown instead of specific feedback",
     status: "failed",
     priority: "high",
     createdBy: "QA Team",
     createdAt: new Date("2024-01-18"),
-    lastExecuted: new Date("2024-01-19")
+    lastExecuted: new Date("2024-01-25"),
+    workflowStage: "execution",
+    completionPercentage: 75
   },
+  // Order Tracking Tests
   {
     id: "tc-003",
-    workItemId: "wi-005",
-    title: "Enable 2FA",
-    description: "Test enabling two-factor authentication",
+    workItemId: "wi-003",
+    title: "Real-time Order Status Update",
+    description: "Verify order status updates in real-time",
     type: "positive",
-    preconditions: ["User is logged in", "2FA is not enabled"],
-    steps: ["Go to account settings", "Click enable 2FA", "Scan QR code", "Enter verification code"],
-    expectedResult: "2FA is enabled and backup codes are generated",
-    status: "not_run",
-    priority: "medium",
+    preconditions: ["Customer logged in", "Active order exists"],
+    steps: ["Navigate to order tracking", "Select active order", "Verify current status", "Wait for status update"],
+    expectedResult: "Order status updates within 5 minutes of fulfillment system changes",
+    status: "passed",
+    priority: "high",
     createdBy: "QA Team",
-    createdAt: new Date("2024-01-20")
+    createdAt: new Date("2024-01-20"),
+    lastExecuted: new Date("2024-01-26"),
+    workflowStage: "completed",
+    completionPercentage: 100
   },
   {
     id: "tc-004",
+    workItemId: "wi-003",
+    title: "Order Tracking Mobile View",
+    description: "Test order tracking functionality on mobile devices",
+    type: "positive",
+    preconditions: ["Mobile device", "Customer logged in", "Order exists"],
+    steps: ["Open portal on mobile", "Navigate to order tracking", "View order details", "Test touch interactions"],
+    expectedResult: "Order tracking works seamlessly on mobile with touch-friendly interface",
+    status: "passed",
+    priority: "medium",
+    createdBy: "QA Team",
+    createdAt: new Date("2024-01-21"),
+    lastExecuted: new Date("2024-01-27"),
+    workflowStage: "completed",
+    completionPercentage: 100
+  },
+  // Billing Portal Tests
+  {
+    id: "tc-005",
     workItemId: "wi-004",
-    title: "SQL Injection in Login",
-    description: "Test login form against SQL injection attacks",
-    type: "edge",
-    preconditions: ["Login form is accessible"],
-    steps: ["Navigate to login page", "Enter SQL injection payload in email field", "Enter any password", "Click login button"],
-    expectedResult: "Login fails safely, no database error exposed",
-    status: "blocked",
-    priority: "critical",
-    createdBy: "Security Team",
-    createdAt: new Date("2024-01-18")
+    title: "Billing History Access",
+    description: "Test customer access to billing history",
+    type: "positive",
+    preconditions: ["Customer logged in", "Billing history exists"],
+    steps: ["Navigate to billing section", "View billing history", "Download invoice", "Submit billing inquiry"],
+    expectedResult: "Customer can access billing history and download invoices successfully",
+    status: "not_run",
+    priority: "medium",
+    createdBy: "QA Team",
+    createdAt: new Date("2024-01-22"),
+    workflowStage: "ready",
+    completionPercentage: 50
+  },
+  // Mobile Responsive Tests
+  {
+    id: "tc-006",
+    workItemId: "wi-005",
+    title: "Cross-Device Responsiveness",
+    description: "Test portal responsiveness across different screen sizes",
+    type: "positive",
+    preconditions: ["Multiple test devices available"],
+    steps: ["Test on phone (320px)", "Test on tablet (768px)", "Test on desktop (1920px)", "Verify layout integrity"],
+         expectedResult: "Portal layout adapts correctly to all screen sizes",
+     status: "not_run",
+     priority: "medium",
+    createdBy: "QA Team",
+    createdAt: new Date("2024-01-23"),
+    workflowStage: "execution",
+    completionPercentage: 60
   }
 ];
 
@@ -359,92 +499,201 @@ export const mockDefects: Defect[] = [
   {
     id: "def-001",
     testCaseId: "tc-002",
-    title: "Incorrect error message on invalid login",
-    description: "When user enters invalid password, system shows generic error instead of specific message",
+    title: "Generic error message on invalid login",
+    description: "When customer enters invalid password, system shows generic error instead of specific feedback message",
     severity: "medium",
     priority: "medium",
     status: "open",
     assignee: "Dev Team A",
     reporter: "QA Team",
-    createdAt: new Date("2024-01-19"),
-    aiSummary: "The login error handling is not providing specific feedback to users, which may impact user experience and security."
+    createdAt: new Date("2024-01-25"),
+    aiSummary: "The login error handling needs improvement to provide specific user feedback while maintaining security.",
+    workflowStage: "triage",
+    completionPercentage: 25
   },
   {
     id: "def-002",
-    testCaseId: "tc-004",
-    title: "SQL Injection vulnerability in login form",
-    description: "Login form is vulnerable to SQL injection attacks through the email field",
-    severity: "critical",
-    priority: "critical",
+    testCaseId: "tc-006",
+    title: "Layout breaks on very small screens",
+    description: "Portal layout becomes unusable on screens smaller than 350px width",
+    severity: "low",
+    priority: "low",
     status: "in_progress",
-    assignee: "Security Team",
-    reporter: "Security Team",
-    createdAt: new Date("2024-01-18"),
-    aiSummary: "Critical security vulnerability that could lead to database compromise. Immediate attention required."
+    assignee: "Frontend Team",
+    reporter: "QA Team",
+    createdAt: new Date("2024-01-26"),
+    aiSummary: "Minor responsive design issue affecting edge case screen sizes.",
+    workflowStage: "fixing",
+    completionPercentage: 60
   },
   {
     id: "def-003",
-    testCaseId: "tc-001",
-    title: "Session timeout not working",
-    description: "User sessions are not expiring after the configured timeout period",
-    severity: "high",
-    priority: "high",
+    testCaseId: "tc-005",
+    title: "Billing inquiry form validation missing",
+    description: "Self-service billing inquiry form accepts empty submissions",
+    severity: "medium",
+    priority: "medium",
     status: "resolved",
-    assignee: "Dev Team A",
+    assignee: "Dev Team C",
     reporter: "QA Team",
-    createdAt: new Date("2024-01-17"),
-    resolvedAt: new Date("2024-01-20"),
-    aiSummary: "Session management issue that could impact security. Fixed by implementing proper session cleanup."
+    createdAt: new Date("2024-01-24"),
+    resolvedAt: new Date("2024-01-27"),
+    aiSummary: "Form validation issue resolved by implementing client-side and server-side validation.",
+    workflowStage: "verification",
+    completionPercentage: 90
   }
 ];
 
 // Dashboard metrics
 export const mockDashboardData = {
   testCoverage: {
-    total: 156,
-    passed: 142,
-    failed: 8,
-    blocked: 6,
-    coverage: 91.0
+    total: 24,
+    passed: 18,
+    failed: 2,
+    blocked: 1,
+    notRun: 3,
+    coverage: 87.5
   },
   useCaseStatus: {
-    total: 15,
-    approved: 8,
-    inReview: 4,
-    draft: 3
+    total: 3,
+    approved: 1,
+    inReview: 1,
+    draft: 1
   },
   defectTrends: {
-    open: 12,
-    inProgress: 5,
-    resolved: 28,
-    closed: 45
+    open: 1,
+    inProgress: 1,
+    resolved: 1,
+    closed: 0
   },
   workItemProgress: {
-    total: 67,
-    backlog: 25,
-    inProgress: 18,
-    done: 24
+    total: 7,
+    backlog: 2,
+    inProgress: 4,
+    done: 1
+  },
+  requirementStatus: {
+    total: 6,
+    approved: 4,
+    enhanced: 2,
+    draft: 0
   }
 };
 
-// Traceability data
+// Enhanced Traceability data with workflow alignment
 export const mockTraceabilityData = {
   "uc-001": {
-    requirements: ["req-001", "req-002"],
+    requirements: ["req-001", "req-002", "req-003", "req-004"],
     workItems: ["wi-001", "wi-002", "wi-003", "wi-004", "wi-005"],
-    testCases: ["tc-001", "tc-002", "tc-003", "tc-004"],
-    defects: ["def-001", "def-002", "def-003"]
+    testCases: ["tc-001", "tc-002", "tc-003", "tc-004", "tc-005", "tc-006"],
+    defects: ["def-001", "def-002", "def-003"],
+    workflowStage: "execution",
+    completionPercentage: 75,
+    nextSteps: ["Complete mobile testing", "Fix remaining defects", "User acceptance testing"]
   },
   "uc-002": {
-    requirements: ["req-003"],
-    workItems: [],
+    requirements: ["req-005", "req-006"],
+    workItems: ["wi-006", "wi-007"],
     testCases: [],
-    defects: []
+    defects: [],
+    workflowStage: "discovery",
+    completionPercentage: 35,
+    nextSteps: ["Finalize requirements", "Technical design", "Development planning"]
   },
   "uc-003": {
     requirements: [],
     workItems: [],
     testCases: [],
-    defects: []
+    defects: [],
+    workflowStage: "idea",
+    completionPercentage: 10,
+    nextSteps: ["Business case approval", "Requirements gathering", "Technical feasibility study"]
+  }
+};
+
+// Enhanced traceability functions
+export const getRelatedItems = (itemId: string, itemType: 'useCase' | 'requirement' | 'workItem' | 'testCase' | 'defect') => {
+  const allTraceability = mockTraceabilityData;
+  
+  switch (itemType) {
+    case 'useCase':
+      return allTraceability[itemId as keyof typeof allTraceability] || null;
+    
+    case 'requirement':
+      for (const [ucId, trace] of Object.entries(allTraceability)) {
+        if (trace.requirements.includes(itemId)) {
+          return {
+            useCase: ucId,
+            workItems: mockWorkItems.filter(w => w.requirementId === itemId).map(w => w.id),
+            testCases: mockTestCases.filter(tc => {
+              const workItem = mockWorkItems.find(w => w.id === tc.workItemId);
+              return workItem?.requirementId === itemId;
+            }).map(tc => tc.id),
+            defects: mockDefects.filter(def => {
+              const testCase = mockTestCases.find(t => t.id === def.testCaseId);
+              const workItem = mockWorkItems.find(w => w.id === testCase?.workItemId);
+              return workItem?.requirementId === itemId;
+            }).map(def => def.id)
+          };
+        }
+      }
+      return null;
+    
+    case 'workItem':
+      for (const [ucId, trace] of Object.entries(allTraceability)) {
+        if (trace.workItems.includes(itemId)) {
+          const workItem = mockWorkItems.find(w => w.id === itemId);
+          return {
+            useCase: ucId,
+            requirement: workItem?.requirementId,
+            testCases: mockTestCases.filter(tc => tc.workItemId === itemId).map(tc => tc.id),
+            defects: mockDefects.filter(def => {
+              const testCase = mockTestCases.find(t => t.id === def.testCaseId);
+              return testCase?.workItemId === itemId;
+            }).map(def => def.id)
+          };
+        }
+      }
+      return null;
+    
+    case 'testCase':
+      const testCase = mockTestCases.find(t => t.id === itemId);
+      if (!testCase) return null;
+      
+      for (const [ucId, trace] of Object.entries(allTraceability)) {
+        if (trace.testCases.includes(itemId)) {
+          const workItem = mockWorkItems.find(w => w.id === testCase.workItemId);
+          return {
+            useCase: ucId,
+            requirement: workItem?.requirementId,
+            workItem: testCase.workItemId,
+            defects: mockDefects.filter(def => def.testCaseId === itemId).map(def => def.id)
+          };
+        }
+      }
+      return null;
+    
+    case 'defect':
+      const defect = mockDefects.find(d => d.id === itemId);
+      if (!defect) return null;
+      
+      const relatedTestCase = mockTestCases.find(t => t.id === defect.testCaseId);
+      if (!relatedTestCase) return null;
+      
+      for (const [ucId, trace] of Object.entries(allTraceability)) {
+        if (trace.defects.includes(itemId)) {
+          const workItem = mockWorkItems.find(w => w.id === relatedTestCase.workItemId);
+          return {
+            useCase: ucId,
+            requirement: workItem?.requirementId,
+            workItem: relatedTestCase.workItemId,
+            testCase: defect.testCaseId
+          };
+        }
+      }
+      return null;
+    
+    default:
+      return null;
   }
 }; 

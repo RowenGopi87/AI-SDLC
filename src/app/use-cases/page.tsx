@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useUseCaseStore } from '@/store/use-case-store';
+import { setSelectedItem } from '@/components/layout/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,11 +135,15 @@ export default function UseCasesPage() {
   const handleViewDetails = (useCase: any) => {
     setViewingUseCase(useCase);
     setIsViewDialogOpen(true);
+    // Update sidebar with selected item for traceability
+    setSelectedItem(useCase.id, 'useCase', useCase);
   };
 
   const handleWorkflowView = (useCase: any) => {
     setViewingUseCase(useCase);
     setIsWorkflowDialogOpen(true);
+    // Update sidebar with selected item for traceability
+    setSelectedItem(useCase.id, 'useCase', useCase);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
