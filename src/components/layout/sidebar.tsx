@@ -83,6 +83,98 @@ export function Sidebar() {
     return 'pending';
   };
 
+  const getItemSpecificWorkflowSteps = () => {
+    if (!selectedItem.id || !selectedItem.type) return WORKFLOW_STEPS;
+
+    const itemData = selectedItem.data;
+    if (!itemData) return WORKFLOW_STEPS;
+
+    // Define item-specific workflow steps based on type
+    switch (selectedItem.type) {
+      case 'workItem':
+        return [
+          { id: 1, name: 'Planning', description: 'Item in backlog' },
+          { id: 2, name: 'Development', description: 'Item in progress' },
+          { id: 3, name: 'Testing', description: 'Testing phase' },
+          { id: 4, name: 'Done', description: 'Item completed' }
+        ];
+      case 'requirement':
+        return [
+          { id: 1, name: 'Analysis', description: 'Requirement analysis' },
+          { id: 2, name: 'Enhancement', description: 'AI enhancement' },
+          { id: 3, name: 'Review', description: 'Human review' },
+          { id: 4, name: 'Approved', description: 'Requirement approved' }
+        ];
+      case 'testCase':
+        return [
+          { id: 1, name: 'Design', description: 'Test case design' },
+          { id: 2, name: 'Ready', description: 'Ready for execution' },
+          { id: 3, name: 'Execution', description: 'Test execution' },
+          { id: 4, name: 'Completed', description: 'Testing completed' }
+        ];
+      case 'useCase':
+        return [
+          { id: 1, name: 'Idea', description: 'Business brief idea' },
+          { id: 2, name: 'Discovery', description: 'Discovery phase' },
+          { id: 3, name: 'Design', description: 'Solution design' },
+          { id: 4, name: 'Execution', description: 'Implementation' }
+        ];
+      default:
+        return WORKFLOW_STEPS;
+    }
+  };
+
+  const getItemSpecificStepStatus = (stepId: number) => {
+    if (!selectedItem.id || !selectedItem.data) {
+      return getStepStatus(stepId);
+    }
+
+    const itemData = selectedItem.data;
+    let currentStep = 1;
+
+    // Determine current step based on item status/stage
+    switch (selectedItem.type) {
+      case 'workItem':
+        const workItemStatus = itemData.status as string;
+        if (workItemStatus === 'backlog') currentStep = 1;
+        else if (workItemStatus === 'in_progress') currentStep = 2;
+        else if (workItemStatus === 'testing') currentStep = 3;
+        else if (workItemStatus === 'done') currentStep = 4;
+        else currentStep = 1;
+        break;
+      case 'requirement':
+        const reqStatus = itemData.status as string;
+        if (reqStatus === 'pending') currentStep = 1;
+        else if (reqStatus === 'enhanced') currentStep = 2;
+        else if (reqStatus === 'in_review') currentStep = 3;
+        else if (reqStatus === 'approved') currentStep = 4;
+        else currentStep = 1;
+        break;
+      case 'testCase':
+        const testStatus = itemData.status as string;
+        if (testStatus === 'design') currentStep = 1;
+        else if (testStatus === 'ready') currentStep = 2;
+        else if (testStatus === 'execution') currentStep = 3;
+        else if (testStatus === 'completed') currentStep = 4;
+        else currentStep = 1;
+        break;
+      case 'useCase':
+        const useCaseStage = itemData.workflowStage as string;
+        if (useCaseStage === 'idea') currentStep = 1;
+        else if (useCaseStage === 'discovery') currentStep = 2;
+        else if (useCaseStage === 'design') currentStep = 3;
+        else if (useCaseStage === 'execution') currentStep = 4;
+        else currentStep = 1;
+        break;
+      default:
+        return getStepStatus(stepId);
+    }
+
+    if (stepId < currentStep) return 'completed';
+    if (stepId === currentStep) return 'current';
+    return 'pending';
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed': return CheckCircle;
@@ -400,10 +492,12 @@ export function Sidebar() {
       {/* Workflow Steps */}
       {!sidebarCollapsed && (
         <div className="border-t border-gray-200 p-4 flex-shrink-0">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Workflow Steps</h3>
+          <h3 className="text-sm font-medium text-gray-900 mb-3">
+            {selectedItem.id ? `${selectedItem.type} Workflow` : 'Workflow Steps'}
+          </h3>
           <div className="space-y-2">
-            {WORKFLOW_STEPS.map((step) => {
-              const status = getStepStatus(step.id);
+            {getItemSpecificWorkflowSteps().map((step) => {
+              const status = selectedItem.id ? getItemSpecificStepStatus(step.id) : getStepStatus(step.id);
               const StatusIcon = getStatusIcon(status);
               
               return (

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTestCaseStore } from '@/store/test-case-store';
 import { useWorkItemStore } from '@/store/work-item-store';
+import { setSelectedItem } from '@/components/layout/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +25,8 @@ import {
   User,
   Calendar,
   Filter,
-  Search
+  Search,
+  TrendingUp
 } from 'lucide-react';
 
 export default function TestCasesPage() {
@@ -168,11 +170,43 @@ export default function TestCasesPage() {
     edge: filteredTestCases.filter(tc => tc.type === 'edge'),
   };
 
+  const handleTestCaseSelect = (testCase: any) => {
+    setSelectedItem(testCase.id, 'testCase', {
+      title: testCase.title,
+      type: testCase.type,
+      status: testCase.status,
+      workflowStage: getWorkflowStage(testCase.status),
+      completionPercentage: getCompletionPercentage(testCase.status)
+    });
+  };
+
+  const getWorkflowStage = (status: string) => {
+    switch (status) {
+      case 'not_run': return 'design';
+      case 'passed': case 'failed': case 'blocked': return 'completed';
+      default: return 'ready';
+    }
+  };
+
+  const getCompletionPercentage = (status: string) => {
+    switch (status) {
+      case 'not_run': return 25;
+      case 'passed': return 100;
+      case 'failed': return 75;
+      case 'blocked': return 50;
+      default: return 50;
+    }
+  };
+
   const renderTestCaseCard = (testCase: any) => {
     const workItem = getWorkItemById(testCase.workItemId);
     
     return (
-      <Card key={testCase.id} className="hover:shadow-lg transition-shadow">
+      <Card 
+        key={testCase.id} 
+        className="hover:shadow-lg transition-shadow cursor-pointer"
+        onClick={() => handleTestCaseSelect(testCase)}
+      >
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-2">
@@ -447,6 +481,103 @@ export default function TestCasesPage() {
             </form>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Test Cases</p>
+                <p className="text-2xl font-bold text-gray-900">{testCases.length}</p>
+              </div>
+              <TestTube className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Passed</p>
+                <p className="text-2xl font-bold text-green-600">{testCases.filter(tc => tc.status === 'passed').length}</p>
+                <p className="text-xs text-gray-500">{testCases.length > 0 ? Math.round((testCases.filter(tc => tc.status === 'passed').length / testCases.length) * 100) : 0}% of total</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Failed</p>
+                <p className="text-2xl font-bold text-red-600">{testCases.filter(tc => tc.status === 'failed').length}</p>
+                <p className="text-xs text-gray-500">{testCases.length > 0 ? Math.round((testCases.filter(tc => tc.status === 'failed').length / testCases.length) * 100) : 0}% of total</p>
+              </div>
+              <XCircle className="h-8 w-8 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pass Rate</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {testCases.filter(tc => tc.status !== 'not_run').length > 0 
+                    ? Math.round((testCases.filter(tc => tc.status === 'passed').length / testCases.filter(tc => tc.status !== 'not_run').length) * 100) 
+                    : 0}%
+                </p>
+                <p className="text-xs text-gray-500">Of executed tests</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Test Case Type Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Positive Tests</p>
+                <p className="text-2xl font-bold text-green-600">{testCases.filter(tc => tc.type === 'positive').length}</p>
+              </div>
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Negative Tests</p>
+                <p className="text-2xl font-bold text-red-600">{testCases.filter(tc => tc.type === 'negative').length}</p>
+              </div>
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Edge Cases</p>
+                <p className="text-2xl font-bold text-yellow-600">{testCases.filter(tc => tc.type === 'edge').length}</p>
+              </div>
+              <AlertTriangle className="h-6 w-6 text-yellow-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}

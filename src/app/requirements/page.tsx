@@ -99,6 +99,31 @@ export default function RequirementsPage() {
         </Button>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Requirements', value: requirements.length, color: 'bg-blue-100 text-blue-800', icon: FileText },
+          { label: 'Approved', value: requirements.filter(r => r.status === 'approved').length, color: 'bg-green-100 text-green-800', icon: CheckCircle },
+          { label: 'Enhanced', value: requirements.filter(r => r.status === 'enhanced').length, color: 'bg-blue-100 text-blue-800', icon: Sparkles },
+          { label: 'Rejected', value: requirements.filter(r => r.status === 'rejected').length, color: 'bg-red-100 text-red-800', icon: XCircle },
+        ].map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <Card key={index}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
+                  <IconComponent className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Panel - Requirements List */}
         <div className="space-y-4">
@@ -325,27 +350,7 @@ export default function RequirementsPage() {
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Requirements', value: requirements.length, color: 'bg-blue-100 text-blue-800' },
-          { label: 'Approved', value: requirements.filter(r => r.status === 'approved').length, color: 'bg-green-100 text-green-800' },
-          { label: 'Enhanced', value: requirements.filter(r => r.status === 'enhanced').length, color: 'bg-blue-100 text-blue-800' },
-          { label: 'Rejected', value: requirements.filter(r => r.status === 'rejected').length, color: 'bg-red-100 text-red-800' },
-        ].map((stat, index) => (
-          <Card key={index}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <Badge className={stat.color}>{stat.value}</Badge>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
     </div>
   );
 } 

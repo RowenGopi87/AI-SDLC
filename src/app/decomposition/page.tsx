@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useWorkItemStore } from '@/store/work-item-store';
 import { useRequirementStore } from '@/store/requirement-store';
+import { setSelectedItem } from '@/components/layout/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +21,10 @@ import {
   FileText,
   Layers,
   Target,
-  BookOpen
+  BookOpen,
+  TrendingUp,
+  CheckCircle,
+  Clock
 } from 'lucide-react';
 
 interface WorkItemWithChildren {
@@ -42,7 +46,7 @@ export default function DecompositionPage() {
   const { workItems, addWorkItem, updateWorkItem, deleteWorkItem, getWorkItemHierarchy } = useWorkItemStore();
   const { requirements, getRequirementById } = useRequirementStore();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [selectedItem, setSelectedItemLocal] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkItemWithChildren | null>(null);
   const [formData, setFormData] = useState<{
@@ -71,6 +75,20 @@ export default function DecompositionPage() {
 
   const hierarchyData = getWorkItemHierarchy() as WorkItemWithChildren[];
 
+  // Calculate summary stats
+  const totalWorkItems = workItems.length;
+  const completedWorkItems = workItems.filter(item => item.status === 'done').length;
+  const inProgressWorkItems = workItems.filter(item => item.status === 'in_progress').length;
+  const backlogWorkItems = workItems.filter(item => item.status === 'backlog').length;
+
+  const initiativeCount = workItems.filter(item => item.type === 'initiative').length;
+  const featureCount = workItems.filter(item => item.type === 'feature').length;
+  const epicCount = workItems.filter(item => item.type === 'epic').length;
+  const storyCount = workItems.filter(item => item.type === 'story').length;
+
+  const totalStoryPoints = workItems.reduce((total, item) => total + (item.storyPoints || 0), 0);
+  const completedStoryPoints = workItems.filter(item => item.status === 'done').reduce((total, item) => total + (item.storyPoints || 0), 0);
+
   const toggleExpanded = (id: string) => {
     const newExpanded = new Set(expandedItems);
     if (newExpanded.has(id)) {
@@ -79,6 +97,43 @@ export default function DecompositionPage() {
       newExpanded.add(id);
     }
     setExpandedItems(newExpanded);
+  };
+
+  const handleItemSelect = (item: WorkItemWithChildren) => {
+    const isSelected = selectedItem === item.id;
+    const newSelectedId = isSelected ? null : item.id;
+    setSelectedItemLocal(newSelectedId);
+    
+    if (newSelectedId) {
+      // Update sidebar with selected work item
+      setSelectedItem(item.id, 'workItem', {
+        title: item.title,
+        type: item.type,
+        status: item.status,
+        workflowStage: getWorkflowStage(item.status),
+        completionPercentage: getCompletionPercentage(item.status)
+      });
+    } else {
+      setSelectedItem('', '', null);
+    }
+  };
+
+  const getWorkflowStage = (status: string) => {
+    switch (status) {
+      case 'backlog': return 'planning';
+      case 'in_progress': return 'development';
+      case 'done': return 'done';
+      default: return 'planning';
+    }
+  };
+
+  const getCompletionPercentage = (status: string) => {
+    switch (status) {
+      case 'backlog': return 0;
+      case 'in_progress': return 50;
+      case 'done': return 100;
+      default: return 0;
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -195,7 +250,7 @@ export default function DecompositionPage() {
             isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
           }`}
           style={{ marginLeft: `${level * 20}px` }}
-          onClick={() => setSelectedItem(isSelected ? null : item.id)}
+          onClick={() => handleItemSelect(item)}
         >
           {/* Expand/Collapse Button */}
           <Button
@@ -498,7 +553,7 @@ export default function DecompositionPage() {
                   placeholder="Enter assignee name"
                 />
               </div>
-              
+
               <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
@@ -512,53 +567,142 @@ export default function DecompositionPage() {
         </Dialog>
       </div>
 
-      {/* Hierarchy Tree */}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Work Items</p>
+                <p className="text-2xl font-bold text-gray-900">{totalWorkItems}</p>
+              </div>
+              <GitBranch className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completed</p>
+                <p className="text-2xl font-bold text-green-600">{completedWorkItems}</p>
+                <p className="text-xs text-gray-500">{totalWorkItems > 0 ? Math.round((completedWorkItems / totalWorkItems) * 100) : 0}% of total</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold text-blue-600">{inProgressWorkItems}</p>
+                <p className="text-xs text-gray-500">{totalWorkItems > 0 ? Math.round((inProgressWorkItems / totalWorkItems) * 100) : 0}% of total</p>
+              </div>
+              <Clock className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Story Points</p>
+                <p className="text-2xl font-bold text-purple-600">{completedStoryPoints}/{totalStoryPoints}</p>
+                <p className="text-xs text-gray-500">{totalStoryPoints > 0 ? Math.round((completedStoryPoints / totalStoryPoints) * 100) : 0}% completed</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Work Item Type Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Initiatives</p>
+                <p className="text-2xl font-bold text-purple-600">{initiativeCount}</p>
+              </div>
+              <Target className="h-6 w-6 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Features</p>
+                <p className="text-2xl font-bold text-blue-600">{featureCount}</p>
+              </div>
+              <Layers className="h-6 w-6 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Epics</p>
+                <p className="text-2xl font-bold text-green-600">{epicCount}</p>
+              </div>
+              <BookOpen className="h-6 w-6 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Stories</p>
+                <p className="text-2xl font-bold text-orange-600">{storyCount}</p>
+              </div>
+              <FileText className="h-6 w-6 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Work Item Hierarchy */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <GitBranch size={18} />
-            <span>Work Item Hierarchy</span>
-          </CardTitle>
-          <CardDescription>
-            Initiative → Feature → Epic → Story decomposition
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center space-x-2">
+                <GitBranch size={18} />
+                <span>Work Item Hierarchy</span>
+              </CardTitle>
+              <CardDescription>Initiative → Feature → Epic → Story decomposition</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="space-y-4">
             {hierarchyData.length > 0 ? (
               hierarchyData.map((item) => renderWorkItem(item))
             ) : (
-              <div className="text-center py-8">
+              <div className="text-center py-12">
                 <GitBranch size={48} className="mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No work items yet</h3>
-                <p className="text-gray-600">Create your first work item to get started</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Work Items</h3>
+                <p className="text-gray-600 mb-4">Start by creating your first work item to begin decomposition</p>
+                <Button onClick={() => setIsDialogOpen(true)}>
+                  <Plus size={16} className="mr-2" />
+                  Create First Work Item
+                </Button>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Initiatives', value: workItems.filter(w => w.type === 'initiative').length, color: 'bg-purple-100 text-purple-800' },
-          { label: 'Features', value: workItems.filter(w => w.type === 'feature').length, color: 'bg-blue-100 text-blue-800' },
-          { label: 'Epics', value: workItems.filter(w => w.type === 'epic').length, color: 'bg-green-100 text-green-800' },
-          { label: 'Stories', value: workItems.filter(w => w.type === 'story').length, color: 'bg-orange-100 text-orange-800' },
-        ].map((stat, index) => (
-          <Card key={index}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <Badge className={stat.color}>{stat.value}</Badge>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 } 
