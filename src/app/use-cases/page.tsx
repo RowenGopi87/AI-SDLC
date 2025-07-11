@@ -5,6 +5,7 @@ import { useUseCaseStore } from '@/store/use-case-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useRequirementStore } from '@/store/requirement-store';
 import { setSelectedItem } from '@/components/layout/sidebar';
+import { notify } from '@/lib/notification-helper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -142,7 +143,7 @@ export default function UseCasesPage() {
   const handleGenerateRequirements = async (useCaseId: string) => {
     const useCase = useCases.find(uc => uc.id === useCaseId);
     if (!useCase) {
-      alert('Use case not found');
+      notify.error('Error', 'Use case not found');
       return;
     }
 
@@ -221,8 +222,9 @@ export default function UseCasesPage() {
       // Save generated requirements to the store
       const { requirements, metadata } = result.data;
       
-      // Always attempt automatic JSON parsing first
+            // Always attempt automatic JSON parsing first
       let parseSuccess = false;
+      let parseResult: any = null;
       
       if (requirements.length === 1) {
         // Try to parse the first requirement's description as JSON
@@ -231,11 +233,11 @@ export default function UseCasesPage() {
         
         if (textToParse) {
           console.log('Attempting automatic JSON parsing for OpenAI response...');
-                     const parseResult = addGeneratedRequirementsFromJSON(useCaseId, textToParse);
-           
-           if (parseResult.success && parseResult.requirementsCount > 1) {
-             console.log(`✅ Automatically parsed ${parseResult.requirementsCount} requirements from OpenAI response`);
-             parseSuccess = true;
+          parseResult = addGeneratedRequirementsFromJSON(useCaseId, textToParse);
+          
+          if (parseResult.success && parseResult.requirementsCount > 1) {
+            console.log(`✅ Automatically parsed ${parseResult.requirementsCount} requirements from OpenAI response`);
+            parseSuccess = true;
           } else {
             console.log('❌ Automatic JSON parsing failed or yielded single requirement, using standard processing');
           }
@@ -272,10 +274,11 @@ export default function UseCasesPage() {
       }
 
       // Show success message with details  
-      const actualRequirementsCount = parseSuccess ? 
-        `automatically parsed multiple requirements` : 
-        `${requirements.length} requirements`;
-      alert(`Successfully generated ${actualRequirementsCount} in ${metadata.iterationCount} iterations using ${metadata.llmProvider} ${metadata.llmModel}. Processing time: ${Math.round(metadata.processingTime / 1000)}s`);
+      if (parseSuccess) {
+        notify.autoParsed(parseResult?.requirementsCount || requirements.length);
+      } else {
+        notify.requirementGenerated(requirements.length, metadata);
+      }
       
       // Redirect to requirements page to view the generated requirements
       // Use setTimeout to ensure store is updated before redirect
@@ -287,7 +290,7 @@ export default function UseCasesPage() {
       console.error('Error generating requirements:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       setGenerationError(errorMessage);
-      alert(`Error: ${errorMessage}`);
+      notify.error('Generation Failed', errorMessage);
     } finally {
       setIsGeneratingRequirements(null);
     }
@@ -311,7 +314,7 @@ export default function UseCasesPage() {
     // UI-only file upload for now
     const files = e.target.files;
     if (files && files.length > 0) {
-      alert(`File "${files[0].name}" uploaded successfully. Business brief will be auto-populated.`);
+      notify.success('File Uploaded', `File "${files[0].name}" uploaded successfully. Business brief will be auto-populated.`);
     }
   };
 

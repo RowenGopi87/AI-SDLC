@@ -7,6 +7,7 @@ import { useUseCaseStore } from '@/store/use-case-store';
 import { LLMService } from '@/lib/services/llm-service';
 import { useSettingsStore } from '@/store/settings-store';
 import { CURRENT_WORKFLOW, getWorkflowLevelByMapping } from '@/lib/workflow-config';
+import { notify } from '@/lib/notification-helper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -133,7 +134,7 @@ export default function RequirementsPage() {
   // AI Enhancement functionality
   const handleEnhanceWithAI = async (requirement: any) => {
     if (!llmSettings.apiKey) {
-      alert('Please configure your LLM settings first');
+      notify.warning('Configuration Required', 'Please configure your LLM settings first');
       return;
     }
 
@@ -250,7 +251,7 @@ Format as JSON:
 
     } catch (error) {
       console.error('Error enhancing requirement:', error);
-      alert('Failed to enhance requirement. Please try again.');
+      notify.error('Enhancement Failed', 'Failed to enhance requirement. Please try again.');
     } finally {
       setIsEnhancing(null);
     }
@@ -307,14 +308,14 @@ Format as JSON:
   // Handle manual re-parsing of JSON requirements
   const handleReparseRequirement = async (requirement: any) => {
     if (!needsParsing(requirement)) {
-      alert('This requirement does not appear to need re-parsing.');
+      notify.info('No Action Needed', 'This requirement does not appear to need re-parsing.');
       return;
     }
 
     try {
       const useCase = getUseCaseById(requirement.useCaseId);
       if (!useCase) {
-        alert('Use case not found for this requirement');
+        notify.error('Error', 'Use case not found for this requirement');
         return;
       }
 
@@ -324,10 +325,10 @@ Format as JSON:
       // Use smart parsing to extract individual requirements
       addGeneratedRequirementsFromJSON(requirement.useCaseId, requirement.originalText);
       
-      alert('Successfully re-parsed the requirement into individual features!');
+      notify.success('Re-parsing Complete', 'Successfully re-parsed the requirement into individual features!');
     } catch (error) {
       console.error('Error re-parsing requirement:', error);
-      alert('Failed to re-parse the requirement. Please check the console for details.');
+      notify.error('Re-parsing Failed', 'Failed to re-parse the requirement. Please check the console for details.');
     }
   };
 

@@ -6,8 +6,9 @@ import { useAppStore } from '@/store/app-store';
 import { MODULES, APP_NAME } from '@/lib/config';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { NotificationDropdown } from '@/components/ui/notification-dropdown';
 import { MobileSidebarToggle } from './sidebar';
-import { Bell, Search, Settings, User } from 'lucide-react';
+import { Search, Settings, User } from 'lucide-react';
 
 export function Header() {
   const pathname = usePathname();
@@ -40,9 +41,7 @@ export function Header() {
             <Search size={18} />
           </Button>
           
-          <Button variant="ghost" size="sm" className="p-2">
-            <Bell size={18} />
-          </Button>
+          <NotificationDropdown />
           
           <Link href="/settings">
             <Button variant="ghost" size="sm" className="p-2">
