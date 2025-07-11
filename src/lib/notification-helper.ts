@@ -73,9 +73,9 @@ export const notify = {
   autoParsed: (count: number) => {
     useNotificationStore.getState().addNotification({
       title: 'Auto-parsing Successful',
-      message: `Automatically parsed ${count} individual requirements from AI response`,
+      message: `Automatically extracted ${count} individual feature cards from OpenAI JSON response. No manual re-parsing needed!`,
       type: 'success',
-      duration: 6000,
+      duration: 8000,
       autoClose: true,
     });
   },

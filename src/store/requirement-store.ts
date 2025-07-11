@@ -21,35 +21,59 @@ interface RequirementStore {
 
 // Smart JSON parser that can extract requirements from various JSON formats
 const parseRequirementsFromJSON = (jsonContent: string): any[] => {
-  console.log('Parsing requirements from JSON:', jsonContent.substring(0, 200) + '...');
+  console.log('🔍 Starting JSON parsing for content:', jsonContent.substring(0, 300) + '...');
+  
+  // Clean the JSON content first - remove any markdown formatting
+  let cleanedContent = jsonContent.trim();
+  
+  // Remove markdown code blocks if present
+  cleanedContent = cleanedContent.replace(/^```(?:json)?/gm, '').replace(/```$/gm, '');
+  
+  // Remove any leading/trailing whitespace after cleaning
+  cleanedContent = cleanedContent.trim();
+  
+  console.log('🧹 Cleaned content:', cleanedContent.substring(0, 300) + '...');
   
   try {
     // First, try to parse as standard JSON
-    const parsed = JSON.parse(jsonContent);
+    const parsed = JSON.parse(cleanedContent);
+    console.log('✅ Successfully parsed JSON. Structure:', Object.keys(parsed));
     
     // Handle different JSON structures
     if (Array.isArray(parsed)) {
-      console.log('Found array of requirements:', parsed.length);
+      console.log('📋 Found direct array of requirements:', parsed.length);
       return parsed;
     }
     
     if (parsed.requirements && Array.isArray(parsed.requirements)) {
-      console.log('Found requirements array in object:', parsed.requirements.length);
+      console.log('📋 Found requirements array in object:', parsed.requirements.length);
+      console.log('📋 First requirement:', parsed.requirements[0]);
       return parsed.requirements;
     }
     
     if (parsed.features && Array.isArray(parsed.features)) {
-      console.log('Found features array:', parsed.features.length);
+      console.log('📋 Found features array:', parsed.features.length);
       return parsed.features;
     }
     
-    // If it's a single requirement object
-    if (parsed.id || parsed.text || parsed.title) {
-      console.log('Found single requirement object');
+    // If it's a single requirement object with proper structure
+    if ((parsed.id || parsed.text || parsed.title) && typeof parsed === 'object') {
+      console.log('📋 Found single requirement object');
       return [parsed];
     }
     
-    // If there are numbered items (1. Feature:, 2. Feature:, etc.)
+    // Check for other potential array fields
+    for (const key of Object.keys(parsed)) {
+      if (Array.isArray(parsed[key]) && parsed[key].length > 0) {
+        const firstItem = parsed[key][0];
+        if (typeof firstItem === 'object' && (firstItem.id || firstItem.text || firstItem.title)) {
+          console.log(`📋 Found requirements in "${key}" array:`, parsed[key].length);
+          return parsed[key];
+        }
+      }
+    }
+    
+    // If there are numbered items as properties (1. Feature:, 2. Feature:, etc.)
     if (typeof parsed === 'object') {
       const entries = Object.entries(parsed);
       const requirements = [];
@@ -62,12 +86,12 @@ const parseRequirementsFromJSON = (jsonContent: string): any[] => {
       }
       
       if (requirements.length > 0) {
-        console.log('Found requirements from object entries:', requirements.length);
+        console.log('📋 Found requirements from object entries:', requirements.length);
         return requirements;
       }
     }
     
-    console.log('Could not extract requirements from JSON structure');
+    console.log('❌ Could not extract requirements from JSON structure. Available keys:', Object.keys(parsed));
     return [];
     
   } catch (error) {

@@ -41,7 +41,7 @@ import {
 export default function UseCasesPage() {
   const { useCases, addUseCase, updateUseCase, selectUseCase, selectedUseCase } = useUseCaseStore();
   const { llmSettings, validateSettings } = useSettingsStore();
-  const { addGeneratedRequirements, addGeneratedRequirementsFromJSON } = useRequirementStore();
+  const { addGeneratedRequirements, addGeneratedRequirementsFromJSON, deleteRequirement } = useRequirementStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   // Commented out workflow modal - using sidebar workflow steps instead
@@ -222,25 +222,56 @@ export default function UseCasesPage() {
       // Save generated requirements to the store
       const { requirements, metadata } = result.data;
       
-            // Always attempt automatic JSON parsing first
+            // Always attempt automatic JSON parsing first for any OpenAI response that looks like JSON
       let parseSuccess = false;
       let parseResult: any = null;
       
-      if (requirements.length === 1) {
-        // Try to parse the first requirement's description as JSON
+      console.log('🔍 Checking if auto-parsing is needed for', requirements.length, 'requirements');
+      
+      if (requirements.length >= 1) {
         const firstReq = requirements[0];
-        const textToParse = firstReq.rawJsonContent || firstReq.description;
         
-        if (textToParse) {
-          console.log('Attempting automatic JSON parsing for OpenAI response...');
-          parseResult = addGeneratedRequirementsFromJSON(useCaseId, textToParse);
+        // Get the content to parse - prioritize rawJsonContent, then fall back to description
+        let textToParse = firstReq.rawJsonContent || firstReq.description || firstReq.text;
+        
+        console.log('📝 Content to parse (first 200 chars):', textToParse?.substring(0, 200));
+        
+        // Check if content looks like JSON that should be parsed
+        const looksLikeStructuredJSON = textToParse && (
+          textToParse.includes('"requirements":[') ||
+          textToParse.includes('"features":[') ||
+          textToParse.includes('"id":"FEA-') ||
+          textToParse.includes('"id": "FEA-') ||
+          (textToParse.includes('{') && textToParse.includes('"text":') && textToParse.includes('"category":'))
+        );
+        
+        const hasMultipleFeaturePattern = textToParse && (
+          (textToParse.match(/"id":\s*"[^"]+"/g) || []).length > 1 ||
+          textToParse.includes('FEA-001') && textToParse.includes('FEA-002')
+        );
+        
+        if (textToParse && (looksLikeStructuredJSON || hasMultipleFeaturePattern)) {
+          console.log('🎯 Content looks like structured JSON with multiple requirements, attempting auto-parsing...');
           
-          if (parseResult.success && parseResult.requirementsCount > 1) {
-            console.log(`✅ Automatically parsed ${parseResult.requirementsCount} requirements from OpenAI response`);
-            parseSuccess = true;
-          } else {
-            console.log('❌ Automatic JSON parsing failed or yielded single requirement, using standard processing');
+          try {
+            parseResult = addGeneratedRequirementsFromJSON(useCaseId, textToParse);
+            
+            if (parseResult && parseResult.success && parseResult.requirementsCount > 1) {
+              console.log(`✅ Successfully auto-parsed ${parseResult.requirementsCount} requirements from OpenAI response`);
+              parseSuccess = true;
+              
+              // Also remove the original unparsed requirement since we've replaced it with parsed ones
+              if (firstReq.id && firstReq.id.includes('req-gen-')) {
+                deleteRequirement(firstReq.id);
+              }
+            } else {
+              console.log('⚠️ Auto-parsing completed but yielded single requirement or failed, using standard processing');
+            }
+          } catch (error) {
+            console.error('💥 Error during auto-parsing:', error);
           }
+        } else {
+          console.log('ℹ️ Content does not appear to need JSON parsing');
         }
       }
       
@@ -279,6 +310,9 @@ export default function UseCasesPage() {
       } else {
         notify.requirementGenerated(requirements.length, metadata);
       }
+      
+      // Log final results for debugging
+      console.log('🏁 Final results - Parse success:', parseSuccess, 'Requirements generated:', parseSuccess ? parseResult?.requirementsCount : requirements.length);
       
       // Redirect to requirements page to view the generated requirements
       // Use setTimeout to ensure store is updated before redirect
