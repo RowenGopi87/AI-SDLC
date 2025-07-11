@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useWorkItemStore } from '@/store/work-item-store';
 import { useRequirementStore } from '@/store/requirement-store';
+import { useUseCaseStore } from '@/store/use-case-store';
 import { setSelectedItem } from '@/components/layout/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ interface WorkItemWithChildren {
 export default function DecompositionPage() {
   const { workItems, addWorkItem, updateWorkItem, deleteWorkItem, getWorkItemHierarchy } = useWorkItemStore();
   const { requirements, getRequirementById } = useRequirementStore();
+  const { getUseCaseById } = useUseCaseStore();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [selectedItem, setSelectedItemLocal] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -355,6 +357,20 @@ export default function DecompositionPage() {
                 <div>
                   <h4 className="font-medium text-gray-900 mb-1">Requirement</h4>
                   <p className="text-sm text-gray-600">{requirement?.id || 'N/A'}</p>
+                  {requirement && (() => {
+                    const useCase = getUseCaseById(requirement.useCaseId);
+                    return useCase ? (
+                      <div className="mt-2">
+                        <h4 className="font-medium text-gray-900 mb-1">Business Brief</h4>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className="text-xs font-mono">
+                            {useCase.businessBriefId}
+                          </Badge>
+                          <span className="text-sm text-gray-600">{useCase.title}</span>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
                 {item.assignee && (
                   <div>

@@ -217,13 +217,13 @@ export default function RequirementsPage() {
               <CardDescription>Select a requirement to review and enhance</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {filteredRequirements.map((req) => {
+              {filteredRequirements.map((req, index) => {
                 const useCase = getUseCaseById(req.useCaseId);
                 const isSelected = selectedReqId === req.id;
                 
                 return (
                   <div
-                    key={req.id}
+                    key={`${req.id}-${index}`}
                     className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-sm ${
                       isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -240,9 +240,15 @@ export default function RequirementsPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <p className="text-sm text-gray-600">
-                        <strong>Use Case:</strong> {useCase?.title || 'Unknown'}
-                      </p>
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <strong>Business Brief:</strong> 
+                        {useCase?.businessBriefId && (
+                          <Badge variant="outline" className="text-xs font-mono">
+                            {useCase.businessBriefId}
+                          </Badge>
+                        )}
+                        <span>{useCase?.title || 'Unknown'}</span>
+                      </div>
                       <p className="text-sm text-gray-800 line-clamp-2">
                         {req.originalText}
                       </p>
@@ -256,7 +262,11 @@ export default function RequirementsPage() {
                             req.reviewedBy
                           )}
                           <Calendar size={12} className="ml-2 mr-1" />
-                          {req.reviewedAt ? new Date(req.reviewedAt).toLocaleDateString() : 'N/A'}
+                          {req.reviewedAt ? new Intl.DateTimeFormat('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          }).format(new Date(req.reviewedAt)) : 'N/A'}
                         </div>
                       )}
                     </div>
@@ -279,7 +289,7 @@ export default function RequirementsPage() {
                 <CardContent>
                   <div className="grid grid-cols-1 gap-3">
                     {getQualityIndicators(selectedReq).map((indicator, index) => (
-                      <div key={index} className="flex items-center justify-between">
+                      <div key={`quality-${index}-${indicator.label}`} className="flex items-center justify-between">
                         <span className="text-sm font-medium">{indicator.label}</span>
                         <div className="flex items-center space-x-2">
                           {indicator.value ? (
@@ -305,7 +315,15 @@ export default function RequirementsPage() {
                     <span>Original vs Enhanced</span>
                   </CardTitle>
                   <CardDescription>
-                    Use Case: {selectedUseCase?.title}
+                    <div className="flex items-center space-x-2">
+                      <span>Business Brief:</span>
+                      {selectedUseCase?.businessBriefId && (
+                        <Badge variant="outline" className="text-xs font-mono">
+                          {selectedUseCase.businessBriefId}
+                        </Badge>
+                      )}
+                      <span>{selectedUseCase?.title}</span>
+                    </div>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

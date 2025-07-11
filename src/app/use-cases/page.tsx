@@ -322,6 +322,17 @@ export default function UseCasesPage() {
     }
   };
 
+  const getStatusColorScheme = (status: string) => {
+    switch (status) {
+      case 'approved': return { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' };
+      case 'in_review': return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' };
+      case 'draft': return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
+      case 'submitted': return { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' };
+      case 'rejected': return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' };
+      default: return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
+    }
+  };
+
   const getWorkflowStages = () => [
     { name: 'Idea', key: 'idea', percentage: 25 },
     { name: 'Discovery & Funding', key: 'discovery', percentage: 50 },
@@ -331,7 +342,8 @@ export default function UseCasesPage() {
 
   const filteredUseCases = useCases.filter(useCase => {
     const matchesSearch = useCase.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         useCase.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         useCase.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         useCase.businessBriefId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || useCase.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -781,7 +793,7 @@ export default function UseCasesPage() {
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder="Search business briefs..."
+            placeholder="Search business briefs by title, description, or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -893,14 +905,19 @@ export default function UseCasesPage() {
         {filteredUseCases.map((useCase) => (
           <Card 
             key={useCase.id} 
-            className="hover:shadow-lg transition-shadow cursor-pointer"
+            className={`hover:shadow-lg transition-shadow cursor-pointer ${getStatusColorScheme(useCase.status).border} ${getStatusColorScheme(useCase.status).bg}`}
             onClick={() => handleWorkflowView(useCase)}
           >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-2">
                   {getStatusIcon(useCase.status)}
-                  <CardTitle className="text-lg">{useCase.title}</CardTitle>
+                  <div>
+                    <Badge variant="outline" className="text-xs mb-1 font-mono">
+                      {useCase.businessBriefId}
+                    </Badge>
+                    <CardTitle className="text-lg">{useCase.title}</CardTitle>
+                  </div>
                 </div>
                 <div className="flex flex-col space-y-1">
                   <Badge className={getStatusColor(useCase.status)}>

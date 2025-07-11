@@ -1,6 +1,7 @@
 // Types for the mock data
 export interface UseCase {
   id: string;
+  businessBriefId: string; // Human-readable business brief identifier
   title: string;
   description: string;
   businessValue: string;
@@ -111,6 +112,7 @@ export interface Defect {
 export const mockUseCases: UseCase[] = [
   {
     id: "uc-001",
+    businessBriefId: "BB-001",
     title: "Customer Portal Enhancement",
     description: "Enhance the customer portal with self-service capabilities",
     businessValue: "Reduce support costs and improve customer satisfaction",
@@ -148,6 +150,7 @@ export const mockUseCases: UseCase[] = [
   },
   {
     id: "uc-002",
+    businessBriefId: "BB-002",
     title: "Mobile Payment Integration",
     description: "Integrate mobile payment solutions into the existing e-commerce platform",
     businessValue: "Increase conversion rates and improve checkout experience",
@@ -175,6 +178,7 @@ export const mockUseCases: UseCase[] = [
   },
   {
     id: "uc-003",
+    businessBriefId: "BB-003",
     title: "AI-Powered Inventory Optimization",
     description: "Implement machine learning for predictive inventory management",
     businessValue: "Reduce inventory costs while maintaining optimal stock levels",

@@ -4,7 +4,7 @@ import { UseCase, mockUseCases } from '@/lib/mock-data';
 interface UseCaseStore {
   useCases: UseCase[];
   selectedUseCase: UseCase | null;
-  addUseCase: (useCase: Omit<UseCase, 'id' | 'submittedAt'>) => void;
+  addUseCase: (useCase: Omit<UseCase, 'id' | 'businessBriefId' | 'submittedAt'>) => void;
   updateUseCase: (id: string, updates: Partial<UseCase>) => void;
   deleteUseCase: (id: string) => void;
   selectUseCase: (id: string) => void;
@@ -18,9 +18,19 @@ export const useUseCaseStore = create<UseCaseStore>((set, get) => ({
   selectedUseCase: null,
 
   addUseCase: (useCase) => {
+    const existingIds = get().useCases.map(uc => uc.businessBriefId || '');
+    const maxNumber = Math.max(
+      ...existingIds
+        .filter(id => id.startsWith('BB-'))
+        .map(id => parseInt(id.split('-')[1]) || 0),
+      0
+    );
+    const nextNumber = maxNumber + 1;
+    
     const newUseCase: UseCase = {
       ...useCase,
       id: `uc-${Date.now().toString(36)}`,
+      businessBriefId: `BB-${nextNumber.toString().padStart(3, '0')}`,
       submittedAt: new Date(),
     };
     set((state) => ({

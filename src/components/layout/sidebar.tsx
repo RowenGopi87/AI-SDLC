@@ -307,6 +307,11 @@ export function Sidebar() {
             <div>
               <p className="text-xs font-medium text-gray-700 mb-1">Business Brief</p>
               <div className="bg-blue-50 p-2 rounded text-xs">
+                <div className="flex items-center space-x-2 mb-1">
+                  <Badge variant="outline" className="text-xs font-mono bg-white">
+                    {mockUseCases.find(uc => uc.id === traceInfo.useCase)?.businessBriefId}
+                  </Badge>
+                </div>
                 <div className="font-medium text-blue-900">
                   {mockUseCases.find(uc => uc.id === traceInfo.useCase)?.title}
                 </div>
@@ -474,6 +479,13 @@ export function Sidebar() {
             Selected Item
           </h3>
           <div className="bg-gray-50 p-3 rounded">
+            {selectedItem.type === 'useCase' && selectedItem.data?.businessBriefId && (
+              <div className="flex items-center space-x-2 mb-2">
+                <Badge variant="outline" className="text-xs font-mono">
+                  {selectedItem.data.businessBriefId}
+                </Badge>
+              </div>
+            )}
             <div className="text-sm font-medium text-gray-900">{selectedItem.data?.title || selectedItem.id}</div>
             <div className="text-xs text-gray-600 mt-1">Type: {selectedItem.type}</div>
             {selectedItem.data?.workflowStage && (

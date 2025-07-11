@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useDefectStore } from '@/store/defect-store';
 import { useTestCaseStore } from '@/store/test-case-store';
+import { useWorkItemStore } from '@/store/work-item-store';
+import { useRequirementStore } from '@/store/requirement-store';
+import { useUseCaseStore } from '@/store/use-case-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +34,9 @@ import {
 export default function DefectsPage() {
   const { defects, addDefect, updateDefect, deleteDefect } = useDefectStore();
   const { testCases, getTestCaseById } = useTestCaseStore();
+  const { getWorkItemById } = useWorkItemStore();
+  const { getRequirementById } = useRequirementStore();
+  const { getUseCaseById } = useUseCaseStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDefect, setEditingDefect] = useState<any>(null);
   const [selectedDefect, setSelectedDefect] = useState<any>(null);
@@ -433,7 +439,22 @@ export default function DefectsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{testCase?.title || 'Unknown'}</div>
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">{testCase?.title || 'Unknown'}</div>
+                        {testCase && (() => {
+                          const workItem = getWorkItemById(testCase.workItemId);
+                          const requirement = workItem ? getRequirementById(workItem.requirementId) : null;
+                          const useCase = requirement ? getUseCaseById(requirement.useCaseId) : null;
+                          return useCase ? (
+                            <div className="flex items-center space-x-2 text-xs text-gray-500">
+                              <Badge variant="outline" className="text-xs font-mono">
+                                {useCase.businessBriefId}
+                              </Badge>
+                              <span>{useCase.title}</span>
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge className={getSeverityColor(defect.severity)} variant="secondary">

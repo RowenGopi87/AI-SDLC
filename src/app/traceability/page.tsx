@@ -390,6 +390,14 @@ export default function TraceabilityPage() {
                         {getTypeIcon(item.type)}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
+                            {item.type === 'use-case' && (() => {
+                              const useCaseDetails = useCases.find(uc => uc.id === item.id);
+                              return useCaseDetails?.businessBriefId ? (
+                                <Badge variant="outline" className="text-xs font-mono">
+                                  {useCaseDetails.businessBriefId}
+                                </Badge>
+                              ) : null;
+                            })()}
                             <h3 className="font-medium text-gray-900 truncate">{item.title}</h3>
                             <Badge className={getTypeColor(item.type)} variant="secondary">
                               {item.type.replace('-', ' ')}

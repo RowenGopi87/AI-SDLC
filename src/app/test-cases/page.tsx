@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useTestCaseStore } from '@/store/test-case-store';
 import { useWorkItemStore } from '@/store/work-item-store';
+import { useRequirementStore } from '@/store/requirement-store';
+import { useUseCaseStore } from '@/store/use-case-store';
 import { setSelectedItem } from '@/components/layout/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +36,8 @@ import {
 export default function TestCasesPage() {
   const { testCases, addTestCase, updateTestCase, deleteTestCase, executeTestCase } = useTestCaseStore();
   const { workItems, getWorkItemById } = useWorkItemStore();
+  const { getRequirementById } = useRequirementStore();
+  const { getUseCaseById } = useUseCaseStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTestCase, setEditingTestCase] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -235,18 +239,40 @@ export default function TestCasesPage() {
               <TestTube size={14} className="mr-2" />
               Work Item: {workItem?.title || 'Unknown'}
             </div>
+            {workItem && (() => {
+              const requirement = getRequirementById(workItem.requirementId);
+              const useCase = requirement ? getUseCaseById(requirement.useCaseId) : null;
+              return useCase ? (
+                <div className="flex items-center text-sm text-gray-500">
+                  <span className="mr-2">🎯</span>
+                  Business Brief: 
+                  <Badge variant="outline" className="text-xs font-mono ml-2 mr-2">
+                    {useCase.businessBriefId}
+                  </Badge>
+                  {useCase.title}
+                </div>
+              ) : null;
+            })()}
             <div className="flex items-center text-sm text-gray-500">
               <User size={14} className="mr-2" />
               Created by: {testCase.createdBy}
             </div>
             <div className="flex items-center text-sm text-gray-500">
               <Calendar size={14} className="mr-2" />
-              Created: {testCase.createdAt.toLocaleDateString()}
+              Created: {new Intl.DateTimeFormat('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+              }).format(testCase.createdAt)}
             </div>
             {testCase.lastExecuted && (
               <div className="flex items-center text-sm text-gray-500">
                 <Clock size={14} className="mr-2" />
-                Last executed: {testCase.lastExecuted.toLocaleDateString()}
+                Last executed: {new Intl.DateTimeFormat('en-US', { 
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric' 
+                }).format(testCase.lastExecuted)}
               </div>
             )}
           </div>
