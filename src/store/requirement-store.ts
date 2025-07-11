@@ -34,6 +34,74 @@ const parseRequirementsFromJSON = (jsonContent: string): any[] => {
   
   console.log('🧹 Cleaned content:', cleanedContent.substring(0, 300) + '...');
   
+  // SPECIAL CASE: Handle the specific format where features are embedded in text field
+  // Example: "Features:\n\n1. {\n   \"id\": \"FEA-001\",\n   \"text\": \"ML model for demand forecasting\",\n   ..."
+  if (cleanedContent.includes('Features:') && cleanedContent.includes('"id": "FEA-')) {
+    console.log('🎯 Detected features embedded in text format, extracting...');
+    
+    const features = [];
+    
+    // More robust approach: Split by numbered sections first
+    const sections = cleanedContent.split(/(?=\n\s*\d+\.\s*\{)/);
+    
+    for (const section of sections) {
+      const sectionMatch = section.match(/(\d+)\.\s*\{([\s\S]*?)\}\s*(?=\n\s*\d+\.\s*\{|$)/);
+      if (sectionMatch) {
+        let featureJson = '';
+        try {
+          featureJson = '{' + sectionMatch[2].trim() + '}';
+          
+          // Clean up any formatting issues
+          featureJson = featureJson
+            .replace(/\n\s*/g, ' ')  // Remove line breaks and extra spaces
+            .replace(/,\s*}/g, '}')  // Remove trailing commas
+            .replace(/"\s*:\s*"/g, '":"')  // Clean up spacing around colons
+            .replace(/",\s*"/g, '","');  // Clean up spacing around commas
+          
+          const featureObj = JSON.parse(featureJson);
+          features.push(featureObj);
+          console.log(`✅ Extracted feature ${sectionMatch[1]}:`, featureObj.id, featureObj.text);
+        } catch (e) {
+          console.log(`❌ Failed to parse feature ${sectionMatch[1]}:`, e);
+          console.log('Attempted JSON:', featureJson);
+        }
+      }
+    }
+    
+    // Fallback: try the original regex approach if section splitting didn't work
+    if (features.length === 0) {
+      const featureRegex = /(\d+)\.\s*\{\s*([^}]+(?:\{[^}]*\}[^}]*)*)\s*\}/g;
+      let match;
+      
+      while ((match = featureRegex.exec(cleanedContent)) !== null) {
+        try {
+          // Clean up the extracted content and try to parse as JSON
+          let featureJson = match[2].trim();
+          
+          // Ensure proper JSON formatting
+          if (!featureJson.startsWith('{')) {
+            featureJson = '{' + featureJson;
+          }
+          if (!featureJson.endsWith('}')) {
+            featureJson = featureJson + '}';
+          }
+          
+          // Parse the feature object
+          const featureObj = JSON.parse(featureJson);
+          features.push(featureObj);
+          console.log(`✅ Extracted feature ${match[1]}:`, featureObj.id, featureObj.text);
+        } catch (e) {
+          console.log(`❌ Failed to parse feature ${match[1]}:`, e);
+        }
+      }
+    }
+    
+    if (features.length > 0) {
+      console.log(`🎉 Successfully extracted ${features.length} features from embedded format`);
+      return features;
+    }
+  }
+  
   try {
     // First, try to parse as standard JSON
     const parsed = JSON.parse(cleanedContent);
@@ -418,51 +486,63 @@ export const useRequirementStore = create<RequirementStore>()(
       return { success: false, requirementsCount: 0 };
     }
     
-    // Convert parsed requirements to the standard format - ONE requirement per feature object
+        // Convert parsed requirements to the standard format - ONE requirement per feature object
     const newRequirements: Requirement[] = validRequirements.map((featureObj, index) => {
       console.log(`🏗️ Processing feature ${index + 1}:`, featureObj);
       
       // Use the actual feature ID from the JSON if available
       const featureId = featureObj.id || `FEAT-${String(index + 1).padStart(3, '0')}`;
       
-      // Build the feature title/text from available fields
-      const featureText = featureObj.text || featureObj.title || featureObj.description || `Feature ${featureId}`;
+      // Get the feature name (what should be displayed as the title)
+      const featureName = featureObj.text || featureObj.title || featureObj.name || `Feature ${featureId}`;
       
-      // Get the feature description (usually in rationale or description field)
-      const featureDescription = featureObj.rationale || featureObj.description || featureObj.businessValue || featureText;
+      // Get the feature description/rationale (what should be displayed as content)
+      const featureRationale = featureObj.rationale || featureObj.description || 'No description provided';
       
-              // Format the feature details nicely
-        const featureCategory = featureObj.category ? `[${featureObj.category.toUpperCase()}]` : '[FUNCTIONAL]';
-        const featurePriority = featureObj.priority ? `Priority: ${featureObj.priority.toUpperCase()}` : 'Priority: MEDIUM';
-        
-        // Include acceptance criteria in the enhanced text if available
-        let enhancedDescription = featureDescription;
-        if (featureObj.acceptanceCriteria && Array.isArray(featureObj.acceptanceCriteria) && featureObj.acceptanceCriteria.length > 0) {
-          enhancedDescription += '\n\nAcceptance Criteria:\n' + featureObj.acceptanceCriteria.map((criteria: string, i: number) => `${i + 1}. ${criteria}`).join('\n');
-        }
-        
-        const newReq: Requirement = {
-          id: `req-gen-${Date.now().toString(36)}-${index}`,
-          useCaseId,
-          originalText: `${featureCategory} ${featureId}: ${featureText}`,
-          enhancedText: enhancedDescription,
-          isUnambiguous: true,
-          isTestable: true,
-          hasAcceptanceCriteria: Array.isArray(featureObj.acceptanceCriteria) && featureObj.acceptanceCriteria.length > 0,
-          status: 'enhanced' as const,
-          reviewedBy: `AI System - ${featurePriority}`,
-          reviewedAt: new Date(),
-          workflowStage: 'enhancement' as const,
-          completionPercentage: 80,
-        };
-        
-        console.log(`✅ Created complete requirement for ${featureId}:`, {
-          id: newReq.id,
-          originalText: newReq.originalText,
-          enhancedText: newReq.enhancedText.substring(0, 100) + '...',
-          category: featureObj.category,
-          priority: featureObj.priority
+      // Get business value
+      const businessValue = featureObj.businessValue || 'No business value specified';
+      
+      // Format category and priority for display
+      const category = (featureObj.category || 'functional').toLowerCase();
+      const priority = (featureObj.priority || 'medium').toLowerCase();
+      
+      // Build the enhanced text with all the feature details
+      let enhancedText = `${featureRationale}`;
+      
+      if (businessValue && businessValue !== 'No business value specified') {
+        enhancedText += `\n\n🎯 Business Value: ${businessValue}`;
+      }
+      
+      if (featureObj.acceptanceCriteria && Array.isArray(featureObj.acceptanceCriteria) && featureObj.acceptanceCriteria.length > 0) {
+        enhancedText += '\n\n✅ Acceptance Criteria:';
+        featureObj.acceptanceCriteria.forEach((criteria: string, i: number) => {
+          enhancedText += `\n${i + 1}. ${criteria}`;
         });
+      }
+      
+      const newReq: Requirement = {
+        id: `req-gen-${Date.now().toString(36)}-${index}`,
+        useCaseId,
+        originalText: `${featureId}: ${featureName}`,
+        enhancedText: enhancedText,
+        isUnambiguous: true,
+        isTestable: true,
+        hasAcceptanceCriteria: Array.isArray(featureObj.acceptanceCriteria) && featureObj.acceptanceCriteria.length > 0,
+        status: 'enhanced' as const,
+        reviewedBy: `AI Generated - ${category.toUpperCase()} | ${priority.toUpperCase()} Priority`,
+        reviewedAt: new Date(),
+        workflowStage: 'enhancement' as const,
+        completionPercentage: 90, // High completion since AI already created detailed features
+      };
+      
+      console.log(`✅ Created complete requirement for ${featureId}:`, {
+        id: newReq.id,
+        name: featureName,
+        category: category,
+        priority: priority,
+        rationale: featureRationale.substring(0, 100) + '...',
+        businessValue: businessValue.substring(0, 50) + '...'
+      });
       
       return newReq;
     });

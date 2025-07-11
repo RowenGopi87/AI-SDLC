@@ -245,12 +245,21 @@ export default function UseCasesPage() {
           (textToParse.includes('{') && textToParse.includes('"text":') && textToParse.includes('"category":'))
         );
         
-        const hasMultipleFeaturePattern = textToParse && (
-          (textToParse.match(/"id":\s*"[^"]+"/g) || []).length > 1 ||
-          textToParse.includes('FEA-001') && textToParse.includes('FEA-002')
+        // ENHANCED: Detect the specific embedded features format from OpenAI
+        const hasEmbeddedFeaturesFormat = textToParse && (
+          textToParse.includes('Features:') && 
+          textToParse.includes('"id": "FEA-') &&
+          textToParse.includes('"category":') &&
+          textToParse.includes('"priority":')
         );
         
-        if (textToParse && (looksLikeStructuredJSON || hasMultipleFeaturePattern)) {
+        const hasMultipleFeaturePattern = textToParse && (
+          (textToParse.match(/"id":\s*"[^"]+"/g) || []).length > 1 ||
+          textToParse.includes('FEA-001') && textToParse.includes('FEA-002') ||
+          (textToParse.includes('1. {') && textToParse.includes('2. {')) // Numbered feature objects
+        );
+        
+        if (textToParse && (looksLikeStructuredJSON || hasEmbeddedFeaturesFormat || hasMultipleFeaturePattern)) {
           console.log('🎯 Content looks like structured JSON with multiple requirements, attempting auto-parsing...');
           
           try {

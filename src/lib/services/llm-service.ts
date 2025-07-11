@@ -319,17 +319,38 @@ IMPORTANT:
         tokensUsed: result.tokensUsed,
       };
     } catch (error) {
-      console.log('JSON parse failed completely, storing raw content for smart parsing');
-      // Return the raw content with a special marker for smart parsing
+      console.log('JSON parse failed, attempting text extraction...');
+      
+      // Try to extract features from the text even if JSON parsing failed
+      const textContent = result.content;
+      
+      // Check if the response contains structured feature information
+      if (textContent.includes('Features:') && textContent.includes('"id": "FEA-')) {
+        console.log('Detected features in text format, storing for auto-parsing');
+        return {
+          requirements: [{
+            id: 'REQ-FEATURES-IN-TEXT',
+            text: textContent,
+            category: 'functional',
+            priority: 'high' as const,
+            rationale: 'Features detected in text format, will be auto-parsed',
+            acceptanceCriteria: ['Auto-parse individual features from response'],
+            rawJsonContent: textContent
+          }],
+          tokensUsed: result.tokensUsed,
+        };
+      }
+      
+      // Last resort fallback
       return {
         requirements: [{
-          id: 'REQ-SMART-PARSE-NEEDED',
-          text: result.content,
-          category: 'needs-smart-parsing',
+          id: 'REQ-PARSE-NEEDED',
+          text: textContent,
+          category: 'needs-parsing',
           priority: 'high' as const,
-          rationale: 'Raw response needs smart JSON parsing',
-          acceptanceCriteria: ['Extract individual requirements using smart parser'],
-          rawJsonContent: result.content // Store the raw JSON for smart parsing
+          rationale: 'Response format needs manual review',
+          acceptanceCriteria: ['Review and parse requirements manually'],
+          rawJsonContent: textContent
         }],
         tokensUsed: result.tokensUsed,
       };
