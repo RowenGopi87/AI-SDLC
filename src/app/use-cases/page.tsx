@@ -38,7 +38,8 @@ export default function UseCasesPage() {
   const { useCases, addUseCase, updateUseCase, selectUseCase, selectedUseCase } = useUseCaseStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
+  // Commented out workflow modal - using sidebar workflow steps instead
+  // const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
   const [viewingUseCase, setViewingUseCase] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -144,7 +145,7 @@ export default function UseCasesPage() {
 
   const handleWorkflowView = (useCase: any) => {
     setViewingUseCase(useCase);
-    setIsWorkflowDialogOpen(true);
+    // Modal functionality commented out - using sidebar workflow steps instead
     // Update sidebar with selected item for traceability
     setSelectedItem(useCase.id, 'useCase', useCase);
   };
@@ -956,7 +957,8 @@ export default function UseCasesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Workflow Progress Dialog */}
+      {/* Workflow Progress Dialog - COMMENTED OUT: Using sidebar workflow steps instead */}
+      {/* 
       <Dialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -1027,8 +1029,9 @@ export default function UseCasesPage() {
               </div>
             </div>
           )}
-                 </DialogContent>
-       </Dialog>
+        </DialogContent>
+      </Dialog> 
+      */}
      </div>
    );
  } 
