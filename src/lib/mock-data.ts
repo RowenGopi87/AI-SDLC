@@ -272,35 +272,51 @@ export const mockRequirements: Requirement[] = [
     workflowStage: "approved",
     completionPercentage: 100
   },
-  // Mobile Payment Integration Requirements
+  // Mobile Payment Integration Requirements (Embedded Features Format)  
   {
     id: "req-005",
     useCaseId: "uc-002",
-    originalText: "Support for Apple Pay payments",
-    enhancedText: "The e-commerce platform shall integrate with Apple Pay to enable one-touch payments for iOS users. The integration must support all Apple Pay compatible devices and provide seamless checkout experience with proper error handling.",
+    originalText: "REQ-MOBILE-PAYMENT-FEATURES",
+    enhancedText: "Features:\n\n1. {\n   \"id\": \"FEA-PAY-001\",\n   \"text\": \"Apple Pay integration\",\n   \"category\": \"functional\",\n   \"priority\": \"high\",\n   \"rationale\": \"Enable seamless one-touch payments for iOS users\",\n   \"acceptanceCriteria\": [\"Apple Pay button displays correctly\", \"Payment processes successfully\", \"Error handling for failed payments\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Improved checkout conversion on iOS devices\"\n }\n\n2. {\n   \"id\": \"FEA-PAY-002\",\n   \"text\": \"Google Pay support\",\n   \"category\": \"functional\",\n   \"priority\": \"high\",\n   \"rationale\": \"Provide quick payment option for Android users\",\n   \"acceptanceCriteria\": [\"Google Pay integration works on Android\", \"Tokenization implemented\", \"Fraud detection active\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Reduced cart abandonment on mobile\"\n }",
     isUnambiguous: true,
     isTestable: true,
     hasAcceptanceCriteria: true,
     status: "enhanced",
-    reviewedBy: "Payment Team",
+    reviewedBy: "AI Generated - FUNCTIONAL | HIGH Priority", 
     reviewedAt: new Date("2024-01-22"),
     workflowStage: "review",
-    completionPercentage: 60
+    completionPercentage: 90
   },
+  // AI-Powered Inventory Optimization Requirements (Embedded Features Format)
   {
     id: "req-006",
-    useCaseId: "uc-002",
-    originalText: "Google Pay integration for Android users",
-    enhancedText: "The system shall support Google Pay integration for Android devices, enabling quick and secure payments through the Google Pay API. Implementation must include proper tokenization and fraud detection.",
+    useCaseId: "uc-003",
+    originalText: "REQ-AI-INVENTORY-FEATURES",
+    enhancedText: "Features:\n\n1. {\n   \"id\": \"FEA-001\",\n   \"text\": \"ML model for demand forecasting\",\n   \"category\": \"functional\",\n   \"priority\": \"high\",\n   \"rationale\": \"To predict future demand accurately for efficient inventory management\",\n   \"acceptanceCriteria\": [\"The model is capable of predicting future demand\", \"Model adaptability to changes in demand\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Decrease in stockouts and improvement in inventory turnover ratio\"\n }\n\n2. {\n   \"id\": \"FEA-002\",\n   \"text\": \"Automated reorder point calculation\",\n   \"category\": \"functional\",\n   \"priority\": \"high\",\n   \"rationale\": \"Prevent stockouts and excess inventory by automating reorder point calculation\",\n   \"acceptanceCriteria\": [\"System calculates reorder points accurately\", \"System triggers reorders when stock reaches reorder point\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Reduction in carrying costs and decrease in stockouts\"\n }\n\n3. {\n   \"id\": \"FEA-003\",\n   \"text\": \"Integration with existing ERP\",\n   \"category\": \"integration\",\n   \"priority\": \"high\",\n   \"rationale\": \"To ensure seamless data flow between inventory optimization system and existing ERP\",\n   \"acceptanceCriteria\": [\"Successful data exchange between ERP and new inventory system\", \"No disruption of existing ERP functionalities\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Improved supply chain efficiency and data consistency\"\n }\n\n4. {\n   \"id\": \"FEA-004\",\n   \"text\": \"Real-time analytics dashboard\",\n   \"category\": \"user-experience\",\n   \"priority\": \"medium\",\n   \"rationale\": \"To provide end-users with real-time insights into inventory status and performance\",\n   \"acceptanceCriteria\": [\"Dashboard provides real-time data\", \"Dashboard includes key inventory metrics and KPIs\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Increased transparency and informed decision-making\"\n }\n\n5. {\n   \"id\": \"FEA-005\",\n   \"text\": \"Data security and privacy measures\",\n   \"category\": \"security\",\n   \"priority\": \"high\",\n   \"rationale\": \"To protect sensitive inventory and business data\",\n   \"acceptanceCriteria\": [\"Data encryption is implemented\", \"Access control measures are in place\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Protection of sensitive business data and compliance with regulatory requirements\"\n }\n\n6. {\n   \"id\": \"FEA-006\",\n   \"text\": \"Exception handling system\",\n   \"category\": \"functional\",\n   \"priority\": \"medium\",\n   \"rationale\": \"To manage unforeseen changes in demand or supply chain disruptions\",\n   \"acceptanceCriteria\": [\"System can identify exceptions\", \"System notifies relevant personnel about exceptions\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Improved operational resilience and agility\"\n }",
     isUnambiguous: true,
     isTestable: true,
     hasAcceptanceCriteria: true,
     status: "enhanced",
-    reviewedBy: "Payment Team",
-    reviewedAt: new Date("2024-01-23"),
-    workflowStage: "review",
-    completionPercentage: 60
-  }
+    reviewedBy: "AI Generated - NEEDS PARSING",
+    reviewedAt: new Date("2024-01-25"),
+    workflowStage: "enhancement",
+    completionPercentage: 90
+  },
+     // Customer Portal Mobile Features (Embedded Features Format)
+   {
+     id: "req-007",
+     useCaseId: "uc-001",
+     originalText: "REQ-MOBILE-FEATURES",
+     enhancedText: "Features:\n\n1. {\n   \"id\": \"FEA-007\",\n   \"text\": \"Mobile-responsive customer authentication\",\n   \"category\": \"user-experience\",\n   \"priority\": \"high\",\n   \"rationale\": \"Ensure secure and seamless login experience on mobile devices\",\n   \"acceptanceCriteria\": [\"Touch-friendly login interface\", \"Biometric authentication support\", \"Session persistence on mobile\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Improved mobile user engagement and security\"\n }\n\n2. {\n   \"id\": \"FEA-008\",\n   \"text\": \"Mobile order tracking interface\",\n   \"category\": \"user-experience\",\n   \"priority\": \"high\",\n   \"rationale\": \"Provide intuitive order tracking experience optimized for mobile devices\",\n   \"acceptanceCriteria\": [\"Swipe gestures for order details\", \"Push notifications for status updates\", \"Offline viewing capability\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Reduced customer service calls from mobile users\"\n }\n\n3. {\n   \"id\": \"FEA-009\",\n   \"text\": \"Mobile billing management\",\n   \"category\": \"functional\",\n   \"priority\": \"medium\",\n   \"rationale\": \"Enable customers to manage billing and payments from mobile devices\",\n   \"acceptanceCriteria\": [\"Mobile-optimized invoice viewing\", \"One-tap payment options\", \"Download receipts to device\"],\n   \"workflowLevel\": \"feature\",\n   \"businessValue\": \"Increased customer self-service adoption on mobile\"\n }",
+     isUnambiguous: true,
+     isTestable: true,
+     hasAcceptanceCriteria: true,
+     status: "enhanced",
+     reviewedBy: "AI Generated - USER-EXPERIENCE | HIGH Priority",
+     reviewedAt: new Date("2024-01-20"),
+     workflowStage: "enhancement",
+     completionPercentage: 90
+   }
 ];
 
 export const mockWorkItems: WorkItem[] = [
