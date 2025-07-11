@@ -279,20 +279,57 @@ IMPORTANT:
     
     try {
       const requirementsData = JSON.parse(result.content);
+      
+      // Handle different JSON response formats
+      let requirements = [];
+      
+      if (Array.isArray(requirementsData)) {
+        requirements = requirementsData;
+      } else if (requirementsData.requirements && Array.isArray(requirementsData.requirements)) {
+        requirements = requirementsData.requirements;
+      } else if (requirementsData.features && Array.isArray(requirementsData.features)) {
+        requirements = requirementsData.features;
+      } else {
+        console.log('Unexpected JSON structure, storing raw content for manual parsing');
+        return {
+          requirements: [{
+            id: 'REQ-PARSE-NEEDED',
+            text: result.content,
+            category: 'needs-parsing',
+            priority: 'high' as const,
+            rationale: 'JSON response needs manual parsing',
+            acceptanceCriteria: ['Parse individual requirements from JSON'],
+            rawJsonContent: result.content // Store the raw JSON for later parsing
+          }],
+          tokensUsed: result.tokensUsed,
+        };
+      }
+      
       return {
-        requirements: requirementsData.requirements || [],
+        requirements: requirements.map((req: any, index: number) => ({
+          id: req.id || `REQ-${String(index + 1).padStart(3, '0')}`,
+          text: req.text || req.description || req.requirement || 'Requirement text not found',
+          category: req.category || 'functional',
+          priority: (req.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
+          rationale: req.rationale || req.businessValue || 'Generated from business brief',
+          acceptanceCriteria: req.acceptanceCriteria || ['To be defined'],
+          workflowLevel: req.workflowLevel || mappings.requirements,
+          businessValue: req.businessValue
+        })),
         tokensUsed: result.tokensUsed,
       };
     } catch (error) {
-      // Fallback: create minimal requirements structure
+      console.log('JSON parse failed completely, storing raw content for smart parsing');
+      // Return the raw content with a special marker for smart parsing
       return {
         requirements: [{
-          id: 'REQ-001',
+          id: 'REQ-SMART-PARSE-NEEDED',
           text: result.content,
-          category: 'functional',
+          category: 'needs-smart-parsing',
           priority: 'high' as const,
-          rationale: 'Generated from business brief',
-          acceptanceCriteria: ['To be defined'],
+          rationale: 'Raw response needs smart JSON parsing',
+          acceptanceCriteria: ['Extract individual requirements using smart parser'],
+          rawJsonContent: result.content // Store the raw JSON for smart parsing
         }],
         tokensUsed: result.tokensUsed,
       };

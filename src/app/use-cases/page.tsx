@@ -40,7 +40,7 @@ import {
 export default function UseCasesPage() {
   const { useCases, addUseCase, updateUseCase, selectUseCase, selectedUseCase } = useUseCaseStore();
   const { llmSettings, validateSettings } = useSettingsStore();
-  const { addGeneratedRequirements } = useRequirementStore();
+  const { addGeneratedRequirements, addGeneratedRequirementsFromJSON } = useRequirementStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   // Commented out workflow modal - using sidebar workflow steps instead
@@ -220,7 +220,19 @@ export default function UseCasesPage() {
 
       // Save generated requirements to the store
       const { requirements, metadata } = result.data;
-      addGeneratedRequirements(useCaseId, requirements);
+      
+      // Check if smart parsing is needed
+      const needsSmartParsing = requirements.some((req: any) => 
+        req.category === 'needs-smart-parsing' || req.category === 'needs-parsing'
+      );
+      
+      if (needsSmartParsing && requirements.length === 1 && requirements[0].rawJsonContent) {
+        console.log('Using smart JSON parsing for requirements');
+        addGeneratedRequirementsFromJSON(useCaseId, requirements[0].rawJsonContent);
+      } else {
+        console.log('Using standard requirements processing');
+        addGeneratedRequirements(useCaseId, requirements);
+      }
 
       // Save to backend (for persistence)
       try {

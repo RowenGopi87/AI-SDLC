@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 
 export default function RequirementsPage() {
-  const { requirements, updateRequirement, selectRequirement, selectedRequirement } = useRequirementStore();
+  const { requirements, updateRequirement, selectRequirement, selectedRequirement, addGeneratedRequirementsFromJSON, deleteRequirement } = useRequirementStore();
   const { useCases, getUseCaseById } = useUseCaseStore();
   const { llmSettings } = useSettingsStore();
   const searchParams = useSearchParams();
@@ -297,6 +297,40 @@ Format as JSON:
     }
   };
 
+  // Check if a requirement needs parsing
+  const needsParsing = (req: any) => {
+    const text = req.originalText || '';
+    // Check if it's a JSON blob that needs parsing
+    return text.includes('"id":') && text.includes('"text":') && text.length > 200;
+  };
+
+  // Handle manual re-parsing of JSON requirements
+  const handleReparseRequirement = async (requirement: any) => {
+    if (!needsParsing(requirement)) {
+      alert('This requirement does not appear to need re-parsing.');
+      return;
+    }
+
+    try {
+      const useCase = getUseCaseById(requirement.useCaseId);
+      if (!useCase) {
+        alert('Use case not found for this requirement');
+        return;
+      }
+
+      // Delete the original unparsed requirement
+      deleteRequirement(requirement.id);
+      
+      // Use smart parsing to extract individual requirements
+      addGeneratedRequirementsFromJSON(requirement.useCaseId, requirement.originalText);
+      
+      alert('Successfully re-parsed the requirement into individual features!');
+    } catch (error) {
+      console.error('Error re-parsing requirement:', error);
+      alert('Failed to re-parse the requirement. Please check the console for details.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -436,43 +470,61 @@ Format as JSON:
                             {req.status}
                           </Badge>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEnhanceWithAI(req)}
-                            disabled={isEnhancing === req.id}
-                            className="text-xs"
-                          >
-                            {isEnhancing === req.id ? (
-                              <>
-                                <Loader2 size={12} className="mr-1 animate-spin" />
-                                Enhancing...
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles size={12} className="mr-1" />
-                                Enhance by AI
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setSelectedReqId(selectedReqId === req.id ? null : req.id)}
-                          >
-                            <Eye size={12} />
-                          </Button>
-                        </div>
+                                                 <div className="flex items-center space-x-2">
+                           {needsParsing(req) && (
+                             <Button
+                               size="sm"
+                               variant="destructive"
+                               onClick={() => handleReparseRequirement(req)}
+                               className="text-xs"
+                             >
+                               <AlertTriangle size={12} className="mr-1" />
+                               Re-parse JSON
+                             </Button>
+                           )}
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleEnhanceWithAI(req)}
+                             disabled={isEnhancing === req.id}
+                             className="text-xs"
+                           >
+                             {isEnhancing === req.id ? (
+                               <>
+                                 <Loader2 size={12} className="mr-1 animate-spin" />
+                                 Enhancing...
+                               </>
+                             ) : (
+                               <>
+                                 <Sparkles size={12} className="mr-1" />
+                                 Enhance by AI
+                               </>
+                             )}
+                           </Button>
+                           <Button
+                             size="sm"
+                             variant="ghost"
+                             onClick={() => setSelectedReqId(selectedReqId === req.id ? null : req.id)}
+                           >
+                             <Eye size={12} />
+                           </Button>
+                         </div>
                       </div>
                       
                       <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 mb-1">Original:</p>
-                          <p className="text-sm text-gray-800 line-clamp-2">
-                            {parseRequirementText(req.originalText)}
-                          </p>
-                        </div>
+                                                 <div>
+                           <div className="flex items-center space-x-2 mb-1">
+                             <p className="text-sm font-medium text-gray-700">Original:</p>
+                             {needsParsing(req) && (
+                               <Badge variant="destructive" className="text-xs">
+                                 Needs Parsing
+                               </Badge>
+                             )}
+                           </div>
+                           <p className={`text-sm text-gray-800 ${needsParsing(req) ? 'line-clamp-3 font-mono text-xs' : 'line-clamp-2'}`}>
+                             {parseRequirementText(req.originalText)}
+                           </p>
+                         </div>
                         
                         {req.enhancedText && req.enhancedText !== req.originalText && (
                           <div>
