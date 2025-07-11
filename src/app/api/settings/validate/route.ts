@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
           model,
           apiKey,
           temperature: temperature ? parseFloat(temperature) : 0.7,
-          maxTokens: maxTokens ? parseInt(maxTokens) : 8192,
+          maxTokens: maxTokens ? parseInt(maxTokens) : 4000,
         },
       });
     } else {

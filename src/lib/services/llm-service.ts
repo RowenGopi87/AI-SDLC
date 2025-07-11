@@ -394,6 +394,11 @@ Return refined requirements with CLEAR principle assessments:
       throw new Error('OpenAI client not initialized');
     }
 
+    // Calculate available tokens for completion (leave buffer for input)
+    const maxModelTokens = this.settings.model === 'gpt-3.5-turbo' ? 4096 : 8192;
+    const inputTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 4); // Rough estimate: 4 chars = 1 token
+    const availableTokens = Math.max(1000, maxModelTokens - inputTokens - 200); // Leave 200 token buffer
+    
     const response = await this.openai.chat.completions.create({
       model: this.settings.model,
       messages: [
@@ -401,7 +406,7 @@ Return refined requirements with CLEAR principle assessments:
         { role: 'user', content: userPrompt },
       ],
       temperature: this.settings.temperature || 0.7,
-      max_tokens: this.settings.maxTokens || 8192,
+      max_tokens: Math.min(availableTokens, this.settings.maxTokens || 4000),
     });
 
     return {

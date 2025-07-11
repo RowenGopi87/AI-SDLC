@@ -88,7 +88,7 @@ const DEFAULT_SETTINGS: LLMSettings = {
   model: 'gpt-4',
   apiKey: '',
   temperature: 0.7,
-  maxTokens: 8192
+  maxTokens: 4000 // Conservative default to avoid token limit issues
 };
 
 export const useSettingsStore = create<SettingsStore>()(

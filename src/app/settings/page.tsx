@@ -41,7 +41,7 @@ export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState(llmSettings.apiKey);
   const [tempTemperature, setTempTemperature] = useState(llmSettings.temperature?.toString() || '0.7');
-  const [tempMaxTokens, setTempMaxTokens] = useState(llmSettings.maxTokens?.toString() || '8192');
+  const [tempMaxTokens, setTempMaxTokens] = useState(llmSettings.maxTokens?.toString() || '4000');
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
@@ -101,7 +101,7 @@ export default function SettingsPage() {
     resetLLMSettings();
     setTempApiKey('');
     setTempTemperature('0.7');
-    setTempMaxTokens('8192');
+    setTempMaxTokens('4000');
     setSaveStatus('idle');
   };
 

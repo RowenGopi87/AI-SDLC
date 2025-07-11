@@ -162,7 +162,7 @@ export default function UseCasesPage() {
           'x-llm-model': llmSettings.model,
           'x-llm-api-key': llmSettings.apiKey,
           'x-llm-temperature': llmSettings.temperature?.toString() || '0.7',
-          'x-llm-max-tokens': llmSettings.maxTokens?.toString() || '8192',
+          'x-llm-max-tokens': llmSettings.maxTokens?.toString() || '4000',
         },
       });
       
