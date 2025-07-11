@@ -256,7 +256,7 @@ export default function RequirementsPage() {
                             req.reviewedBy
                           )}
                           <Calendar size={12} className="ml-2 mr-1" />
-                          {req.reviewedAt?.toLocaleDateString()}
+                          {req.reviewedAt ? new Date(req.reviewedAt).toLocaleDateString() : 'N/A'}
                         </div>
                       )}
                     </div>
