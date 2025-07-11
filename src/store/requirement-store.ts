@@ -8,7 +8,7 @@ interface RequirementStore {
   selectedRequirement: Requirement | null;
   addRequirement: (requirement: Omit<Requirement, 'id'>) => void;
   addGeneratedRequirements: (useCaseId: string, generatedRequirements: GeneratedRequirement[]) => void;
-  addGeneratedRequirementsFromJSON: (useCaseId: string, jsonContent: string) => void;
+  addGeneratedRequirementsFromJSON: (useCaseId: string, jsonContent: string) => { success: boolean; requirementsCount: number; };
   updateRequirement: (id: string, updates: Partial<Requirement>) => void;
   deleteRequirement: (id: string) => void;
   selectRequirement: (id: string) => void;
@@ -254,7 +254,7 @@ export const useRequirementStore = create<RequirementStore>()(
       set((state) => ({
         requirements: [...state.requirements, fallbackReq],
       }));
-      return;
+      return { success: false, requirementsCount: 1 };
     }
     
     // Convert parsed requirements to the standard format
@@ -287,6 +287,8 @@ export const useRequirementStore = create<RequirementStore>()(
         requirements: updatedRequirements,
       };
     });
+    
+    return { success: true, requirementsCount: newRequirements.length };
   },
 
   updateRequirement: (id, updates) => {

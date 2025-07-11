@@ -221,15 +221,29 @@ export default function UseCasesPage() {
       // Save generated requirements to the store
       const { requirements, metadata } = result.data;
       
-      // Check if smart parsing is needed
-      const needsSmartParsing = requirements.some((req: any) => 
-        req.category === 'needs-smart-parsing' || req.category === 'needs-parsing'
-      );
+      // Always attempt automatic JSON parsing first
+      let parseSuccess = false;
       
-      if (needsSmartParsing && requirements.length === 1 && requirements[0].rawJsonContent) {
-        console.log('Using smart JSON parsing for requirements');
-        addGeneratedRequirementsFromJSON(useCaseId, requirements[0].rawJsonContent);
-      } else {
+      if (requirements.length === 1) {
+        // Try to parse the first requirement's description as JSON
+        const firstReq = requirements[0];
+        const textToParse = firstReq.rawJsonContent || firstReq.description;
+        
+        if (textToParse) {
+          console.log('Attempting automatic JSON parsing for OpenAI response...');
+                     const parseResult = addGeneratedRequirementsFromJSON(useCaseId, textToParse);
+           
+           if (parseResult.success && parseResult.requirementsCount > 1) {
+             console.log(`✅ Automatically parsed ${parseResult.requirementsCount} requirements from OpenAI response`);
+             parseSuccess = true;
+          } else {
+            console.log('❌ Automatic JSON parsing failed or yielded single requirement, using standard processing');
+          }
+        }
+      }
+      
+      // Fallback to standard processing if automatic parsing failed
+      if (!parseSuccess) {
         console.log('Using standard requirements processing');
         addGeneratedRequirements(useCaseId, requirements);
       }
@@ -257,8 +271,11 @@ export default function UseCasesPage() {
         // Continue anyway - the important part (generation) worked
       }
 
-      // Show success message with details
-      alert(`Successfully generated ${requirements.length} requirements in ${metadata.iterationCount} iterations using ${metadata.llmProvider} ${metadata.llmModel}. Processing time: ${Math.round(metadata.processingTime / 1000)}s`);
+      // Show success message with details  
+      const actualRequirementsCount = parseSuccess ? 
+        `automatically parsed multiple requirements` : 
+        `${requirements.length} requirements`;
+      alert(`Successfully generated ${actualRequirementsCount} in ${metadata.iterationCount} iterations using ${metadata.llmProvider} ${metadata.llmModel}. Processing time: ${Math.round(metadata.processingTime / 1000)}s`);
       
       // Redirect to requirements page to view the generated requirements
       // Use setTimeout to ensure store is updated before redirect
