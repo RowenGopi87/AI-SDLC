@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useAppStore } from '@/store/app-store';
 import { MODULES, APP_NAME } from '@/lib/config';
 import { Button } from '@/components/ui/button';
@@ -43,9 +44,11 @@ export function Header() {
             <Bell size={18} />
           </Button>
           
-          <Button variant="ghost" size="sm" className="p-2">
-            <Settings size={18} />
-          </Button>
+          <Link href="/settings">
+            <Button variant="ghost" size="sm" className="p-2">
+              <Settings size={18} />
+            </Button>
+          </Link>
           
           <Button variant="ghost" size="sm" className="p-2">
             <User size={18} />

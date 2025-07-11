@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useUseCaseStore } from '@/store/use-case-store';
+import { useSettingsStore } from '@/store/settings-store';
+import { useRequirementStore } from '@/store/requirement-store';
 import { setSelectedItem } from '@/components/layout/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,11 +33,14 @@ import {
   TrendingUp,
   ChevronRight,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  RefreshCw
 } from 'lucide-react';
 
 export default function UseCasesPage() {
   const { useCases, addUseCase, updateUseCase, selectUseCase, selectedUseCase } = useUseCaseStore();
+  const { llmSettings, validateSettings } = useSettingsStore();
+  const { addGeneratedRequirements } = useRequirementStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   // Commented out workflow modal - using sidebar workflow steps instead
@@ -131,9 +136,118 @@ export default function UseCasesPage() {
     updateUseCase(id, { status: newStatus });
   };
 
-  const handleGenerateRequirements = (useCaseId: string) => {
-    // UI-only functionality for now
-    alert(`Generating requirements for use case ${useCaseId}...`);
+  const [isGeneratingRequirements, setIsGeneratingRequirements] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
+  const handleGenerateRequirements = async (useCaseId: string) => {
+    const useCase = useCases.find(uc => uc.id === useCaseId);
+    if (!useCase) {
+      alert('Use case not found');
+      return;
+    }
+
+    setIsGeneratingRequirements(useCaseId);
+    setGenerationError(null);
+
+    try {
+      // Check if settings are valid
+      if (!validateSettings()) {
+        throw new Error('Please configure your LLM provider and API key in Settings');
+      }
+
+      // Validate settings via API (with settings in headers)
+      const settingsResponse = await fetch('/api/settings/validate', {
+        headers: {
+          'x-llm-provider': llmSettings.provider,
+          'x-llm-model': llmSettings.model,
+          'x-llm-api-key': llmSettings.apiKey,
+          'x-llm-temperature': llmSettings.temperature?.toString() || '0.7',
+          'x-llm-max-tokens': llmSettings.maxTokens?.toString() || '8192',
+        },
+      });
+      
+      if (!settingsResponse.ok) {
+        throw new Error('Please configure LLM settings in the Settings page first');
+      }
+
+      const { isValid, settings } = await settingsResponse.json();
+      if (!isValid) {
+        throw new Error('Please configure your LLM provider and API key in Settings');
+      }
+
+      // Generate requirements using the configured LLM
+      const response = await fetch('/api/generate-requirements', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          businessBriefId: useCase.id,
+          businessBriefData: {
+            title: useCase.title,
+            businessObjective: useCase.businessObjective || useCase.description,
+            quantifiableBusinessOutcomes: useCase.quantifiableBusinessOutcomes || '',
+            inScope: useCase.inScope || '',
+            impactOfDoNothing: useCase.impactOfDoNothing || '',
+            happyPath: useCase.happyPath || '',
+            exceptions: useCase.exceptions || '',
+            acceptanceCriteria: Array.isArray(useCase.acceptanceCriteria) 
+              ? useCase.acceptanceCriteria 
+              : typeof useCase.acceptanceCriteria === 'string' 
+                ? [useCase.acceptanceCriteria] 
+                : [],
+            impactedEndUsers: useCase.impactedEndUsers || '',
+            changeImpactExpected: useCase.changeImpactExpected || '',
+            impactToOtherDepartments: useCase.impactToOtherDepartments || '',
+            businessOwner: useCase.businessOwner || '',
+            leadBusinessUnit: useCase.leadBusinessUnit || '',
+            primaryStrategicTheme: useCase.primaryStrategicTheme || '',
+          },
+          llmSettings: settings,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate requirements');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Requirements generation failed');
+      }
+
+      // Save generated requirements to the store
+      const { requirements, metadata } = result.data;
+      addGeneratedRequirements(useCaseId, requirements);
+
+      // Save to backend (for persistence)
+      await fetch('/api/requirements/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          businessBriefId: useCaseId,
+          requirements: requirements,
+        }),
+      });
+
+      // Show success message with details
+      alert(`Successfully generated ${requirements.length} requirements in ${metadata.iterationCount} iterations using ${metadata.llmProvider} ${metadata.llmModel}. Processing time: ${Math.round(metadata.processingTime / 1000)}s`);
+      
+      // Redirect to requirements page to view the generated requirements
+      window.location.href = `/requirements?businessBrief=${useCaseId}`;
+
+    } catch (error) {
+      console.error('Error generating requirements:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setGenerationError(errorMessage);
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsGeneratingRequirements(null);
+    }
   };
 
   const handleViewDetails = (useCase: any) => {
@@ -861,10 +975,20 @@ export default function UseCasesPage() {
                         e.stopPropagation();
                         handleGenerateRequirements(useCase.id);
                       }}
+                      disabled={isGeneratingRequirements === useCase.id}
                       className="flex items-center space-x-1"
                     >
-                      <Lightbulb size={14} />
-                      <span>Generate Requirements</span>
+                      {isGeneratingRequirements === useCase.id ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          <span>Generating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lightbulb size={14} />
+                          <span>Generate Requirements</span>
+                        </>
+                      )}
                     </Button>
                   )}
                   <Button 
