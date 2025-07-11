@@ -667,27 +667,7 @@ export default function TestCasesPage() {
         </div>
       )}
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Test Cases', value: testCases.length, color: 'bg-blue-100 text-blue-800' },
-          { label: 'Passed', value: testCases.filter(tc => tc.status === 'passed').length, color: 'bg-green-100 text-green-800' },
-          { label: 'Failed', value: testCases.filter(tc => tc.status === 'failed').length, color: 'bg-red-100 text-red-800' },
-          { label: 'Blocked', value: testCases.filter(tc => tc.status === 'blocked').length, color: 'bg-yellow-100 text-yellow-800' },
-        ].map((stat, index) => (
-          <Card key={index}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <Badge className={stat.color}>{stat.value}</Badge>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
     </div>
   );
 } 
