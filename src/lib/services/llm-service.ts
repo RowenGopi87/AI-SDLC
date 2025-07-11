@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { CURRENT_WORKFLOW, getAIPromptContext } from '../workflow-config';
 
 export interface LLMSettings {
   provider: string;
@@ -126,9 +127,12 @@ export class LLMService {
   }
 
   private async generateProvokingQuestions(businessBrief: BusinessBriefData) {
-    const systemPrompt = `You are a senior business analyst and requirements expert. Your role is to ask provoking, insightful questions about a business brief to ensure we fully understand the requirements before generating them.
+    const workflowContext = getAIPromptContext();
+    const systemPrompt = `You are a senior business analyst and requirements expert. Your role is to ask provoking, insightful questions about a business initiative to ensure we fully understand the decomposition before generating work items.
 
-Analyze the business brief and generate 8-12 thought-provoking questions that will help uncover:
+${workflowContext}
+
+Analyze the business initiative and generate 8-12 thought-provoking questions that will help uncover:
 1. Hidden assumptions and edge cases
 2. Stakeholder impacts not explicitly mentioned  
 3. Technical and operational constraints
@@ -138,7 +142,7 @@ Analyze the business brief and generate 8-12 thought-provoking questions that wi
 7. User experience considerations
 8. Compliance and regulatory requirements
 
-Focus on questions that would challenge the brief and ensure comprehensive requirement coverage.`;
+Focus on questions that would challenge the initiative and ensure comprehensive decomposition into ${CURRENT_WORKFLOW.levels.map(l => l.pluralName).join(', ')}.`;
 
     const userPrompt = `Business Brief:
 Title: ${businessBrief.title}
@@ -214,49 +218,62 @@ Provide a comprehensive analysis addressing each question. Format as JSON:
   }
 
   private async generateInitialRequirements(businessBrief: BusinessBriefData, analysis: string) {
-    const systemPrompt = `You are an expert requirements engineer. Based on the business brief and comprehensive analysis, generate detailed functional and non-functional requirements.
+    const workflowContext = getAIPromptContext();
+    const mappings = CURRENT_WORKFLOW.mappings;
+    const systemPrompt = `You are an expert business analyst and decomposition specialist. Based on the business initiative and comprehensive analysis, generate the appropriate work items according to the current workflow structure.
 
-Each requirement must be:
+${workflowContext}
+
+IMPORTANT: 
+- Business briefs map to: ${mappings.businessBrief}
+- Generate ${CURRENT_WORKFLOW.levels.find(l => l.id === mappings.requirements)?.pluralName || 'requirements'} for this initiative
+- Each item must be decomposable into the next level in the hierarchy
+
+Each work item must be:
 - CLEAR: Easy to understand
 - CONCISE: Brief but complete
 - CORRECT: Accurate and valid
 - COMPLETE: Fully specified
 - FEASIBLE: Technically possible
-- TESTABLE: Verifiable
+- TESTABLE: At the story level
 - UNAMBIGUOUS: Single interpretation
-- ATOMIC: Single concern per requirement
+- ATOMIC: Single concern per item
 
-Generate requirements in these categories:
-1. Functional Requirements
-2. User Interface Requirements  
-3. Performance Requirements
-4. Security Requirements
-5. Integration Requirements
-6. Data Requirements
-7. Business Rules
-8. Compliance Requirements`;
+Generate work items following the hierarchy:
+${CURRENT_WORKFLOW.levels.map((level, index) => 
+  `${index + 1}. ${level.name} (${level.description})`
+).join('\n')}
 
-    const userPrompt = `Business Brief:
+Focus on generating ${CURRENT_WORKFLOW.levels.find(l => l.id === mappings.requirements)?.pluralName || 'features'} that can be broken down into subsequent levels.`;
+
+    const targetLevel = CURRENT_WORKFLOW.levels.find(l => l.id === mappings.requirements);
+    
+    const userPrompt = `Business Initiative:
 ${JSON.stringify(businessBrief, null, 2)}
 
 Analysis & Insights:
 ${analysis}
 
-Generate comprehensive requirements as JSON:
+Generate ${targetLevel?.pluralName || 'features'} as JSON:
 {
   "requirements": [
     {
-      "id": "REQ-001",
-      "text": "requirement description",
-      "category": "functional|security|performance|integration|data|business|compliance",
+      "id": "${targetLevel?.name.toUpperCase().substring(0, 3) || 'FEA'}-001",
+      "text": "${targetLevel?.name || 'feature'} description",
+      "category": "functional|business|user-experience|integration|performance|security",
       "priority": "high|medium|low",
-      "rationale": "why this requirement is needed",
-      "acceptanceCriteria": ["criteria 1", "criteria 2"]
+      "rationale": "why this ${targetLevel?.name || 'feature'} is needed",
+      "acceptanceCriteria": ["criteria 1", "criteria 2"],
+      "workflowLevel": "${mappings.requirements}",
+      "businessValue": "value this ${targetLevel?.name || 'feature'} provides"
     }
   ]
 }
 
-IMPORTANT: Priority must be exactly one of: "high", "medium", "low" (lowercase only)`;
+IMPORTANT: 
+- Priority must be exactly one of: "high", "medium", "low" (lowercase only)
+- Each ${targetLevel?.name || 'feature'} should be substantial enough to be broken down into ${CURRENT_WORKFLOW.levels.find(l => l.parentLevel === mappings.requirements)?.pluralName || 'epics'}
+- Focus on high-level capabilities rather than detailed requirements`;
 
     const result = await this.callLLM(systemPrompt, userPrompt);
     

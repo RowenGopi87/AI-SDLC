@@ -5,6 +5,7 @@ import { useTestCaseStore } from '@/store/test-case-store';
 import { useWorkItemStore } from '@/store/work-item-store';
 import { useRequirementStore } from '@/store/requirement-store';
 import { useUseCaseStore } from '@/store/use-case-store';
+import { CURRENT_WORKFLOW, getWorkflowLevel } from '@/lib/workflow-config';
 import { setSelectedItem } from '@/components/layout/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,38 @@ export default function TestCasesPage() {
   const { workItems, getWorkItemById } = useWorkItemStore();
   const { getRequirementById } = useRequirementStore();
   const { getUseCaseById } = useUseCaseStore();
+  
+  // Helper function to get business brief info from a work item
+  const getBusinessBriefInfo = (workItem: any) => {
+    if (workItem?.businessBriefId) {
+      // Direct business brief reference
+      const useCase = getUseCaseById(workItem.businessBriefId);
+      if (useCase) {
+        return {
+          id: useCase.businessBriefId,
+          title: useCase.title,
+          level: CURRENT_WORKFLOW.mappings.businessBrief
+        };
+      }
+    }
+    
+    // Legacy path: traverse through requirement to use case
+    if (workItem?.requirementId) {
+      const requirement = getRequirementById(workItem.requirementId);
+      if (requirement) {
+        const useCase = getUseCaseById(requirement.useCaseId);
+        if (useCase) {
+          return {
+            id: useCase.businessBriefId,
+            title: useCase.title,
+            level: CURRENT_WORKFLOW.mappings.businessBrief
+          };
+        }
+      }
+    }
+    
+    return null;
+  };
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTestCase, setEditingTestCase] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');

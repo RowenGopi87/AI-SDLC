@@ -4,7 +4,7 @@ import { WorkItem, mockWorkItems } from '@/lib/mock-data';
 interface WorkItemStore {
   workItems: WorkItem[];
   selectedWorkItem: WorkItem | null;
-  addWorkItem: (workItem: Omit<WorkItem, 'id'>) => void;
+  addWorkItem: (workItem: Omit<WorkItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateWorkItem: (id: string, updates: Partial<WorkItem>) => void;
   deleteWorkItem: (id: string) => void;
   selectWorkItem: (id: string) => void;
@@ -24,6 +24,8 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     const newWorkItem: WorkItem = {
       ...workItem,
       id: `wi-${Date.now().toString(36)}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     set((state) => ({
       workItems: [...state.workItems, newWorkItem],

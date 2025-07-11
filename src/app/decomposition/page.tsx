@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useWorkItemStore } from '@/store/work-item-store';
 import { useRequirementStore } from '@/store/requirement-store';
 import { useUseCaseStore } from '@/store/use-case-store';
+import { CURRENT_WORKFLOW, getWorkflowLevel, getWorkflowHierarchy } from '@/lib/workflow-config';
 import { setSelectedItem } from '@/components/layout/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,10 @@ export default function DecompositionPage() {
   const { workItems, addWorkItem, updateWorkItem, deleteWorkItem, getWorkItemHierarchy } = useWorkItemStore();
   const { requirements, getRequirementById } = useRequirementStore();
   const { getUseCaseById } = useUseCaseStore();
+  
+  // Get workflow configuration
+  const workflowHierarchy = getWorkflowHierarchy();
+  const mappings = CURRENT_WORKFLOW.mappings;
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [selectedItem, setSelectedItemLocal] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -59,25 +64,33 @@ export default function DecompositionPage() {
   const [formData, setFormData] = useState<{
     title: string;
     description: string;
+    workflowLevel: string;
     type: 'initiative' | 'feature' | 'epic' | 'story';
     parentId: string;
+    businessBriefId: string;
     requirementId: string;
     acceptanceCriteria: string;
     storyPoints: string;
     priority: 'low' | 'medium' | 'high' | 'critical';
     status: 'backlog' | 'in_progress' | 'done';
     assignee: string;
+    businessValue: string;
+    userStory: string;
   }>({
     title: '',
     description: '',
+    workflowLevel: workflowHierarchy[workflowHierarchy.length - 1]?.id || 'story', // Default to lowest level
     type: 'story',
     parentId: '',
+    businessBriefId: '',
     requirementId: '',
     acceptanceCriteria: '',
     storyPoints: '',
     priority: 'medium',
     status: 'backlog',
     assignee: '',
+    businessValue: '',
+    userStory: '',
   });
 
   const hierarchyData = getWorkItemHierarchy() as WorkItemWithChildren[];
@@ -399,7 +412,14 @@ export default function DecompositionPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Work Item Decomposition</h1>
-          <p className="text-gray-600 mt-1">Break down requirements into hierarchical work items</p>
+          <p className="text-gray-600 mt-1">
+            Break down {mappings.businessBrief}s into {workflowHierarchy.map(l => l.pluralName).join(' → ')}
+          </p>
+          <div className="flex items-center space-x-2 mt-2">
+            <Badge variant="outline" className="text-xs">
+              Current Workflow: {CURRENT_WORKFLOW.name}
+            </Badge>
+          </div>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

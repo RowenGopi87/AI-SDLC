@@ -1,4 +1,6 @@
-// Types for the mock data
+import { CURRENT_WORKFLOW } from './workflow-config';
+
+// Types for the mock data - Updated for configurable workflows
 export interface UseCase {
   id: string;
   businessBriefId: string; // Human-readable business brief identifier
@@ -53,21 +55,29 @@ export interface Requirement {
   completionPercentage?: number;
 }
 
+// Generic work item that can represent any level in the workflow hierarchy
 export interface WorkItem {
   id: string;
-  type: "initiative" | "feature" | "epic" | "story";
+  workflowLevel: string; // References workflow-config level id
+  type: "initiative" | "feature" | "epic" | "story"; // Legacy for backward compatibility
   title: string;
   description: string;
-  parentId?: string;
-  requirementId: string;
+  parentId?: string; // Parent item in the hierarchy
+  businessBriefId?: string; // Links to the originating business brief
+  requirementId?: string; // Legacy field for backward compatibility
   acceptanceCriteria: string[];
   storyPoints?: number;
   priority: "low" | "medium" | "high" | "critical";
   status: "backlog" | "in_progress" | "done";
   assignee?: string;
+  // Business context
+  businessValue?: string;
+  userStory?: string; // For stories: "As a... I want... So that..."
   // Workflow tracking
   workflowStage?: "planning" | "development" | "testing" | "done";
   completionPercentage?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface TestCase {
@@ -294,99 +304,290 @@ export const mockRequirements: Requirement[] = [
 ];
 
 export const mockWorkItems: WorkItem[] = [
-  // Customer Portal Enhancement Work Items
+  // Initiative: Customer Portal Enhancement (maps to Business Brief BB-001)
   {
     id: "wi-001",
+    workflowLevel: "initiative", 
     type: "initiative",
     title: "Customer Portal Enhancement Initiative",
     description: "Transform customer experience through comprehensive self-service capabilities",
-    requirementId: "req-001",
+    businessBriefId: "BB-001",
     acceptanceCriteria: ["All portal features implemented", "Performance benchmarks met", "User acceptance testing passed"],
     priority: "high",
     status: "in_progress",
+    businessValue: "Reduce support costs by 40% and improve customer satisfaction by 25%",
     workflowStage: "development",
-    completionPercentage: 75
+    completionPercentage: 75,
+    createdAt: new Date("2024-01-15"),
+    updatedAt: new Date("2024-01-25")
   },
+  
+  // Features under Customer Portal Enhancement Initiative
   {
     id: "wi-002",
-    type: "feature",
+    workflowLevel: "feature",
+    type: "feature", 
     title: "Customer Authentication System",
     description: "Secure login and session management for customer portal",
     parentId: "wi-001",
-    requirementId: "req-001",
-    acceptanceCriteria: ["Secure login", "Session management", "Password reset"],
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Secure login", "Session management", "Password reset", "Multi-factor authentication"],
     priority: "high",
     status: "done",
     assignee: "Dev Team A",
+    businessValue: "Secure access for all customer portal features",
     workflowStage: "done",
-    completionPercentage: 100
+    completionPercentage: 100,
+    createdAt: new Date("2024-01-16"),
+    updatedAt: new Date("2024-01-20")
   },
   {
     id: "wi-003",
+    workflowLevel: "feature",
     type: "feature",
-    title: "Order Tracking System",
+    title: "Order Tracking System", 
     description: "Real-time order tracking and status updates",
     parentId: "wi-001",
-    requirementId: "req-002",
-    acceptanceCriteria: ["Real-time updates", "Status visualization", "Delivery estimates"],
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Real-time updates", "Status visualization", "Delivery estimates", "Notification system"],
     priority: "high",
     status: "in_progress",
     assignee: "Dev Team B",
+    businessValue: "Reduce customer service calls about order status",
     workflowStage: "development",
-    completionPercentage: 80
+    completionPercentage: 80,
+    createdAt: new Date("2024-01-17"),
+    updatedAt: new Date("2024-01-26")
   },
   {
     id: "wi-004",
+    workflowLevel: "feature",
     type: "feature",
     title: "Self-Service Billing Portal",
-    description: "Automated billing inquiries and invoice management",
+    description: "Automated billing inquiries and invoice management", 
     parentId: "wi-001",
-    requirementId: "req-003",
-    acceptanceCriteria: ["Billing history", "Invoice downloads", "Automated responses"],
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Billing history", "Invoice downloads", "Automated responses", "Payment history"],
     priority: "medium",
     status: "in_progress",
-    assignee: "Dev Team C",
+    assignee: "Dev Team C", 
+    businessValue: "Automate 60% of billing inquiries",
     workflowStage: "development",
-    completionPercentage: 60
+    completionPercentage: 60,
+    createdAt: new Date("2024-01-18"),
+    updatedAt: new Date("2024-01-27")
   },
+  
+  // Epics under Customer Authentication Feature
   {
     id: "wi-005",
+    workflowLevel: "epic",
     type: "epic",
-    title: "Mobile Responsive Design",
-    description: "Ensure all portal features work seamlessly on mobile devices",
-    parentId: "wi-001",
-    requirementId: "req-004",
-    acceptanceCriteria: ["Responsive layout", "Touch optimization", "Performance optimization"],
-    priority: "medium",
-    status: "in_progress",
-    assignee: "Frontend Team",
-    workflowStage: "testing",
-    completionPercentage: 90
+    title: "User Login Epic",
+    description: "Core user authentication functionality",
+    parentId: "wi-002",
+    businessBriefId: "BB-001", 
+    acceptanceCriteria: ["Email/password login", "Remember me", "Account lockout", "Password validation"],
+    priority: "high",
+    status: "done",
+    assignee: "Dev Team A",
+    businessValue: "Enable secure customer access",
+    workflowStage: "done",
+    completionPercentage: 100,
+    createdAt: new Date("2024-01-16"),
+    updatedAt: new Date("2024-01-19")
   },
-  // Mobile Payment Work Items
   {
     id: "wi-006",
-    type: "feature",
-    title: "Apple Pay Integration",
-    description: "Implement Apple Pay support for iOS checkout",
-    requirementId: "req-005",
-    acceptanceCriteria: ["Apple Pay API integration", "Tokenization", "Error handling"],
-    priority: "medium",
-    status: "backlog",
-    workflowStage: "planning",
-    completionPercentage: 20
+    workflowLevel: "epic", 
+    type: "epic",
+    title: "Password Management Epic",
+    description: "Password reset and security features",
+    parentId: "wi-002",
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Password reset", "Security questions", "Email verification", "Password strength"],
+    priority: "high",
+    status: "done",
+    assignee: "Dev Team A",
+    businessValue: "Reduce password-related support tickets",
+    workflowStage: "done", 
+    completionPercentage: 100,
+    createdAt: new Date("2024-01-16"),
+    updatedAt: new Date("2024-01-20")
   },
+  
+  // Epics under Order Tracking Feature
   {
     id: "wi-007",
-    type: "feature",
-    title: "Google Pay Integration",
-    description: "Implement Google Pay support for Android checkout",
-    requirementId: "req-006",
-    acceptanceCriteria: ["Google Pay API integration", "Security compliance", "Testing"],
+    workflowLevel: "epic",
+    type: "epic", 
+    title: "Real-time Tracking Epic",
+    description: "Live order status and tracking updates",
+    parentId: "wi-003",
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Live status updates", "Tracking integration", "Status timeline", "Delivery estimates"],
+    priority: "high",
+    status: "in_progress",
+    assignee: "Dev Team B",
+    businessValue: "Provide transparent order visibility",
+    workflowStage: "development",
+    completionPercentage: 75,
+    createdAt: new Date("2024-01-17"),
+    updatedAt: new Date("2024-01-26")
+  },
+  {
+    id: "wi-008", 
+    workflowLevel: "epic",
+    type: "epic",
+    title: "Order Notifications Epic",
+    description: "Automated notifications for order updates",
+    parentId: "wi-003",
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Email notifications", "SMS alerts", "Push notifications", "Notification preferences"],
     priority: "medium",
     status: "backlog",
+    assignee: "Dev Team B",
+    businessValue: "Proactive customer communication",
     workflowStage: "planning",
-    completionPercentage: 20
+    completionPercentage: 20,
+    createdAt: new Date("2024-01-17"),
+    updatedAt: new Date("2024-01-17")
+  },
+  
+  // Stories under User Login Epic  
+  {
+    id: "wi-009",
+    workflowLevel: "story",
+    type: "story",
+    title: "User Email/Password Login",
+    description: "Basic login functionality with email and password",
+    parentId: "wi-005",
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Login form validation", "Authentication API", "Session creation", "Error handling"],
+    priority: "high",
+    status: "done",
+    assignee: "Frontend Dev",
+    userStory: "As a customer, I want to log in with my email and password so that I can access my account securely",
+    storyPoints: 5,
+    workflowStage: "done",
+    completionPercentage: 100,
+    createdAt: new Date("2024-01-16"),
+    updatedAt: new Date("2024-01-18")
+  },
+  {
+    id: "wi-010",
+    workflowLevel: "story", 
+    type: "story",
+    title: "Remember Me Functionality",
+    description: "Allow users to stay logged in across sessions",
+    parentId: "wi-005",
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Persistent session", "Secure token", "Logout option", "Session expiry"],
+    priority: "medium",
+    status: "done",
+    assignee: "Backend Dev",
+    userStory: "As a customer, I want to stay logged in so that I don't have to enter my credentials every time",
+    storyPoints: 3,
+    workflowStage: "done",
+    completionPercentage: 100,
+    createdAt: new Date("2024-01-16"),
+    updatedAt: new Date("2024-01-19")
+  },
+  
+  // Stories under Real-time Tracking Epic
+  {
+    id: "wi-011",
+    workflowLevel: "story",
+    type: "story", 
+    title: "Order Status Display",
+    description: "Show current order status with visual indicators",
+    parentId: "wi-007",
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Status icons", "Progress bar", "Status description", "Last updated time"],
+    priority: "high",
+    status: "in_progress",
+    assignee: "Frontend Dev",
+    userStory: "As a customer, I want to see my order status clearly so that I know where my order stands",
+    storyPoints: 8,
+    workflowStage: "development",
+    completionPercentage: 70,
+    createdAt: new Date("2024-01-17"),
+    updatedAt: new Date("2024-01-26")
+  },
+  {
+    id: "wi-012",
+    workflowLevel: "story",
+    type: "story",
+    title: "Delivery Timeline", 
+    description: "Show estimated delivery dates and milestones",
+    parentId: "wi-007",
+    businessBriefId: "BB-001",
+    acceptanceCriteria: ["Delivery estimate", "Timeline visualization", "Milestone tracking", "Date updates"],
+    priority: "medium",
+    status: "backlog",
+    assignee: "Frontend Dev",
+    userStory: "As a customer, I want to see when my order will arrive so that I can plan accordingly",
+    storyPoints: 5,
+    workflowStage: "planning", 
+    completionPercentage: 10,
+    createdAt: new Date("2024-01-17"),
+    updatedAt: new Date("2024-01-17")
+  },
+  
+  // Initiative: Mobile Payment Integration (maps to Business Brief BB-002) 
+  {
+    id: "wi-013",
+    workflowLevel: "initiative",
+    type: "initiative",
+    title: "Mobile Payment Integration Initiative", 
+    description: "Integrate modern mobile payment solutions for improved checkout experience",
+    businessBriefId: "BB-002",
+    acceptanceCriteria: ["Apple Pay integration", "Google Pay integration", "Security compliance", "User testing complete"],
+    priority: "medium",
+    status: "backlog",
+    businessValue: "Increase mobile conversion rate by 30% and reduce cart abandonment by 20%",
+    workflowStage: "planning",
+    completionPercentage: 25,
+    createdAt: new Date("2024-01-20"),
+    updatedAt: new Date("2024-01-25")
+  },
+  
+  // Features under Mobile Payment Integration Initiative
+  {
+    id: "wi-014",
+    workflowLevel: "feature",
+    type: "feature",
+    title: "Apple Pay Integration",
+    description: "Enable Apple Pay for iOS users in checkout flow",
+    parentId: "wi-013",
+    businessBriefId: "BB-002",
+    acceptanceCriteria: ["Apple Pay API", "iOS app integration", "Web integration", "Testing"],
+    priority: "high",
+    status: "backlog",
+    assignee: "Mobile Team",
+    businessValue: "Streamlined checkout for iOS users",
+    workflowStage: "planning",
+    completionPercentage: 15,
+    createdAt: new Date("2024-01-20"),
+    updatedAt: new Date("2024-01-22")
+  },
+  {
+    id: "wi-015",
+    workflowLevel: "feature", 
+    type: "feature",
+    title: "Google Pay Integration",
+    description: "Enable Google Pay for Android users in checkout flow",
+    parentId: "wi-013",
+    businessBriefId: "BB-002", 
+    acceptanceCriteria: ["Google Pay API", "Android app integration", "Web integration", "Testing"],
+    priority: "high",
+    status: "backlog",
+    assignee: "Mobile Team",
+    businessValue: "Streamlined checkout for Android users",
+    workflowStage: "planning",
+    completionPercentage: 15,
+    createdAt: new Date("2024-01-20"),
+    updatedAt: new Date("2024-01-22")
   }
 ];
 
