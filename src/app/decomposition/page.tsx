@@ -26,7 +26,8 @@ import {
   CheckCircle,
   Clock,
   Search,
-  Filter
+  Filter,
+  ChevronUp
 } from 'lucide-react';
 
 interface WorkItemWithChildren {
@@ -51,6 +52,8 @@ export default function DecompositionPage() {
   const [selectedItem, setSelectedItemLocal] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkItemWithChildren | null>(null);
+  const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
+  const [breakdownCardsVisible, setBreakdownCardsVisible] = useState(true);
   const [formData, setFormData] = useState<{
     title: string;
     description: string;
@@ -569,60 +572,6 @@ export default function DecompositionPage() {
         </Dialog>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Work Items</p>
-                <p className="text-2xl font-bold text-gray-900">{totalWorkItems}</p>
-              </div>
-              <GitBranch className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completed</p>
-                <p className="text-2xl font-bold text-green-600">{completedWorkItems}</p>
-                <p className="text-xs text-gray-500">{totalWorkItems > 0 ? Math.round((completedWorkItems / totalWorkItems) * 100) : 0}% of total</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">In Progress</p>
-                <p className="text-2xl font-bold text-blue-600">{inProgressWorkItems}</p>
-                <p className="text-xs text-gray-500">{totalWorkItems > 0 ? Math.round((inProgressWorkItems / totalWorkItems) * 100) : 0}% of total</p>
-              </div>
-              <Clock className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Story Points</p>
-                <p className="text-2xl font-bold text-purple-600">{completedStoryPoints}/{totalStoryPoints}</p>
-                <p className="text-xs text-gray-500">{totalStoryPoints > 0 ? Math.round((completedStoryPoints / totalStoryPoints) * 100) : 0}% completed</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Filters */}
       <div className="flex items-center space-x-4">
         <div className="relative flex-1 max-w-md">
@@ -661,56 +610,162 @@ export default function DecompositionPage() {
         </Select>
       </div>
 
-      {/* Work Item Type Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Initiatives</p>
-                <p className="text-2xl font-bold text-purple-600">{initiativeCount}</p>
-              </div>
-              <Target className="h-6 w-6 text-purple-600" />
+      {/* Summary Cards - Collapsible */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Work Item Summary</CardTitle>
+              <CardDescription>Overall work item metrics and progress</CardDescription>
             </div>
-          </CardContent>
-        </Card>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSummaryCardsVisible(!summaryCardsVisible)}
+              className="h-8 w-8 p-0"
+            >
+              {summaryCardsVisible ? (
+                <ChevronUp size={16} />
+              ) : (
+                <ChevronDown size={16} />
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        {summaryCardsVisible && (
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Total Work Items</p>
+                      <p className="text-2xl font-bold text-gray-900">{totalWorkItems}</p>
+                    </div>
+                    <GitBranch className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Features</p>
-                <p className="text-2xl font-bold text-blue-600">{featureCount}</p>
-              </div>
-              <Layers className="h-6 w-6 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Completed</p>
+                      <p className="text-2xl font-bold text-green-600">{completedWorkItems}</p>
+                      <p className="text-xs text-gray-500">{totalWorkItems > 0 ? Math.round((completedWorkItems / totalWorkItems) * 100) : 0}% of total</p>
+                    </div>
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Epics</p>
-                <p className="text-2xl font-bold text-green-600">{epicCount}</p>
-              </div>
-              <BookOpen className="h-6 w-6 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">In Progress</p>
+                      <p className="text-2xl font-bold text-blue-600">{inProgressWorkItems}</p>
+                      <p className="text-xs text-gray-500">{totalWorkItems > 0 ? Math.round((inProgressWorkItems / totalWorkItems) * 100) : 0}% of total</p>
+                    </div>
+                    <Clock className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Stories</p>
-                <p className="text-2xl font-bold text-orange-600">{storyCount}</p>
-              </div>
-              <FileText className="h-6 w-6 text-orange-600" />
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Story Points</p>
+                      <p className="text-2xl font-bold text-purple-600">{completedStoryPoints}/{totalStoryPoints}</p>
+                      <p className="text-xs text-gray-500">{totalStoryPoints > 0 ? Math.round((completedStoryPoints / totalStoryPoints) * 100) : 0}% completed</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </CardContent>
-        </Card>
-      </div>
+        )}
+      </Card>
+
+      {/* Work Item Type Breakdown - Collapsible */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Work Item Type Breakdown</CardTitle>
+              <CardDescription>Distribution by initiative, feature, epic, and story</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setBreakdownCardsVisible(!breakdownCardsVisible)}
+              className="h-8 w-8 p-0"
+            >
+              {breakdownCardsVisible ? (
+                <ChevronUp size={16} />
+              ) : (
+                <ChevronDown size={16} />
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        {breakdownCardsVisible && (
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Initiatives</p>
+                      <p className="text-2xl font-bold text-purple-600">{initiativeCount}</p>
+                    </div>
+                    <Target className="h-6 w-6 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Features</p>
+                      <p className="text-2xl font-bold text-blue-600">{featureCount}</p>
+                    </div>
+                    <Layers className="h-6 w-6 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Epics</p>
+                      <p className="text-2xl font-bold text-green-600">{epicCount}</p>
+                    </div>
+                    <BookOpen className="h-6 w-6 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Stories</p>
+                      <p className="text-2xl font-bold text-orange-600">{storyCount}</p>
+                    </div>
+                    <FileText className="h-6 w-6 text-orange-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* Work Item Hierarchy */}
       <Card>
