@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useRequirementStore } from '@/store/requirement-store';
 import { useUseCaseStore } from '@/store/use-case-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,11 +33,32 @@ import {
 export default function RequirementsPage() {
   const { requirements, updateRequirement, selectRequirement, selectedRequirement } = useRequirementStore();
   const { useCases, getUseCaseById } = useUseCaseStore();
+  const searchParams = useSearchParams();
+  
+  // Debug: Log requirements when component loads
+  console.log('Requirements page loaded with', requirements.length, 'requirements');
+  console.log('Requirements:', requirements.map(r => ({ id: r.id, status: r.status, reviewedBy: r.reviewedBy })));
+  
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  // Set filter from URL params
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam) {
+      setFilterStatus(filterParam);
+    }
+  }, [searchParams]);
+
+  // Filter requirements based on status
+  const filteredRequirements = requirements.filter(req => {
+    if (filterStatus === 'all') return true;
+    if (filterStatus === 'generated') return req.reviewedBy === 'AI System';
+    return req.status === filterStatus;
+  });
 
   const selectedReq = selectedReqId ? requirements.find(r => r.id === selectedReqId) : null;
   const selectedUseCase = selectedReq ? getUseCaseById(selectedReq.useCaseId) : null;
@@ -123,7 +145,8 @@ export default function RequirementsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="generated">🤖 AI Generated</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="enhanced">Enhanced</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
@@ -189,12 +212,12 @@ export default function RequirementsPage() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <FileText size={18} />
-                <span>Requirements ({requirements.length})</span>
+                <span>Requirements ({filteredRequirements.length}{filterStatus !== 'all' ? ` of ${requirements.length}` : ''})</span>
               </CardTitle>
               <CardDescription>Select a requirement to review and enhance</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {requirements.map((req) => {
+              {filteredRequirements.map((req) => {
                 const useCase = getUseCaseById(req.useCaseId);
                 const isSelected = selectedReqId === req.id;
                 
@@ -227,7 +250,11 @@ export default function RequirementsPage() {
                       {req.reviewedBy && (
                         <div className="flex items-center text-xs text-gray-500 mt-2">
                           <User size={12} className="mr-1" />
-                          {req.reviewedBy}
+                          {req.reviewedBy === 'AI System' ? (
+                            <span className="text-blue-600 font-medium">🤖 AI Generated</span>
+                          ) : (
+                            req.reviewedBy
+                          )}
                           <Calendar size={12} className="ml-2 mr-1" />
                           {req.reviewedAt?.toLocaleDateString()}
                         </div>

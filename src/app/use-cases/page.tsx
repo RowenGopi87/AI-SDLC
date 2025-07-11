@@ -249,7 +249,10 @@ export default function UseCasesPage() {
       alert(`Successfully generated ${requirements.length} requirements in ${metadata.iterationCount} iterations using ${metadata.llmProvider} ${metadata.llmModel}. Processing time: ${Math.round(metadata.processingTime / 1000)}s`);
       
       // Redirect to requirements page to view the generated requirements
-      window.location.href = `/requirements?businessBrief=${useCaseId}`;
+      // Use setTimeout to ensure store is updated before redirect
+      setTimeout(() => {
+        window.location.href = `/requirements?filter=generated&businessBrief=${useCaseId}`;
+      }, 100);
 
     } catch (error) {
       console.error('Error generating requirements:', error);

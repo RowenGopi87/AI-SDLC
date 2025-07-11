@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { Requirement, mockRequirements } from '@/lib/mock-data';
 import { GeneratedRequirement } from '@/lib/services/llm-service';
 
@@ -17,9 +18,11 @@ interface RequirementStore {
   getGeneratedRequirementsByUseCaseId: (useCaseId: string) => Requirement[];
 }
 
-export const useRequirementStore = create<RequirementStore>((set, get) => ({
-  requirements: mockRequirements,
-  selectedRequirement: null,
+export const useRequirementStore = create<RequirementStore>()(
+  persist(
+    (set, get) => ({
+      requirements: mockRequirements,
+      selectedRequirement: null,
 
   addRequirement: (requirement) => {
     const newRequirement: Requirement = {
@@ -32,24 +35,34 @@ export const useRequirementStore = create<RequirementStore>((set, get) => ({
   },
 
   addGeneratedRequirements: (useCaseId, generatedRequirements) => {
-    const newRequirements: Requirement[] = generatedRequirements.map((genReq, index) => ({
-      id: genReq.id || `req-gen-${Date.now().toString(36)}-${index}`,
-      useCaseId,
-      originalText: genReq.text,
-      enhancedText: genReq.text, // Start with the same text since LLM already refined it
-      isUnambiguous: genReq.clearPrinciples.unambiguous,
-      isTestable: genReq.clearPrinciples.testable,
-      hasAcceptanceCriteria: genReq.acceptanceCriteria.length > 0,
-      status: 'enhanced' as const, // Generated requirements start as enhanced
-      reviewedBy: 'AI System',
-      reviewedAt: new Date(),
-      workflowStage: 'enhancement' as const,
-      completionPercentage: 80, // 80% since they're AI-generated but may need human review
-    }));
+    console.log('Adding generated requirements:', { useCaseId, count: generatedRequirements.length });
+    
+    const newRequirements: Requirement[] = generatedRequirements.map((genReq, index) => {
+      const newReq: Requirement = {
+        id: genReq.id || `req-gen-${Date.now().toString(36)}-${index}`,
+        useCaseId,
+        originalText: genReq.text,
+        enhancedText: genReq.text, // Start with the same text since LLM already refined it
+        isUnambiguous: genReq.clearPrinciples?.unambiguous || true,
+        isTestable: genReq.clearPrinciples?.testable || true,
+        hasAcceptanceCriteria: (genReq.acceptanceCriteria?.length || 0) > 0,
+        status: 'enhanced' as const, // Generated requirements start as enhanced
+        reviewedBy: 'AI System',
+        reviewedAt: new Date(),
+        workflowStage: 'enhancement' as const,
+        completionPercentage: 80, // 80% since they're AI-generated but may need human review
+      };
+      console.log('Created requirement:', newReq.id, newReq.originalText.substring(0, 50) + '...');
+      return newReq;
+    });
 
-    set((state) => ({
-      requirements: [...state.requirements, ...newRequirements],
-    }));
+    set((state) => {
+      const updatedRequirements = [...state.requirements, ...newRequirements];
+      console.log('Updated requirements count:', updatedRequirements.length);
+      return {
+        requirements: updatedRequirements,
+      };
+    });
   },
 
   updateRequirement: (id, updates) => {
@@ -93,4 +106,13 @@ export const useRequirementStore = create<RequirementStore>((set, get) => ({
       requirement.useCaseId === useCaseId && requirement.reviewedBy === 'AI System'
     );
   },
-})); 
+    }),
+    {
+      name: 'aura-requirements',
+      // Persist all requirements data in localStorage
+      partialize: (state) => ({ 
+        requirements: state.requirements 
+      }),
+    }
+  )
+); 
