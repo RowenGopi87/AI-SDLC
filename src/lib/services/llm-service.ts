@@ -248,13 +248,15 @@ Generate comprehensive requirements as JSON:
     {
       "id": "REQ-001",
       "text": "requirement description",
-      "category": "functional|non-functional|security|etc",
+      "category": "functional|security|performance|integration|data|business|compliance",
       "priority": "high|medium|low",
       "rationale": "why this requirement is needed",
       "acceptanceCriteria": ["criteria 1", "criteria 2"]
     }
   ]
-}`;
+}
+
+IMPORTANT: Priority must be exactly one of: "high", "medium", "low" (lowercase only)`;
 
     const result = await this.callLLM(systemPrompt, userPrompt);
     

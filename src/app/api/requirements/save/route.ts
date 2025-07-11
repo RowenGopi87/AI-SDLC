@@ -9,7 +9,7 @@ const saveRequirementsSchema = z.object({
     id: z.string(),
     text: z.string(),
     category: z.string(),
-    priority: z.enum(['high', 'medium', 'low']),
+    priority: z.enum(['high', 'medium', 'low', 'critical']), // Added 'critical'
     rationale: z.string(),
     acceptanceCriteria: z.array(z.string()),
     clearPrinciples: z.object({
@@ -28,6 +28,13 @@ const saveRequirementsSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    
+    // Log the incoming data for debugging
+    console.log('Received save request:', {
+      businessBriefId: body.businessBriefId,
+      requirementCount: body.requirements?.length,
+      firstRequirement: body.requirements?.[0]
+    });
     
     // Validate request
     const validatedData = saveRequirementsSchema.parse(body);
@@ -53,11 +60,13 @@ export async function POST(request: NextRequest) {
     console.error('Error saving requirements:', error);
 
     if (error instanceof z.ZodError) {
+      console.error('Validation errors:', error.errors);
       return NextResponse.json(
         {
           success: false,
           error: 'Invalid request data',
           details: error.errors,
+          message: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
         },
         { status: 400 }
       );

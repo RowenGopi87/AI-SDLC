@@ -223,16 +223,27 @@ export default function UseCasesPage() {
       addGeneratedRequirements(useCaseId, requirements);
 
       // Save to backend (for persistence)
-      await fetch('/api/requirements/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          businessBriefId: useCaseId,
-          requirements: requirements,
-        }),
-      });
+      try {
+        const saveResponse = await fetch('/api/requirements/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            businessBriefId: useCaseId,
+            requirements: requirements,
+          }),
+        });
+
+        if (!saveResponse.ok) {
+          const saveError = await saveResponse.json();
+          console.warn('Save failed but continuing:', saveError);
+          // Don't throw error - generation was successful, just save failed
+        }
+      } catch (saveError) {
+        console.warn('Save error (non-critical):', saveError);
+        // Continue anyway - the important part (generation) worked
+      }
 
       // Show success message with details
       alert(`Successfully generated ${requirements.length} requirements in ${metadata.iterationCount} iterations using ${metadata.llmProvider} ${metadata.llmModel}. Processing time: ${Math.round(metadata.processingTime / 1000)}s`);
