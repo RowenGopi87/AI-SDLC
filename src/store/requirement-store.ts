@@ -74,9 +74,124 @@ const parseRequirementsFromJSON = (jsonContent: string): any[] => {
     console.log('JSON parse failed, trying to extract from text...');
     
     // If JSON parsing fails, try to extract structured data from text
-    const requirements = [];
+    const requirements: any[] = [];
     
-    // Try to extract numbered feature blocks (1. Feature:, 2. Feature:, etc.)
+    // NEW: Try to extract numbered features in text format (handle both single-line and multi-line)
+    // First try simple feature splitting by number pattern
+    const simpleFeatureSplit = jsonContent.split(/(?=\d+\.\s*Feature:)/).filter(f => f.trim());
+    
+    if (simpleFeatureSplit.length > 1) {
+      console.log('Found', simpleFeatureSplit.length, 'features using simple split');
+      
+      simpleFeatureSplit.forEach((featureText, index) => {
+        const featureMatch = featureText.match(/(\d+)\.\s*Feature:\s*(.+)/);
+        if (featureMatch) {
+          const featureNum = featureMatch[1];
+          const fullText = featureMatch[2];
+          
+          // Extract properties using more flexible regex
+          const getName = (text: string) => {
+            const nameMatch = text.match(/^([^-]+)/);
+            return nameMatch ? nameMatch[1].trim() : `Feature ${featureNum}`;
+          };
+          
+          const getProperty = (text: string, property: string) => {
+            const regex = new RegExp(`-\\s*${property}:\\s*([^-]+?)(?=\\s*-\\s*\\w+:|$)`, 'i');
+            const match = text.match(regex);
+            return match ? match[1].trim() : null;
+          };
+          
+          const featureName = getName(fullText);
+          const description = getProperty(fullText, 'Description') || featureName;
+          const category = getProperty(fullText, 'Category') || 'functional';
+          const priority = getProperty(fullText, 'Priority') || 'medium';
+          const rationale = getProperty(fullText, 'Rationale') || 'Generated from business brief';
+          const acceptanceCriteriaText = getProperty(fullText, 'Acceptance Criteria');
+          const workflowLevel = getProperty(fullText, 'Workflow Level') || 'feature';
+          const businessValue = getProperty(fullText, 'Business Value') || 'Provides business value';
+          
+          // Parse acceptance criteria
+          let parsedCriteria = ['To be defined'];
+          if (acceptanceCriteriaText) {
+            try {
+              parsedCriteria = JSON.parse(acceptanceCriteriaText);
+            } catch (e) {
+              // If JSON parsing fails, split by commas and clean up
+              parsedCriteria = acceptanceCriteriaText
+                .replace(/[\[\]"]/g, '')
+                .split(',')
+                .map(c => c.trim())
+                .filter(c => c);
+            }
+          }
+          
+          requirements.push({
+            id: `FEA-${featureNum.padStart(3, '0')}`,
+            text: description,
+            title: featureName,
+            description: description,
+            category: category.toLowerCase(),
+            priority: priority.toLowerCase(),
+            rationale: rationale,
+            acceptanceCriteria: parsedCriteria,
+            workflowLevel: workflowLevel.toLowerCase(),
+            businessValue: businessValue
+          });
+        }
+      });
+      
+      if (requirements.length > 0) {
+        console.log('Successfully extracted features using simple split:', requirements.length);
+        return requirements;
+      }
+    }
+    
+    // Fallback: More complex regex for edge cases
+    const textFeatureRegex = /(\d+)\.\s*Feature:\s*([^-]+)(?:\s*-\s*Description:\s*([^-]+?))?(?:\s*-\s*Category:\s*([^-]+?))?(?:\s*-\s*Priority:\s*([^-]+?))?(?:\s*-\s*Rationale:\s*([^-]+?))?(?:\s*-\s*Acceptance Criteria:\s*(\[[^\]]*\]))?(?:\s*-\s*Workflow Level:\s*([^-]+?))?(?:\s*-\s*Business Value:\s*([^-]*?))?(?=\s*\d+\.\s*Feature:|\s*$)/gi;
+    let textMatch;
+    
+    while ((textMatch = textFeatureRegex.exec(jsonContent)) !== null) {
+      const featureNum = textMatch[1];
+      const featureName = textMatch[2]?.trim();
+      const description = textMatch[3]?.trim();
+      const category = textMatch[4]?.trim() || 'functional';
+      const priority = textMatch[5]?.trim() || 'medium';
+      const rationale = textMatch[6]?.trim() || 'Generated from business brief';
+      const acceptanceCriteria = textMatch[7]?.trim();
+      const workflowLevel = textMatch[8]?.trim() || 'feature';
+      const businessValue = textMatch[9]?.trim() || 'Provides business value';
+      
+      // Parse acceptance criteria if available
+      let parsedCriteria = ['To be defined'];
+      if (acceptanceCriteria) {
+        try {
+          parsedCriteria = JSON.parse(acceptanceCriteria);
+        } catch (e) {
+          // If JSON parsing fails, split by commas
+          parsedCriteria = acceptanceCriteria.replace(/[\[\]"]/g, '').split(',').map(c => c.trim()).filter(c => c);
+        }
+      }
+      
+      requirements.push({
+        id: `FEA-${featureNum.padStart(3, '0')}`,
+        text: description || featureName,
+        title: featureName,
+        description: description,
+        category: category.toLowerCase(),
+        priority: priority.toLowerCase(),
+        rationale: rationale,
+        acceptanceCriteria: parsedCriteria,
+        workflowLevel: workflowLevel.toLowerCase(),
+        businessValue: businessValue
+      });
+    }
+    
+    if (requirements.length > 0) {
+      console.log('Extracted numbered text features:', requirements.length);
+      return requirements;
+    }
+    
+    // Try to extract numbered feature blocks in JSON format (1. Feature: {content})
     const numberedFeatureRegex = /(\d+)\.\s*Feature:\s*\{([^}]+)\}/gi;
     let match;
     
@@ -91,7 +206,7 @@ const parseRequirementsFromJSON = (jsonContent: string): any[] => {
     }
     
     if (requirements.length > 0) {
-      console.log('Extracted numbered features from text:', requirements.length);
+      console.log('Extracted numbered JSON features:', requirements.length);
       return requirements;
     }
     
