@@ -24,7 +24,9 @@ import {
   BookOpen,
   TrendingUp,
   CheckCircle,
-  Clock
+  Clock,
+  Search,
+  Filter
 } from 'lucide-react';
 
 interface WorkItemWithChildren {
@@ -619,6 +621,44 @@ export default function DecompositionPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center space-x-4">
+        <div className="relative flex-1 max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Search work items..."
+            className="pl-10"
+          />
+        </div>
+        
+        <Select>
+          <SelectTrigger className="w-48">
+            <Filter size={16} className="mr-2" />
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="initiative">Initiatives</SelectItem>
+            <SelectItem value="feature">Features</SelectItem>
+            <SelectItem value="epic">Epics</SelectItem>
+            <SelectItem value="story">Stories</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select>
+          <SelectTrigger className="w-48">
+            <Filter size={16} className="mr-2" />
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="backlog">Backlog</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="done">Done</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Work Item Type Breakdown */}

@@ -541,45 +541,6 @@ export default function TestCasesPage() {
         </Card>
       </div>
 
-      {/* Test Case Type Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Positive Tests</p>
-                <p className="text-2xl font-bold text-green-600">{testCases.filter(tc => tc.type === 'positive').length}</p>
-              </div>
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Negative Tests</p>
-                <p className="text-2xl font-bold text-red-600">{testCases.filter(tc => tc.type === 'negative').length}</p>
-              </div>
-              <XCircle className="h-6 w-6 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Edge Cases</p>
-                <p className="text-2xl font-bold text-yellow-600">{testCases.filter(tc => tc.type === 'edge').length}</p>
-              </div>
-              <AlertTriangle className="h-6 w-6 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Filters */}
       <div className="flex items-center space-x-4">
         <div className="relative flex-1 max-w-md">
@@ -618,6 +579,45 @@ export default function TestCasesPage() {
             <SelectItem value="blocked">Blocked</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Test Case Type Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Positive Tests</p>
+                <p className="text-2xl font-bold text-green-600">{testCases.filter(tc => tc.type === 'positive').length}</p>
+              </div>
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Negative Tests</p>
+                <p className="text-2xl font-bold text-red-600">{testCases.filter(tc => tc.type === 'negative').length}</p>
+              </div>
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Edge Cases</p>
+                <p className="text-2xl font-bold text-yellow-600">{testCases.filter(tc => tc.type === 'edge').length}</p>
+              </div>
+              <AlertTriangle className="h-6 w-6 text-yellow-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Test Cases Tabs */}

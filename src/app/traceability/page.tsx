@@ -237,6 +237,62 @@ export default function TraceabilityPage() {
         </Button>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Use Cases', value: useCases.length, color: 'bg-blue-100 text-blue-800', icon: FileText },
+          { label: 'Requirements', value: requirements.length, color: 'bg-purple-100 text-purple-800', icon: Settings },
+          { label: 'Work Items', value: workItems.length, color: 'bg-green-100 text-green-800', icon: GitBranch },
+          { label: 'Test Cases', value: testCases.length, color: 'bg-teal-100 text-teal-800', icon: TestTube },
+        ].map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <Card key={index}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
+                  <IconComponent className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center space-x-4">
+        <div className="relative flex-1 max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Search items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-48">
+            <Filter size={16} className="mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="use-case">Use Cases</SelectItem>
+            <SelectItem value="requirement">Requirements</SelectItem>
+            <SelectItem value="initiative">Initiatives</SelectItem>
+            <SelectItem value="feature">Features</SelectItem>
+            <SelectItem value="epic">Epics</SelectItem>
+            <SelectItem value="story">Stories</SelectItem>
+            <SelectItem value="test-case">Test Cases</SelectItem>
+            <SelectItem value="defect">Defects</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Breadcrumbs */}
       <Card>
         <CardContent className="p-4">
@@ -270,37 +326,6 @@ export default function TraceabilityPage() {
           </Breadcrumb>
         </CardContent>
       </Card>
-
-      {/* Filters */}
-      <div className="flex items-center space-x-4">
-        <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Search items..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-48">
-            <Filter size={16} className="mr-2" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="use-case">Use Cases</SelectItem>
-            <SelectItem value="requirement">Requirements</SelectItem>
-            <SelectItem value="initiative">Initiatives</SelectItem>
-            <SelectItem value="feature">Features</SelectItem>
-            <SelectItem value="epic">Epics</SelectItem>
-            <SelectItem value="story">Stories</SelectItem>
-            <SelectItem value="test-case">Test Cases</SelectItem>
-            <SelectItem value="defect">Defects</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -507,35 +532,7 @@ export default function TraceabilityPage() {
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Traceability Summary</CardTitle>
-          <CardDescription>Overview of traceability coverage across all items</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Use Cases', value: useCases.length, color: 'bg-blue-100 text-blue-800' },
-              { label: 'Requirements', value: requirements.length, color: 'bg-purple-100 text-purple-800' },
-              { label: 'Work Items', value: workItems.length, color: 'bg-green-100 text-green-800' },
-              { label: 'Test Cases', value: testCases.length, color: 'bg-teal-100 text-teal-800' },
-            ].map((stat, index) => (
-              <Card key={index}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                      <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                    </div>
-                    <Badge className={stat.color}>{stat.value}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 } 
