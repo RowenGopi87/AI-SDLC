@@ -405,11 +405,11 @@ Format as JSON:
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {[
-                { label: `Total ${requirementLevel?.pluralName || 'Requirements'}`, value: requirements.length, color: 'bg-blue-100 text-blue-800', icon: FileText },
+                { label: `Total ${requirementLevel?.pluralName || 'Requirements'}`, value: requirements.length, color: 'bg-green-100 text-green-800', icon: FileText },
                 { label: 'Approved', value: requirements.filter(r => r.status === 'approved').length, color: 'bg-green-100 text-green-800', icon: CheckCircle },
                 { label: 'Enhanced', value: requirements.filter(r => r.status === 'enhanced').length, color: 'bg-blue-100 text-blue-800', icon: Sparkles },
                 { label: 'Rejected', value: requirements.filter(r => r.status === 'rejected').length, color: 'bg-red-100 text-red-800', icon: XCircle },
-                { label: `${businessBriefLevel?.pluralName || 'Business Briefs'}`, value: Object.keys(requirementsByBusinessBrief).length, color: 'bg-purple-100 text-purple-800', icon: Target },
+                { label: `${businessBriefLevel?.pluralName || 'Business Briefs'}`, value: Object.keys(requirementsByBusinessBrief).length, color: 'bg-yellow-100 text-yellow-800', icon: Target },
               ].map((stat, index) => {
                 const IconComponent = stat.icon;
                 return (
@@ -420,7 +420,7 @@ Format as JSON:
                           <p className="text-sm font-medium text-gray-600">{stat.label}</p>
                           <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                         </div>
-                        <IconComponent className="h-8 w-8 text-blue-600" />
+                        <IconComponent className={`h-8 w-8 ${stat.label.includes('Business Brief') || stat.label.includes('Initiative') ? 'text-yellow-600' : stat.label.includes('Total') || stat.label.includes('Requirements') ? 'text-green-600' : 'text-blue-600'}`} />
                       </div>
                     </CardContent>
                   </Card>
@@ -434,11 +434,11 @@ Format as JSON:
       {/* Requirements grouped by Business Brief */}
       <div className="space-y-6">
         {filteredGroups.map((group) => (
-          <Card key={group.businessBriefId} className="border-l-4 border-l-purple-500">
+          <Card key={group.businessBriefId} className="border-l-4 border-l-yellow-500">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <Target className="h-6 w-6 text-purple-600" />
+                  <Target className="h-6 w-6 text-yellow-600" />
                   <div>
                     <CardTitle className="flex items-center space-x-2">
                       <Badge variant="outline" className="font-mono text-sm">
@@ -460,7 +460,7 @@ Format as JSON:
             <CardContent>
               <div className="grid gap-4">
                 {group.requirements.map((req, index) => (
-                  <Card key={`${req.id}-${index}`} className="border border-gray-200 hover:border-gray-300 transition-colors">
+                  <Card key={`${req.id}-${index}`} className="border border-gray-200 hover:border-gray-300 transition-colors border-l-4 border-l-green-400">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center space-x-2">
