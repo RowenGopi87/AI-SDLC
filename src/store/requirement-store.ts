@@ -367,13 +367,17 @@ export const useRequirementStore = create<RequirementStore>()(
   },
 
   addGeneratedRequirementsFromJSON: (useCaseId, jsonContent) => {
-    console.log('Adding requirements from JSON blob for use case:', useCaseId);
+    console.log('🚀 Adding requirements from JSON blob for use case:', useCaseId);
+    console.log('📄 JSON content preview:', jsonContent.substring(0, 500) + '...');
     
     // Parse the JSON content to extract individual requirements
     const parsedRequirements = parseRequirementsFromJSON(jsonContent);
     
+    console.log('🔍 Parsed requirements count:', parsedRequirements.length);
+    console.log('🔍 First parsed requirement:', parsedRequirements[0]);
+    
     if (parsedRequirements.length === 0) {
-      console.log('No requirements found in JSON, creating fallback requirement');
+      console.log('❌ No requirements found in JSON, creating fallback requirement');
       // Create a single requirement with the raw content
       const fallbackReq: Requirement = {
         id: `req-fallback-${Date.now().toString(36)}`,
@@ -396,32 +400,76 @@ export const useRequirementStore = create<RequirementStore>()(
       return { success: false, requirementsCount: 1 };
     }
     
-    // Convert parsed requirements to the standard format
-    const newRequirements: Requirement[] = parsedRequirements.map((parsedReq, index) => {
-      const normalizedReq = normalizeRequirement(parsedReq, index);
+    // FIXED: Properly validate that each parsed requirement is a complete object
+    const validRequirements = parsedRequirements.filter(req => {
+      // Ensure it's a proper object with the expected structure
+      const isValidObject = typeof req === 'object' && req !== null;
+      const hasRequiredFields = req.id || req.text || req.title || req.description;
       
-      const newReq: Requirement = {
-        id: `req-gen-${Date.now().toString(36)}-${index}`,
-        useCaseId,
-        originalText: normalizedReq.text,
-        enhancedText: normalizedReq.text,
-        isUnambiguous: normalizedReq.clearPrinciples?.unambiguous || true,
-        isTestable: normalizedReq.clearPrinciples?.testable || true,
-        hasAcceptanceCriteria: Array.isArray(normalizedReq.acceptanceCriteria) && normalizedReq.acceptanceCriteria.length > 0,
-        status: 'enhanced' as const,
-        reviewedBy: 'AI System',
-        reviewedAt: new Date(),
-        workflowStage: 'enhancement' as const,
-        completionPercentage: 80,
-      };
+      console.log('🔍 Validating requirement:', { req, isValidObject, hasRequiredFields });
       
-      console.log(`Created requirement ${index + 1}/${parsedRequirements.length}:`, newReq.id, newReq.originalText.substring(0, 50) + '...');
+      return isValidObject && hasRequiredFields;
+    });
+    
+    console.log('✅ Valid requirements after filtering:', validRequirements.length);
+    
+    if (validRequirements.length === 0) {
+      console.log('❌ No valid requirements found after filtering');
+      return { success: false, requirementsCount: 0 };
+    }
+    
+    // Convert parsed requirements to the standard format - ONE requirement per feature object
+    const newRequirements: Requirement[] = validRequirements.map((featureObj, index) => {
+      console.log(`🏗️ Processing feature ${index + 1}:`, featureObj);
+      
+      // Use the actual feature ID from the JSON if available
+      const featureId = featureObj.id || `FEAT-${String(index + 1).padStart(3, '0')}`;
+      
+      // Build the feature title/text from available fields
+      const featureText = featureObj.text || featureObj.title || featureObj.description || `Feature ${featureId}`;
+      
+      // Get the feature description (usually in rationale or description field)
+      const featureDescription = featureObj.rationale || featureObj.description || featureObj.businessValue || featureText;
+      
+              // Format the feature details nicely
+        const featureCategory = featureObj.category ? `[${featureObj.category.toUpperCase()}]` : '[FUNCTIONAL]';
+        const featurePriority = featureObj.priority ? `Priority: ${featureObj.priority.toUpperCase()}` : 'Priority: MEDIUM';
+        
+        // Include acceptance criteria in the enhanced text if available
+        let enhancedDescription = featureDescription;
+        if (featureObj.acceptanceCriteria && Array.isArray(featureObj.acceptanceCriteria) && featureObj.acceptanceCriteria.length > 0) {
+          enhancedDescription += '\n\nAcceptance Criteria:\n' + featureObj.acceptanceCriteria.map((criteria: string, i: number) => `${i + 1}. ${criteria}`).join('\n');
+        }
+        
+        const newReq: Requirement = {
+          id: `req-gen-${Date.now().toString(36)}-${index}`,
+          useCaseId,
+          originalText: `${featureCategory} ${featureId}: ${featureText}`,
+          enhancedText: enhancedDescription,
+          isUnambiguous: true,
+          isTestable: true,
+          hasAcceptanceCriteria: Array.isArray(featureObj.acceptanceCriteria) && featureObj.acceptanceCriteria.length > 0,
+          status: 'enhanced' as const,
+          reviewedBy: `AI System - ${featurePriority}`,
+          reviewedAt: new Date(),
+          workflowStage: 'enhancement' as const,
+          completionPercentage: 80,
+        };
+        
+        console.log(`✅ Created complete requirement for ${featureId}:`, {
+          id: newReq.id,
+          originalText: newReq.originalText,
+          enhancedText: newReq.enhancedText.substring(0, 100) + '...',
+          category: featureObj.category,
+          priority: featureObj.priority
+        });
+      
       return newReq;
     });
 
     set((state) => {
       const updatedRequirements = [...state.requirements, ...newRequirements];
-      console.log(`Successfully added ${newRequirements.length} requirements. Total: ${updatedRequirements.length}`);
+      console.log(`🎉 Successfully added ${newRequirements.length} complete feature requirements. Total: ${updatedRequirements.length}`);
       return {
         requirements: updatedRequirements,
       };
