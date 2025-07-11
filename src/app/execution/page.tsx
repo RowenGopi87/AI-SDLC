@@ -26,7 +26,9 @@ import {
   Search,
   BarChart3,
   FileText,
-  Terminal
+  Terminal,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 export default function ExecutionPage() {
@@ -37,6 +39,7 @@ export default function ExecutionPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
 
   // Mock execution logs
   const [executionLogs, setExecutionLogs] = useState<string[]>([
@@ -175,28 +178,54 @@ export default function ExecutionPage() {
         </div>
       </div>
 
-      {/* Execution Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {[
-          { label: 'Total Tests', value: executionStats.total, color: 'bg-blue-100 text-blue-800' },
-          { label: 'Passed', value: executionStats.passed, color: 'bg-green-100 text-green-800' },
-          { label: 'Failed', value: executionStats.failed, color: 'bg-red-100 text-red-800' },
-          { label: 'Blocked', value: executionStats.blocked, color: 'bg-yellow-100 text-yellow-800' },
-          { label: 'Not Run', value: executionStats.notRun, color: 'bg-gray-100 text-gray-800' },
-        ].map((stat, index) => (
-          <Card key={index}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <Badge className={stat.color}>{stat.value}</Badge>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Execution Stats - Collapsible */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Execution Summary</CardTitle>
+              <CardDescription>Test execution metrics and status overview</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSummaryCardsVisible(!summaryCardsVisible)}
+              className="h-8 w-8 p-0"
+            >
+              {summaryCardsVisible ? (
+                <ChevronUp size={16} />
+              ) : (
+                <ChevronDown size={16} />
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        {summaryCardsVisible && (
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              {[
+                { label: 'Total Tests', value: executionStats.total, color: 'bg-blue-100 text-blue-800' },
+                { label: 'Passed', value: executionStats.passed, color: 'bg-green-100 text-green-800' },
+                { label: 'Failed', value: executionStats.failed, color: 'bg-red-100 text-red-800' },
+                { label: 'Blocked', value: executionStats.blocked, color: 'bg-yellow-100 text-yellow-800' },
+                { label: 'Not Run', value: executionStats.notRun, color: 'bg-gray-100 text-gray-800' },
+              ].map((stat, index) => (
+                <Card key={index}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                        <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                      </div>
+                      <Badge className={stat.color}>{stat.value}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* Filters */}
       <div className="flex items-center space-x-4">

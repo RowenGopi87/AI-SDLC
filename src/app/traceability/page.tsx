@@ -28,7 +28,9 @@ import {
   Home,
   Search,
   Filter,
-  BarChart3
+  BarChart3,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 
 interface TraceabilityItem {
@@ -51,6 +53,7 @@ export default function TraceabilityPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
 
   const buildTraceabilityTree = (): TraceabilityItem[] => {
     return useCases.map(useCase => {
@@ -237,30 +240,56 @@ export default function TraceabilityPage() {
         </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Use Cases', value: useCases.length, color: 'bg-blue-100 text-blue-800', icon: FileText },
-          { label: 'Requirements', value: requirements.length, color: 'bg-purple-100 text-purple-800', icon: Settings },
-          { label: 'Work Items', value: workItems.length, color: 'bg-green-100 text-green-800', icon: GitBranch },
-          { label: 'Test Cases', value: testCases.length, color: 'bg-teal-100 text-teal-800', icon: TestTube },
-        ].map((stat, index) => {
-          const IconComponent = stat.icon;
-          return (
-            <Card key={index}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  </div>
-                  <IconComponent className="h-8 w-8 text-blue-600" />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {/* Summary Cards - Collapsible */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Traceability Summary</CardTitle>
+              <CardDescription>Overview of traceability coverage across all items</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSummaryCardsVisible(!summaryCardsVisible)}
+              className="h-8 w-8 p-0"
+            >
+              {summaryCardsVisible ? (
+                <ChevronUp size={16} />
+              ) : (
+                <ChevronDown size={16} />
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        {summaryCardsVisible && (
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Use Cases', value: useCases.length, color: 'bg-blue-100 text-blue-800', icon: FileText },
+                { label: 'Requirements', value: requirements.length, color: 'bg-purple-100 text-purple-800', icon: Settings },
+                { label: 'Work Items', value: workItems.length, color: 'bg-green-100 text-green-800', icon: GitBranch },
+                { label: 'Test Cases', value: testCases.length, color: 'bg-teal-100 text-teal-800', icon: TestTube },
+              ].map((stat, index) => {
+                const IconComponent = stat.icon;
+                return (
+                  <Card key={index}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                          <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                        </div>
+                        <IconComponent className="h-8 w-8 text-blue-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* Filters */}
       <div className="flex items-center space-x-4">

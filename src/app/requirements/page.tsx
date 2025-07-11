@@ -6,6 +6,7 @@ import { useUseCaseStore } from '@/store/use-case-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -21,7 +22,11 @@ import {
   Eye,
   Edit,
   Trash2,
-  Plus
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  Search
 } from 'lucide-react';
 
 export default function RequirementsPage() {
@@ -30,6 +35,8 @@ export default function RequirementsPage() {
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
+  const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
   const selectedReq = selectedReqId ? requirements.find(r => r.id === selectedReqId) : null;
   const selectedUseCase = selectedReq ? getUseCaseById(selectedReq.useCaseId) : null;
@@ -99,30 +106,81 @@ export default function RequirementsPage() {
         </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Requirements', value: requirements.length, color: 'bg-blue-100 text-blue-800', icon: FileText },
-          { label: 'Approved', value: requirements.filter(r => r.status === 'approved').length, color: 'bg-green-100 text-green-800', icon: CheckCircle },
-          { label: 'Enhanced', value: requirements.filter(r => r.status === 'enhanced').length, color: 'bg-blue-100 text-blue-800', icon: Sparkles },
-          { label: 'Rejected', value: requirements.filter(r => r.status === 'rejected').length, color: 'bg-red-100 text-red-800', icon: XCircle },
-        ].map((stat, index) => {
-          const IconComponent = stat.icon;
-          return (
-            <Card key={index}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  </div>
-                  <IconComponent className="h-8 w-8 text-blue-600" />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Filters */}
+      <div className="flex items-center space-x-4">
+        <div className="relative flex-1 max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Search requirements..."
+            className="pl-10"
+          />
+        </div>
+        
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-48">
+            <Filter size={16} className="mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="enhanced">Enhanced</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* Summary Cards - Collapsible */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Requirements Summary</CardTitle>
+              <CardDescription>Overall requirement metrics and status</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSummaryCardsVisible(!summaryCardsVisible)}
+              className="h-8 w-8 p-0"
+            >
+              {summaryCardsVisible ? (
+                <ChevronUp size={16} />
+              ) : (
+                <ChevronDown size={16} />
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        {summaryCardsVisible && (
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Requirements', value: requirements.length, color: 'bg-blue-100 text-blue-800', icon: FileText },
+                { label: 'Approved', value: requirements.filter(r => r.status === 'approved').length, color: 'bg-green-100 text-green-800', icon: CheckCircle },
+                { label: 'Enhanced', value: requirements.filter(r => r.status === 'enhanced').length, color: 'bg-blue-100 text-blue-800', icon: Sparkles },
+                { label: 'Rejected', value: requirements.filter(r => r.status === 'rejected').length, color: 'bg-red-100 text-red-800', icon: XCircle },
+              ].map((stat, index) => {
+                const IconComponent = stat.icon;
+                return (
+                  <Card key={index}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                          <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                        </div>
+                        <IconComponent className="h-8 w-8 text-blue-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Panel - Requirements List */}
