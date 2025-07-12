@@ -5,60 +5,69 @@ import { useSearchParams } from 'next/navigation';
 import { useRequirementStore } from '@/store/requirement-store';
 import { useUseCaseStore } from '@/store/use-case-store';
 import { useInitiativeStore } from '@/store/initiative-store';
-import { LLMService } from '@/lib/services/llm-service';
-import { useSettingsStore } from '@/store/settings-store';
-import { CURRENT_WORKFLOW, getWorkflowLevelByMapping } from '@/lib/workflow-config';
-import { notify } from '@/lib/notification-helper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
 import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Sparkles, 
-  FileText, 
-  ArrowRight,
-  User,
-  Calendar,
-  Eye,
-  Edit,
-  Trash2,
-  Plus,
-  ChevronDown,
+  ChevronRight, 
+  ChevronDown, 
   ChevronUp,
-  Filter,
-  Search,
+  Plus, 
+  Edit, 
+  Trash2, 
+  Eye,
   Target,
   Layers,
-  Loader2,
+  BookOpen,
+  FileText,
+  Sparkles,
+  CheckCircle,
+  XCircle,
   AlertTriangle,
-  BookOpen
+  User,
+  Calendar,
+  ArrowRight,
+  Loader2,
+  Filter,
+  Search,
+  Wand2,
+  TrendingUp,
+  Clock
 } from 'lucide-react';
 
 export default function RequirementsPage() {
-  const { requirements, updateRequirement, selectRequirement, selectedRequirement, addGeneratedRequirementsFromJSON, deleteRequirement } = useRequirementStore();
-  const { useCases, getUseCaseById } = useUseCaseStore();
-  const { initiatives, getInitiativesByBusinessBrief } = useInitiativeStore();
-  const { llmSettings } = useSettingsStore();
   const searchParams = useSearchParams();
+  const { requirements, updateRequirement } = useRequirementStore();
+  const { useCases } = useUseCaseStore();
+  const { initiatives, addInitiative, updateInitiative, deleteInitiative } = useInitiativeStore();
   
-  // State for AI enhancement
-  const [isEnhancing, setIsEnhancing] = useState<string | null>(null);
-  const [enhancementDialogOpen, setEnhancementDialogOpen] = useState(false);
-  const [selectedReqForEnhancement, setSelectedReqForEnhancement] = useState<any>(null);
-  
-  const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState('');
+  // State management
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  
+  // Form state - using Initiative interface types
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    priority: 'medium' as 'low' | 'medium' | 'high',
+    status: 'draft' as 'draft' | 'active' | 'completed' | 'on-hold',
+    businessBriefId: '',
+    acceptanceCriteria: '',
+    businessValue: '',
+    rationale: '',
+    assignee: ''
+  });
 
   // Set filter from URL params
   useEffect(() => {
@@ -68,284 +77,291 @@ export default function RequirementsPage() {
     }
   }, [searchParams]);
 
-  // Load mock initiatives data if empty (for demo purposes)
+  // Auto-expand initiative groups when initiatives are loaded
   useEffect(() => {
-    if (initiatives.length === 0) {
-      // Import and load mock initiatives
-      import('@/lib/mock-data').then(({ mockInitiatives }) => {
-        mockInitiatives.forEach(initiative => {
-          // Add each mock initiative to the store
-          const { addInitiative } = useInitiativeStore.getState();
-          addInitiative(initiative);
-        });
-      });
+    if (initiatives.length > 0) {
+      const businessBriefIds = [...new Set(initiatives.map(init => init.businessBriefId))];
+      setExpandedItems(new Set(businessBriefIds));
     }
-  }, [initiatives.length]);
+  }, [initiatives]);
 
-  // Get workflow level info
-  const requirementLevel = getWorkflowLevelByMapping('requirements');
-  const businessBriefLevel = getWorkflowLevelByMapping('businessBrief');
+  // Toggle expanded state
+  const toggleExpanded = (id: string) => {
+    const newExpanded = new Set(expandedItems);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedItems(newExpanded);
+  };
 
-  // Group requirements by business brief (initiative)
-  const requirementsByBusinessBrief = requirements.reduce((groups, req) => {
-    const useCase = getUseCaseById(req.useCaseId);
-    const businessBriefId = useCase?.businessBriefId || 'Unknown';
-    const businessBriefTitle = useCase?.title || 'Unknown Initiative';
+  // Handle item selection
+  const handleItemSelect = (item: any) => {
+    const isSelected = selectedItem === item.id;
+    setSelectedItem(isSelected ? null : item.id);
+  };
+
+  // Get type icon
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'initiative': return <Target size={16} className="text-purple-600" />;
+      case 'feature': return <Layers size={16} className="text-blue-600" />;
+      case 'epic': return <BookOpen size={16} className="text-green-600" />;
+      case 'story': return <FileText size={16} className="text-orange-600" />;
+      default: return <FileText size={16} className="text-gray-600" />;
+    }
+  };
+
+  // Get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'active': return 'bg-blue-100 text-blue-800';
+      case 'on-hold': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Get priority color
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // AI Generation functions
+  const handleGenerateFeatures = async (initiativeId: string) => {
+    setIsGenerating(true);
+    try {
+      console.log('Generating features for initiative:', initiativeId);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Mock delay
+      console.log('Features generated successfully');
+    } catch (error) {
+      console.error('Error generating features:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Manual entry functions
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const acceptanceCriteriaArray = formData.acceptanceCriteria
+      .split('\n')
+      .filter(item => item.trim())
+      .map(item => item.trim());
+
+    const newInitiative = {
+      id: `init-${Date.now()}`,
+      businessBriefId: formData.businessBriefId,
+      title: formData.title,
+      description: formData.description,
+      category: formData.category,
+      priority: formData.priority,
+      rationale: formData.rationale,
+      acceptanceCriteria: acceptanceCriteriaArray,
+      businessValue: formData.businessValue,
+      workflowLevel: 'initiative',
+      status: formData.status,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: 'Manual Entry'
+    };
+
+    if (editingItem) {
+      updateInitiative(editingItem.id, newInitiative);
+    } else {
+      addInitiative(newInitiative);
+    }
+
+    resetForm();
+    setIsDialogOpen(false);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      category: '',
+      priority: 'medium',
+      status: 'draft',
+      businessBriefId: '',
+      acceptanceCriteria: '',
+      businessValue: '',
+      rationale: '',
+      assignee: ''
+    });
+    setEditingItem(null);
+  };
+
+  const handleEdit = (item: any) => {
+    setEditingItem(item);
+    setFormData({
+      title: item.title,
+      description: item.description,
+      category: item.category || '',
+      priority: item.priority,
+      status: item.status,
+      businessBriefId: item.businessBriefId,
+      acceptanceCriteria: item.acceptanceCriteria.join('\n'),
+      businessValue: item.businessValue || '',
+      rationale: item.rationale || '',
+      assignee: item.assignee || ''
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this item?')) {
+      deleteInitiative(id);
+    }
+  };
+
+  // Calculate stats
+  const totalInitiatives = initiatives.length;
+  const activeInitiatives = initiatives.filter(item => item.status === 'active').length;
+  const completedInitiatives = initiatives.filter(item => item.status === 'completed').length;
+
+  // Group initiatives by business brief for better organization
+  const initiativesByBusinessBrief = initiatives.reduce((groups, initiative) => {
+    const useCase = useCases.find(uc => uc.id === initiative.businessBriefId);
+    const businessBriefId = initiative.businessBriefId;
+    const businessBriefTitle = useCase?.title || 'Unknown Business Brief';
     
     if (!groups[businessBriefId]) {
       groups[businessBriefId] = {
         businessBriefId,
         businessBriefTitle,
         useCase,
-        requirements: []
+        initiatives: []
       };
     }
-    groups[businessBriefId].requirements.push(req);
+    groups[businessBriefId].initiatives.push(initiative);
     return groups;
-  }, {} as Record<string, { businessBriefId: string; businessBriefTitle: string; useCase: any; requirements: any[] }>);
+  }, {} as Record<string, { businessBriefId: string; businessBriefTitle: string; useCase: any; initiatives: any[] }>);
 
-  // Filter requirements
-  const filteredGroups = Object.values(requirementsByBusinessBrief).map(group => ({
-    ...group,
-    requirements: group.requirements.filter(req => {
-      const matchesSearch = req.originalText?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           req.enhancedText?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           req.id.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = filterStatus === 'all' || req.status === filterStatus || 
-                           (filterStatus === 'generated' && req.reviewedBy === 'AI System');
-      return matchesSearch && matchesStatus;
-    })
-  })).filter(group => group.requirements.length > 0);
+  const businessBriefGroups = Object.values(initiativesByBusinessBrief);
 
-  const selectedReq = selectedReqId ? requirements.find(r => r.id === selectedReqId) : null;
-  const selectedUseCase = selectedReq ? getUseCaseById(selectedReq.useCaseId) : null;
+  // Render work item (simplified for now - can be expanded to handle hierarchy later)
+  const renderWorkItem = (item: any, level: number = 0) => {
+    const isSelected = selectedItem === item.id;
 
-  const handleApprove = (id: string) => {
-    updateRequirement(id, { 
-      status: 'approved', 
-      reviewedBy: 'Current User', 
-      reviewedAt: new Date() 
-    });
-  };
+    return (
+      <div key={item.id} className="space-y-2">
+        <div
+          className={`flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:shadow-sm transition-all ${
+            isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+          }`}
+          style={{ marginLeft: `${level * 20}px` }}
+          onClick={() => handleItemSelect(item)}
+        >
+          {/* Type Icon */}
+          <div className="flex items-center space-x-2">
+            {getTypeIcon('initiative')}
+            <Badge className="bg-purple-100 text-purple-800" variant="secondary">
+              initiative
+            </Badge>
+          </div>
 
-  const handleReject = (id: string) => {
-    updateRequirement(id, { 
-      status: 'rejected', 
-      reviewedBy: 'Current User', 
-      reviewedAt: new Date() 
-    });
-  };
+          {/* Title and Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2">
+              <h3 className="font-medium text-gray-900 truncate">{item.title}</h3>
+              <Badge className={getStatusColor(item.status)}>
+                {item.status}
+              </Badge>
+              <Badge variant="outline" className={getPriorityColor(item.priority)}>
+                {item.priority}
+              </Badge>
+              {item.category && (
+                <Badge variant="outline" className="text-xs">
+                  {item.category}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-gray-600 truncate">{item.description}</p>
+          </div>
 
-  const handleEditSave = () => {
-    if (selectedReqId && editText.trim()) {
-      updateRequirement(selectedReqId, { 
-        enhancedText: editText,
-        status: 'enhanced'
-      });
-      setIsEditing(false);
-      setEditText('');
-    }
-  };
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1 h-6 w-6"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleGenerateFeatures(item.id);
+              }}
+              disabled={isGenerating}
+            >
+              <Wand2 size={12} className="text-blue-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1 h-6 w-6"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(item);
+              }}
+            >
+              <Edit size={12} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1 h-6 w-6 text-red-600 hover:text-red-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(item.id);
+              }}
+            >
+              <Trash2 size={12} />
+            </Button>
+          </div>
+        </div>
 
-  // AI Enhancement functionality
-  const handleEnhanceWithAI = async (requirement: any) => {
-    if (!llmSettings.apiKey) {
-      notify.warning('Configuration Required', 'Please configure your LLM settings first');
-      return;
-    }
-
-    setIsEnhancing(requirement.id);
-    try {
-      const llmService = new LLMService(llmSettings);
-      
-      // Create a mock business brief data from the requirement's use case
-      const useCase = getUseCaseById(requirement.useCaseId);
-      const businessBriefData = {
-        title: useCase?.title || '',
-        businessObjective: useCase?.businessObjective || '',
-        quantifiableBusinessOutcomes: useCase?.quantifiableBusinessOutcomes || '',
-        inScope: useCase?.inScope || '',
-        impactOfDoNothing: useCase?.impactOfDoNothing || '',
-        happyPath: useCase?.happyPath || '',
-        exceptions: useCase?.exceptions || '',
-        acceptanceCriteria: useCase?.acceptanceCriteria || [],
-        impactedEndUsers: useCase?.impactedEndUsers || '',
-        changeImpactExpected: useCase?.changeImpactExpected || '',
-        impactToOtherDepartments: useCase?.impactToOtherDepartments || '',
-        businessOwner: useCase?.businessOwner || '',
-        leadBusinessUnit: useCase?.leadBusinessUnit || '',
-        primaryStrategicTheme: useCase?.primaryStrategicTheme || ''
-      };
-
-      // Enhanced prompt for requirement enhancement using CLEAR principles
-      const enhancementPrompt = `
-You are a senior requirements engineer specializing in creating CLEAR requirements. 
-
-Current workflow context: ${CURRENT_WORKFLOW.name}
-This requirement is a ${requirementLevel?.name || 'feature'} for the ${businessBriefLevel?.name || 'initiative'}: "${useCase?.title || 'Unknown'}"
-
-Original requirement: "${requirement.originalText}"
-
-Please enhance this requirement to meet ALL CLEAR principles:
-
-**CLEAR Principles:**
-- **C**lear: Easy to understand by all stakeholders
-- **L**ogical: Makes sense in the business context  
-- **E**xact: Precise and specific
-- **A**tomic: Addresses one single concern
-- **R**eviewable: Can be verified and tested
-
-**Additional Quality Criteria:**
-- Testable: Can be verified through testing
-- Measurable: Has quantifiable criteria
-- Feasible: Technically and practically achievable
-- Traceable: Links clearly to business objectives
-- Consistent: Aligns with other requirements
-- Unambiguous: Has only one interpretation
-- Modifiable: Can be changed without major impact
-- Verifiable: Success can be demonstrated
-
-Please provide:
-1. **Enhanced Requirement**: A completely rewritten requirement that meets all CLEAR principles
-2. **Acceptance Criteria**: 3-5 specific, testable acceptance criteria
-3. **Business Value**: Clear statement of business value this provides
-4. **Quality Assessment**: Brief explanation of how this meets CLEAR principles
-5. **Assumptions**: Any assumptions made during enhancement
-
-Format as JSON:
-{
-  "enhancedText": "Enhanced requirement text",
-  "acceptanceCriteria": ["criteria 1", "criteria 2", "criteria 3"],
-  "businessValue": "Business value statement", 
-  "qualityAssessment": {
-    "clear": "How this is clear",
-    "logical": "How this is logical", 
-    "exact": "How this is exact",
-    "atomic": "How this is atomic",
-    "reviewable": "How this is reviewable"
-  },
-  "assumptions": ["assumption 1", "assumption 2"]
-}`;
-
-      // For now, simulate the enhancement (replace with actual LLM call)
-      const mockEnhancement = {
-        enhancedText: `Enhanced: ${requirement.originalText} - This requirement has been enhanced to meet CLEAR principles with specific measurable criteria, defined interfaces, and comprehensive acceptance criteria.`,
-        acceptanceCriteria: [
-          "Feature must load within 3 seconds under normal load",
-          "All user inputs must be validated with clear error messages", 
-          "System must handle 1000 concurrent users",
-          "All accessibility standards (WCAG 2.1 AA) must be met"
-        ],
-        businessValue: "Improves user experience and reduces support costs by providing clear, predictable functionality",
-        qualityAssessment: {
-          clear: "Uses simple language without technical jargon",
-          logical: "Follows natural user workflow and business process",
-          exact: "Specifies precise performance and quality metrics", 
-          atomic: "Addresses single functional area without dependencies",
-          reviewable: "Includes testable acceptance criteria and success metrics"
-        },
-        assumptions: [
-          "Current system architecture can support specified performance",
-          "Users have standard internet connectivity"
-        ]
-      };
-
-      // Update the requirement with enhanced text
-      updateRequirement(requirement.id, {
-        enhancedText: mockEnhancement.enhancedText,
-        status: 'enhanced',
-        reviewedBy: 'AI System',
-        reviewedAt: new Date()
-      });
-
-      // Show the enhancement details
-      setSelectedReqForEnhancement({
-        ...requirement,
-        ...mockEnhancement
-      });
-      setEnhancementDialogOpen(true);
-
-    } catch (error) {
-      console.error('Error enhancing requirement:', error);
-      notify.error('Enhancement Failed', 'Failed to enhance requirement. Please try again.');
-    } finally {
-      setIsEnhancing(null);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'enhanced': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle size={16} className="text-green-600" />;
-      case 'rejected': return <XCircle size={16} className="text-red-600" />;
-      case 'enhanced': return <Sparkles size={16} className="text-blue-600" />;
-      default: return <Clock size={16} className="text-gray-600" />;
-    }
-  };
-
-  const getQualityIndicators = (req: any) => [
-    { label: 'Unambiguous', value: req.isUnambiguous, color: req.isUnambiguous ? 'text-green-600' : 'text-red-600' },
-    { label: 'Testable', value: req.isTestable, color: req.isTestable ? 'text-green-600' : 'text-red-600' },
-    { label: 'Has Acceptance Criteria', value: req.hasAcceptanceCriteria, color: req.hasAcceptanceCriteria ? 'text-green-600' : 'text-red-600' },
-  ];
-
-  // Helper to parse requirement text (in case it's JSON)
-  const parseRequirementText = (text: string) => {
-    if (!text) return 'No content available';
-    
-    // Try to parse as JSON first
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed.text) return parsed.text;
-      if (parsed.enhancedText) return parsed.enhancedText;
-      if (typeof parsed === 'string') return parsed;
-      return JSON.stringify(parsed, null, 2);
-    } catch {
-      // Not JSON, return as is
-      return text;
-    }
-  };
-
-  // Check if a requirement needs parsing
-  const needsParsing = (req: any) => {
-    const text = req.originalText || '';
-    // Check if it's a JSON blob that needs parsing
-    return text.includes('"id":') && text.includes('"text":') && text.length > 200;
-  };
-
-  // Handle manual re-parsing of JSON requirements
-  const handleReparseRequirement = async (requirement: any) => {
-    if (!needsParsing(requirement)) {
-      notify.info('No Action Needed', 'This requirement does not appear to need re-parsing.');
-      return;
-    }
-
-    try {
-      const useCase = getUseCaseById(requirement.useCaseId);
-      if (!useCase) {
-        notify.error('Error', 'Use case not found for this requirement');
-        return;
-      }
-
-      // Delete the original unparsed requirement
-      deleteRequirement(requirement.id);
-      
-      // Use smart parsing to extract individual requirements
-      addGeneratedRequirementsFromJSON(requirement.useCaseId, requirement.originalText);
-      
-      notify.success('Re-parsing Complete', 'Successfully re-parsed the requirement into individual features!');
-    } catch (error) {
-      console.error('Error re-parsing requirement:', error);
-      notify.error('Re-parsing Failed', 'Failed to re-parse the requirement. Please check the console for details.');
-    }
+        {/* Selected Item Details */}
+        {isSelected && (
+          <div className="ml-8 p-4 bg-gray-50 rounded-lg border space-y-3">
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Description</h4>
+              <p className="text-sm text-gray-600">{item.description}</p>
+            </div>
+            
+            {item.rationale && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Rationale</h4>
+                <p className="text-sm text-gray-600">{item.rationale}</p>
+              </div>
+            )}
+            
+            {item.businessValue && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Business Value</h4>
+                <p className="text-sm text-gray-600">{item.businessValue}</p>
+              </div>
+            )}
+            
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Acceptance Criteria</h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                {item.acceptanceCriteria.map((criteria: string, index: number) => (
+                  <li key={index} className="flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>{criteria}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -353,23 +369,157 @@ Format as JSON:
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{requirementLevel?.pluralName || 'Requirements'} Review</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Requirements Management</h1>
           <p className="text-gray-600 mt-1">
-            Review and enhance {requirementLevel?.pluralName?.toLowerCase() || 'requirements'} grouped by {businessBriefLevel?.pluralName?.toLowerCase() || 'business briefs'}
+            Hierarchical breakdown: Initiative → Feature → Epic → Story
           </p>
           <div className="flex items-center space-x-2 mt-2">
             <Badge variant="outline" className="text-xs">
-              Current Workflow: {CURRENT_WORKFLOW.name}
+              Enterprise Workflow
             </Badge>
             <Badge variant="secondary" className="text-xs">
-              {requirementLevel?.name || 'Feature'} → {CURRENT_WORKFLOW.levels.find(l => l.parentLevel === requirementLevel?.id)?.name || 'Epic'}
+              AI-Powered Generation
             </Badge>
           </div>
         </div>
-        <Button className="flex items-center space-x-2">
-          <Plus size={16} />
-          <span>Generate {requirementLevel?.pluralName || 'Requirements'}</span>
-        </Button>
+        
+        <div className="flex items-center space-x-2">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex items-center space-x-2" onClick={resetForm}>
+                <Plus size={16} />
+                <span>Manual Entry</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingItem ? 'Edit Initiative' : 'Create New Initiative'}
+                </DialogTitle>
+                <DialogDescription>
+                  Define the initiative details
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Business Brief *
+                  </label>
+                  <Select value={formData.businessBriefId} onValueChange={(value) => setFormData({ ...formData, businessBriefId: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select business brief" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {useCases.map((useCase) => (
+                        <SelectItem key={useCase.id} value={useCase.id}>
+                          {useCase.businessBriefId} - {useCase.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title *
+                  </label>
+                  <Input
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Enter initiative title"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description *
+                  </label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Describe the initiative"
+                    rows={3}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Priority
+                    </label>
+                    <Select value={formData.priority} onValueChange={(value: 'low' | 'medium' | 'high') => setFormData({ ...formData, priority: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <Select value={formData.status} onValueChange={(value: 'draft' | 'active' | 'completed' | 'on-hold') => setFormData({ ...formData, status: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="on-hold">On Hold</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category
+                    </label>
+                    <Input
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      placeholder="e.g., strategic, operational"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Acceptance Criteria *
+                  </label>
+                  <Textarea
+                    value={formData.acceptanceCriteria}
+                    onChange={(e) => setFormData({ ...formData, acceptanceCriteria: e.target.value })}
+                    placeholder="List acceptance criteria (one per line)"
+                    rows={3}
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingItem ? 'Update' : 'Create'} Initiative
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+          
+          <Button className="flex items-center space-x-2" disabled={isGenerating}>
+            <Sparkles size={16} />
+            <span>AI Generate</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -377,7 +527,7 @@ Format as JSON:
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder={`Search ${requirementLevel?.pluralName?.toLowerCase() || 'requirements'}...`}
+            placeholder="Search initiatives..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -390,13 +540,11 @@ Format as JSON:
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="initiatives">🎯 Initiatives</SelectItem>
-            <SelectItem value="generated">🤖 AI Generated</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="enhanced">Enhanced</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="all">All Items</SelectItem>
+            <SelectItem value="initiative">Initiatives</SelectItem>
+            <SelectItem value="feature">Features</SelectItem>
+            <SelectItem value="epic">Epics</SelectItem>
+            <SelectItem value="story">Stories</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -406,8 +554,8 @@ Format as JSON:
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg">{requirementLevel?.pluralName || 'Requirements'} Summary</CardTitle>
-              <CardDescription>Overall {requirementLevel?.name?.toLowerCase() || 'requirement'} metrics and status</CardDescription>
+              <CardTitle className="text-lg">Work Item Summary</CardTitle>
+              <CardDescription>Overall work item metrics and progress</CardDescription>
             </div>
             <Button
               variant="ghost"
@@ -421,477 +569,111 @@ Format as JSON:
         </CardHeader>
         {summaryCardsVisible && (
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {[
-                { label: `Total ${requirementLevel?.pluralName || 'Requirements'}`, value: requirements.length, color: 'bg-green-100 text-green-800', icon: FileText },
-                { label: 'Approved', value: requirements.filter(r => r.status === 'approved').length, color: 'bg-green-100 text-green-800', icon: CheckCircle },
-                { label: 'Enhanced', value: requirements.filter(r => r.status === 'enhanced').length, color: 'bg-blue-100 text-blue-800', icon: Sparkles },
-                { label: 'Rejected', value: requirements.filter(r => r.status === 'rejected').length, color: 'bg-red-100 text-red-800', icon: XCircle },
-                { label: `${businessBriefLevel?.pluralName || 'Business Briefs'}`, value: Object.keys(requirementsByBusinessBrief).length, color: 'bg-yellow-100 text-yellow-800', icon: Target },
-              ].map((stat, index) => {
-                const IconComponent = stat.icon;
-                return (
-                  <Card key={index}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                          <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                        </div>
-                        <IconComponent className={`h-8 w-8 ${stat.label.includes('Business Brief') || stat.label.includes('Initiative') ? 'text-yellow-600' : stat.label.includes('Total') || stat.label.includes('Requirements') ? 'text-green-600' : 'text-blue-600'}`} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Total Initiatives</p>
+                      <p className="text-2xl font-bold text-purple-600">{totalInitiatives}</p>
+                    </div>
+                    <Target className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Active</p>
+                      <p className="text-2xl font-bold text-blue-600">{activeInitiatives}</p>
+                    </div>
+                    <Clock className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Completed</p>
+                      <p className="text-2xl font-bold text-green-600">{completedInitiatives}</p>
+                    </div>
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Features</p>
+                      <p className="text-2xl font-bold text-blue-600">0</p>
+                    </div>
+                    <Layers className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </CardContent>
         )}
       </Card>
 
-      {/* Initiatives Section */}
-      {filterStatus === 'initiatives' || filterStatus === 'all' ? (
-        <Card className="border-l-4 border-l-yellow-500">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Target className="h-6 w-6 text-yellow-600" />
-                <div>
-                  <CardTitle>Initiatives</CardTitle>
-                  <CardDescription>Business initiatives generated from business briefs</CardDescription>
-                </div>
-              </div>
-              <Badge variant="outline" className="text-xs">
-                Business Brief → Initiatives
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4">
-              {initiatives.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Target className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No initiatives found</h3>
-                  <p>Generate initiatives from approved business briefs to see them here.</p>
-                </div>
-              ) : (
-                initiatives.map((initiative) => {
-                  const useCase = useCases.find(uc => uc.id === initiative.businessBriefId);
-                  return (
-                    <Card key={initiative.id} className="border border-gray-200 hover:border-gray-300 transition-colors border-l-4 border-l-yellow-400">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center space-x-2">
-                            <Target className="h-4 w-4 text-yellow-600" />
-                            <span className="font-medium text-sm">{initiative.id}</span>
-                            <Badge className={`
-                              ${initiative.status === 'active' ? 'bg-green-100 text-green-800' : 
-                                initiative.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                                initiative.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                'bg-yellow-100 text-yellow-800'}
-                            `}>
-                              {initiative.status}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {initiative.category}
-                            </Badge>
-                            <Badge variant={
-                              initiative.priority === 'high' ? 'destructive' :
-                              initiative.priority === 'medium' ? 'secondary' : 'outline'
-                            } className="text-xs">
-                              {initiative.priority} priority
-                            </Badge>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button size="sm" variant="default" className="text-xs">
-                              <Layers size={12} className="mr-1" />
-                              Generate Features
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-xs">
-                              <Eye size={12} className="mr-1" />
-                              View Details
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-1">{initiative.title}</h4>
-                            <p className="text-sm text-gray-600">{initiative.description}</p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <div className="flex items-center space-x-2 text-sm text-gray-500">
-                              <span className="font-medium">Business Brief:</span>
-                              <Badge variant="outline" className="text-xs">
-                                {useCase?.businessBriefId || initiative.businessBriefId}
-                              </Badge>
-                              <span>{useCase?.title || 'Unknown Business Brief'}</span>
-                            </div>
-                            
-                            <div className="flex items-center space-x-2 text-sm text-gray-500">
-                              <span className="font-medium">Business Value:</span>
-                              <span>{initiative.businessValue}</span>
-                            </div>
-                            
-                            <div className="flex items-center space-x-2 text-sm text-gray-500">
-                              <span className="font-medium">Rationale:</span>
-                              <span>{initiative.rationale}</span>
-                            </div>
-                            
-                            {initiative.acceptanceCriteria && initiative.acceptanceCriteria.length > 0 && (
-                              <div className="text-sm">
-                                <span className="font-medium text-gray-700">Acceptance Criteria:</span>
-                                <ul className="list-disc list-inside mt-1 text-gray-600 space-y-1">
-                                  {initiative.acceptanceCriteria.map((criteria, idx) => (
-                                    <li key={idx} className="text-xs">{criteria}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                            <div className="flex items-center space-x-2 text-xs text-gray-500">
-                              <User size={12} />
-                              <span>Created by {initiative.createdBy}</span>
-                              <Calendar size={12} />
-                              <span>{new Date(initiative.createdAt).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center space-x-1 text-xs text-gray-500">
-                              <ArrowRight size={12} />
-                              <span>Next: Generate Features</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {/* Requirements grouped by Business Brief */}
-      <div className="space-y-6">
-        {filteredGroups.map((group) => (
-          <Card key={group.businessBriefId} className="border-l-4 border-l-yellow-500">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Target className="h-6 w-6 text-yellow-600" />
-                  <div>
+      {/* Hierarchical Work Items */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
               <CardTitle className="flex items-center space-x-2">
-                      <Badge variant="outline" className="font-mono text-sm">
-                        {group.businessBriefId}
-                      </Badge>
-                      <span>{group.businessBriefTitle}</span>
+                <Target size={18} />
+                <span>Work Item Hierarchy</span>
               </CardTitle>
-                    <CardDescription className="flex items-center space-x-2 mt-1">
-                      <Layers className="h-4 w-4" />
-                      <span>{group.requirements.length} {requirementLevel?.name?.toLowerCase() || 'requirement'}{group.requirements.length !== 1 ? 's' : ''}</span>
-                    </CardDescription>
-                  </div>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  {businessBriefLevel?.name || 'Initiative'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4">
-                {group.requirements.map((req, index) => (
-                  <Card key={`${req.id}-${index}`} className="border border-gray-200 hover:border-gray-300 transition-colors border-l-4 border-l-green-400">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(req.status)}
-                        <span className="font-medium text-sm">{req.id}</span>
-                      <Badge className={getStatusColor(req.status)}>
-                        {req.status}
-                      </Badge>
-                        </div>
-                                                 <div className="flex items-center space-x-2">
-                           {needsParsing(req) && (
-                             <Button
-                               size="sm"
-                               variant="destructive"
-                               onClick={() => handleReparseRequirement(req)}
-                               className="text-xs"
-                             >
-                               <AlertTriangle size={12} className="mr-1" />
-                               Re-parse JSON
-                             </Button>
-                           )}
-                           <Button
-                             size="sm"
-                             variant="outline"
-                             onClick={() => handleEnhanceWithAI(req)}
-                             disabled={isEnhancing === req.id}
-                             className="text-xs"
-                           >
-                             {isEnhancing === req.id ? (
-                               <>
-                                 <Loader2 size={12} className="mr-1 animate-spin" />
-                                 Enhancing...
-                               </>
-                             ) : (
-                               <>
-                                 <Sparkles size={12} className="mr-1" />
-                                 Enhance by AI
-                               </>
-                             )}
-                           </Button>
-                           <Button
-                             size="sm"
-                             variant="ghost"
-                             onClick={() => setSelectedReqId(selectedReqId === req.id ? null : req.id)}
-                           >
-                             <Eye size={12} />
-                           </Button>
-                         </div>
-                      </div>
-                      
-                      <div className="space-y-3">
-                                                 <div>
-                           <div className="flex items-center space-x-2 mb-1">
-                             <p className="text-sm font-medium text-gray-700">Original:</p>
-                             {needsParsing(req) && (
-                               <Badge variant="destructive" className="text-xs">
-                                 Needs Parsing
-                               </Badge>
-                             )}
-                           </div>
-                           <p className={`text-sm text-gray-800 ${needsParsing(req) ? 'line-clamp-3 font-mono text-xs' : 'line-clamp-2'}`}>
-                             {parseRequirementText(req.originalText)}
-                           </p>
-                    </div>
-                    
-                        {req.enhancedText && req.enhancedText !== req.originalText && (
-                          <div>
-                            <p className="text-sm font-medium text-blue-700 mb-1 flex items-center space-x-1">
-                              <Sparkles size={14} />
-                              <span>Enhanced:</span>
-                      </p>
-                      <p className="text-sm text-gray-800 line-clamp-2">
-                              {parseRequirementText(req.enhancedText)}
-                      </p>
-                          </div>
-                        )}
-                      
-                      {req.reviewedBy && (
-                          <div className="flex items-center text-xs text-gray-500">
-                          <User size={12} className="mr-1" />
-                          {req.reviewedBy === 'AI System' ? (
-                            <span className="text-blue-600 font-medium">🤖 AI Generated</span>
-                          ) : (
-                            req.reviewedBy
-                          )}
-                          <Calendar size={12} className="ml-2 mr-1" />
-                            {req.reviewedAt ? new Intl.DateTimeFormat('en-US', { 
-                              year: 'numeric', 
-                              month: 'short', 
-                              day: 'numeric' 
-                            }).format(new Date(req.reviewedAt)) : 'N/A'}
-                        </div>
-                      )}
-
-                        {/* Expanded details */}
-                        {selectedReqId === req.id && (
-                          <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
-              {/* Quality Indicators */}
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-700 mb-2">Quality Assessment</h4>
-                              <div className="grid grid-cols-3 gap-3">
-                                {getQualityIndicators(req).map((indicator, idx) => (
-                                  <div key={idx} className="flex items-center justify-between">
-                                    <span className="text-xs">{indicator.label}</span>
-                                    <div className="flex items-center space-x-1">
-                          {indicator.value ? (
-                                        <CheckCircle size={12} className="text-green-600" />
-                          ) : (
-                                        <XCircle size={12} className="text-red-600" />
-                          )}
-                                      <span className={`text-xs ${indicator.color}`}>
-                            {indicator.value ? 'Yes' : 'No'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                            </div>
-
-              {/* Action Buttons */}
-                            <div className="flex items-center justify-between pt-2">
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                                  onClick={() => handleReject(req.id)}
-                                  disabled={req.status === 'rejected'}
-                      >
-                        <XCircle size={14} className="mr-1" />
-                        Reject
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setIsEditing(true);
-                                    setEditText(req.enhancedText || req.originalText);
-                                    setSelectedReqId(req.id);
-                        }}
-                      >
-                        <Edit size={14} className="mr-1" />
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                                  onClick={() => handleApprove(req.id)}
-                                  disabled={req.status === 'approved'}
-                      >
-                        <CheckCircle size={14} className="mr-1" />
-                        Approve
-                      </Button>
-                    </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                  </div>
-                </CardContent>
-              </Card>
-        ))}
-      </div>
-
-      {/* AI Enhancement Results Dialog */}
-      <Dialog open={enhancementDialogOpen} onOpenChange={setEnhancementDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2">
-              <Sparkles className="h-5 w-5 text-blue-600" />
-              <span>AI Enhancement Results</span>
-            </DialogTitle>
-            <DialogDescription>
-              Review the AI-enhanced requirement following CLEAR principles
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedReqForEnhancement && (
-            <div className="space-y-6">
-              {/* Before and After */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Original</h3>
-                  <div className="p-3 bg-gray-50 rounded border text-sm">
-                    {parseRequirementText(selectedReqForEnhancement.originalText)}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-medium text-blue-900 mb-2 flex items-center space-x-1">
-                    <Sparkles size={16} />
-                    <span>Enhanced</span>
-                  </h3>
-                  <div className="p-3 bg-blue-50 rounded border text-sm">
-                    {selectedReqForEnhancement.enhancedText}
-                  </div>
-                </div>
-              </div>
-
-              {/* Acceptance Criteria */}
-              {selectedReqForEnhancement.acceptanceCriteria && (
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Acceptance Criteria</h3>
-                  <ul className="space-y-1">
-                    {selectedReqForEnhancement.acceptanceCriteria.map((criteria: string, index: number) => (
-                      <li key={index} className="flex items-start space-x-2 text-sm">
-                        <CheckCircle size={14} className="text-green-600 mt-0.5" />
-                        <span>{criteria}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Business Value */}
-              {selectedReqForEnhancement.businessValue && (
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Business Value</h3>
-                  <p className="text-sm text-gray-700 p-3 bg-green-50 rounded border">
-                    {selectedReqForEnhancement.businessValue}
-                  </p>
-                </div>
-              )}
-
-              {/* Quality Assessment */}
-              {selectedReqForEnhancement.qualityAssessment && (
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-2">CLEAR Principles Assessment</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Object.entries(selectedReqForEnhancement.qualityAssessment).map(([principle, assessment]: [string, any]) => (
-                      <div key={principle} className="p-3 border rounded">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <CheckCircle size={14} className="text-green-600" />
-                          <span className="font-medium text-sm capitalize">{principle}</span>
-                        </div>
-                        <p className="text-xs text-gray-600">{assessment}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Assumptions */}
-              {selectedReqForEnhancement.assumptions && (
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Assumptions</h3>
-                  <ul className="space-y-1">
-                    {selectedReqForEnhancement.assumptions.map((assumption: string, index: number) => (
-                      <li key={index} className="flex items-start space-x-2 text-sm">
-                        <AlertTriangle size={14} className="text-yellow-600 mt-0.5" />
-                        <span>{assumption}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <CardDescription>Initiative → Feature → Epic → Story breakdown</CardDescription>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Requirement</DialogTitle>
-            <DialogDescription>
-              Modify the requirement text
-            </DialogDescription>
-          </DialogHeader>
+          </div>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-4">
-            <Textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              className="min-h-[150px]"
-              placeholder="Enter requirement text..."
-            />
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleEditSave}>
-                Save Changes
-              </Button>
-        </div>
-      </div>
-        </DialogContent>
-      </Dialog>
+            {businessBriefGroups.length > 0 ? (
+              businessBriefGroups.map((group) => (
+                <div key={group.businessBriefId} className="space-y-2">
+                  {/* Business Brief Header */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex items-center space-x-3">
+                      <Target className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <h3 className="font-medium text-gray-900">{group.businessBriefTitle}</h3>
+                        <p className="text-sm text-gray-600">{group.initiatives.length} initiatives</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {group.businessBriefId}
+                    </Badge>
+                  </div>
+                  
+                  {/* Initiatives */}
+                  <div className="ml-4 space-y-2">
+                    {group.initiatives.map((initiative) => renderWorkItem(initiative))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12">
+                <Target size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Work Items</h3>
+                <p className="text-gray-600 mb-4">Start by creating initiatives from business briefs</p>
+                <Button onClick={() => setIsDialogOpen(true)}>
+                  <Plus size={16} className="mr-2" />
+                  Create First Initiative
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 
