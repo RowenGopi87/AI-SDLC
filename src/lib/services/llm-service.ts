@@ -540,7 +540,13 @@ ${CURRENT_WORKFLOW.levels.map((level, index) =>
   `${index + 1}. ${level.name} (${level.description})`
 ).join('\n')}
 
-Focus on generating ${CURRENT_WORKFLOW.levels.find(l => l.id === mappings.businessBrief)?.pluralName || 'initiatives'} that represent major strategic work streams.`;
+Focus on generating ${CURRENT_WORKFLOW.levels.find(l => l.id === mappings.businessBrief)?.pluralName || 'initiatives'} that represent major strategic work streams.
+
+RESPONSE FORMAT REQUIREMENTS:
+- Return ONLY valid JSON without any explanatory text
+- Do NOT use markdown formatting or code blocks
+- Do NOT include phrases like "Here are the initiatives:" or "Based on the analysis:"
+- Your entire response must be parseable as JSON`;
 
     const targetLevel = CURRENT_WORKFLOW.levels.find(l => l.id === mappings.businessBrief);
     
@@ -550,7 +556,7 @@ ${JSON.stringify(businessBrief, null, 2)}
 Analysis & Insights:
 ${analysis}
 
-Generate ${targetLevel?.pluralName || 'initiatives'} as JSON:
+Generate ${targetLevel?.pluralName || 'initiatives'} as PURE JSON (no markdown, no code blocks, no explanatory text):
 {
   "initiatives": [
     {
@@ -566,10 +572,12 @@ Generate ${targetLevel?.pluralName || 'initiatives'} as JSON:
   ]
 }
 
-IMPORTANT: 
+CRITICAL REQUIREMENTS:
+- Return ONLY the JSON object above, no markdown formatting, no \`\`\`json blocks
 - Priority must be exactly one of: "high", "medium", "low" (lowercase only)
 - Each initiative should be substantial enough to be broken down into multiple ${CURRENT_WORKFLOW.levels.find(l => l.parentLevel === mappings.businessBrief)?.pluralName || 'features'}
-- Focus on strategic business outcomes rather than technical implementations`;
+- Focus on strategic business outcomes rather than technical implementations
+- Response must be valid JSON that can be parsed directly`;
 
     const result = await this.callLLM(systemPrompt, userPrompt);
     

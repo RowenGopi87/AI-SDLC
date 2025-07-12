@@ -41,8 +41,61 @@ export const useInitiativeStore = create<InitiativeState>()(
 
       addGeneratedInitiatives: (businessBriefId, generatedInitiatives) => {
         console.log('🔄 Adding generated initiatives to store...', { businessBriefId, count: generatedInitiatives.length });
+        console.log('🔍 Raw response data:', generatedInitiatives);
         
-        const newInitiatives: Initiative[] = generatedInitiatives.map((gen, index) => ({
+        // Parse JSON from text field if needed (similar to requirements store)
+        let parsedInitiatives = generatedInitiatives;
+        
+        // Check if response needs parsing (OpenAI sometimes embeds JSON in text field)
+        if (generatedInitiatives.length === 1 && 
+            (generatedInitiatives[0].id === 'INIT-PARSE-NEEDED' || 
+             generatedInitiatives[0].category === 'needs-parsing' ||
+             generatedInitiatives[0].text?.includes('```json'))) {
+          
+          console.log('🔍 Detected embedded JSON, parsing...');
+          const textContent = generatedInitiatives[0].text;
+          
+          try {
+            // Extract JSON from markdown code blocks or raw text
+            let jsonStr = textContent;
+            if (textContent.includes('```json')) {
+              const match = textContent.match(/```json\s*\n([\s\S]*?)\n```/);
+              if (match) {
+                jsonStr = match[1];
+              }
+            }
+            
+            // Parse the JSON
+            const parsed = JSON.parse(jsonStr);
+            console.log('🔍 Parsed JSON:', parsed);
+            
+            // Extract initiatives array
+            if (parsed.initiatives && Array.isArray(parsed.initiatives)) {
+              parsedInitiatives = parsed.initiatives;
+              console.log('✅ Successfully parsed initiatives from JSON:', parsedInitiatives.length);
+            } else {
+              console.warn('⚠️ No initiatives array found in parsed JSON');
+            }
+          } catch (parseError) {
+            console.error('❌ Failed to parse JSON from text field:', parseError);
+            console.log('🔍 Trying to extract JSON manually...');
+            
+            // Try to extract initiatives manually if JSON parsing fails
+            try {
+              const initiativesMatch = textContent.match(/"initiatives":\s*\[([\s\S]*?)\]/);
+              if (initiativesMatch) {
+                const initiativesStr = `[${initiativesMatch[1]}]`;
+                const manualParsed = JSON.parse(initiativesStr);
+                parsedInitiatives = manualParsed;
+                console.log('✅ Successfully extracted initiatives manually:', parsedInitiatives.length);
+              }
+            } catch (manualError) {
+              console.error('❌ Manual extraction also failed:', manualError);
+            }
+          }
+        }
+
+        const newInitiatives: Initiative[] = parsedInitiatives.map((gen, index) => ({
           id: gen.id || `init-gen-${Date.now().toString(36)}-${index}`,
           businessBriefId,
           title: gen.text || gen.title || `Initiative ${index + 1}`,
