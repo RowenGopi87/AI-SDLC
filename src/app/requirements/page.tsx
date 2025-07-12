@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRequirementStore } from '@/store/requirement-store';
 import { useUseCaseStore } from '@/store/use-case-store';
+import { useInitiativeStore } from '@/store/initiative-store';
 import { LLMService } from '@/lib/services/llm-service';
 import { useSettingsStore } from '@/store/settings-store';
 import { CURRENT_WORKFLOW, getWorkflowLevelByMapping } from '@/lib/workflow-config';
@@ -43,6 +44,7 @@ import {
 export default function RequirementsPage() {
   const { requirements, updateRequirement, selectRequirement, selectedRequirement, addGeneratedRequirementsFromJSON, deleteRequirement } = useRequirementStore();
   const { useCases, getUseCaseById } = useUseCaseStore();
+  const { initiatives, getInitiativesByBusinessBrief } = useInitiativeStore();
   const { llmSettings } = useSettingsStore();
   const searchParams = useSearchParams();
   
@@ -65,6 +67,20 @@ export default function RequirementsPage() {
       setFilterStatus(filterParam);
     }
   }, [searchParams]);
+
+  // Load mock initiatives data if empty (for demo purposes)
+  useEffect(() => {
+    if (initiatives.length === 0) {
+      // Import and load mock initiatives
+      import('@/lib/mock-data').then(({ mockInitiatives }) => {
+        mockInitiatives.forEach(initiative => {
+          // Add each mock initiative to the store
+          const { addInitiative } = useInitiativeStore.getState();
+          addInitiative(initiative);
+        });
+      });
+    }
+  }, [initiatives.length]);
 
   // Get workflow level info
   const requirementLevel = getWorkflowLevelByMapping('requirements');
@@ -375,6 +391,7 @@ Format as JSON:
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="initiatives">🎯 Initiatives</SelectItem>
             <SelectItem value="generated">🤖 AI Generated</SelectItem>
             <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="enhanced">Enhanced</SelectItem>
@@ -431,6 +448,131 @@ Format as JSON:
           </CardContent>
         )}
       </Card>
+
+      {/* Initiatives Section */}
+      {filterStatus === 'initiatives' || filterStatus === 'all' ? (
+        <Card className="border-l-4 border-l-yellow-500">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Target className="h-6 w-6 text-yellow-600" />
+                <div>
+                  <CardTitle>Initiatives</CardTitle>
+                  <CardDescription>Business initiatives generated from business briefs</CardDescription>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                Business Brief → Initiatives
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              {initiatives.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Target className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No initiatives found</h3>
+                  <p>Generate initiatives from approved business briefs to see them here.</p>
+                </div>
+              ) : (
+                initiatives.map((initiative) => {
+                  const useCase = useCases.find(uc => uc.id === initiative.businessBriefId);
+                  return (
+                    <Card key={initiative.id} className="border border-gray-200 hover:border-gray-300 transition-colors border-l-4 border-l-yellow-400">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <Target className="h-4 w-4 text-yellow-600" />
+                            <span className="font-medium text-sm">{initiative.id}</span>
+                            <Badge className={`
+                              ${initiative.status === 'active' ? 'bg-green-100 text-green-800' : 
+                                initiative.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                                initiative.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                'bg-yellow-100 text-yellow-800'}
+                            `}>
+                              {initiative.status}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {initiative.category}
+                            </Badge>
+                            <Badge variant={
+                              initiative.priority === 'high' ? 'destructive' :
+                              initiative.priority === 'medium' ? 'secondary' : 'outline'
+                            } className="text-xs">
+                              {initiative.priority} priority
+                            </Badge>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button size="sm" variant="default" className="text-xs">
+                              <Layers size={12} className="mr-1" />
+                              Generate Features
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-xs">
+                              <Eye size={12} className="mr-1" />
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-1">{initiative.title}</h4>
+                            <p className="text-sm text-gray-600">{initiative.description}</p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2 text-sm text-gray-500">
+                              <span className="font-medium">Business Brief:</span>
+                              <Badge variant="outline" className="text-xs">
+                                {useCase?.businessBriefId || initiative.businessBriefId}
+                              </Badge>
+                              <span>{useCase?.title || 'Unknown Business Brief'}</span>
+                            </div>
+                            
+                            <div className="flex items-center space-x-2 text-sm text-gray-500">
+                              <span className="font-medium">Business Value:</span>
+                              <span>{initiative.businessValue}</span>
+                            </div>
+                            
+                            <div className="flex items-center space-x-2 text-sm text-gray-500">
+                              <span className="font-medium">Rationale:</span>
+                              <span>{initiative.rationale}</span>
+                            </div>
+                            
+                            {initiative.acceptanceCriteria && initiative.acceptanceCriteria.length > 0 && (
+                              <div className="text-sm">
+                                <span className="font-medium text-gray-700">Acceptance Criteria:</span>
+                                <ul className="list-disc list-inside mt-1 text-gray-600 space-y-1">
+                                  {initiative.acceptanceCriteria.map((criteria, idx) => (
+                                    <li key={idx} className="text-xs">{criteria}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <div className="flex items-center space-x-2 text-xs text-gray-500">
+                              <User size={12} />
+                              <span>Created by {initiative.createdBy}</span>
+                              <Calendar size={12} />
+                              <span>{new Date(initiative.createdAt).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center space-x-1 text-xs text-gray-500">
+                              <ArrowRight size={12} />
+                              <span>Next: Generate Features</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Requirements grouped by Business Brief */}
       <div className="space-y-6">
