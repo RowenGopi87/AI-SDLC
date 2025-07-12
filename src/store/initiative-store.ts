@@ -21,7 +21,7 @@ export interface Initiative {
 interface InitiativeState {
   initiatives: Initiative[];
   addInitiative: (initiative: Initiative) => void;
-  addGeneratedInitiatives: (businessBriefId: string, generatedInitiatives: any[]) => void;
+  addGeneratedInitiatives: (businessBriefId: string, generatedInitiatives: any[]) => Initiative[];
   updateInitiative: (id: string, updates: Partial<Initiative>) => void;
   deleteInitiative: (id: string) => void;
   getInitiativesByBusinessBrief: (businessBriefId: string) => Initiative[];

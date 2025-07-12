@@ -224,106 +224,25 @@ export default function UseCasesPage() {
       // Save generated initiatives to the store
       const { initiatives, metadata } = result.data;
       
-            // Always attempt automatic JSON parsing first for any OpenAI response that looks like JSON
-      let parseSuccess = false;
-      let parseResult: any = null;
-      
-      console.log('🔍 Checking if auto-parsing is needed for', initiatives.length, 'initiatives');
-      
-      if (initiatives.length >= 1) {
-        const firstReq = initiatives[0];
-        
-        // Get the content to parse - prioritize rawJsonContent, then fall back to description
-        let textToParse = firstReq.rawJsonContent || firstReq.description || firstReq.text;
-        
-        console.log('📝 Content to parse (first 200 chars):', textToParse?.substring(0, 200));
-        
-        // Check if content looks like JSON that should be parsed
-        const looksLikeStructuredJSON = textToParse && (
-          textToParse.includes('"requirements":[') ||
-          textToParse.includes('"features":[') ||
-          textToParse.includes('"id":"FEA-') ||
-          textToParse.includes('"id": "FEA-') ||
-          (textToParse.includes('{') && textToParse.includes('"text":') && textToParse.includes('"category":'))
-        );
-        
-        // ENHANCED: Detect the specific embedded features format from OpenAI
-        const hasEmbeddedFeaturesFormat = textToParse && (
-          textToParse.includes('Features:') && 
-          textToParse.includes('"id": "FEA-') &&
-          textToParse.includes('"category":') &&
-          textToParse.includes('"priority":')
-        );
-        
-        const hasMultipleFeaturePattern = textToParse && (
-          (textToParse.match(/"id":\s*"[^"]+"/g) || []).length > 1 ||
-          textToParse.includes('FEA-001') && textToParse.includes('FEA-002') ||
-          (textToParse.includes('1. {') && textToParse.includes('2. {')) // Numbered feature objects
-        );
-        
-        if (textToParse && (looksLikeStructuredJSON || hasEmbeddedFeaturesFormat || hasMultipleFeaturePattern)) {
-          console.log('🎯 Content looks like structured JSON with multiple initiatives, attempting auto-parsing...');
-          
-          try {
-            parseResult = addGeneratedRequirementsFromJSON(useCaseId, textToParse);
-            
-            if (parseResult && parseResult.success && parseResult.requirementsCount > 1) {
-              console.log(`✅ Successfully auto-parsed ${parseResult.requirementsCount} requirements from OpenAI response`);
-              parseSuccess = true;
-              
-              // Also remove the original unparsed requirement since we've replaced it with parsed ones
-              if (firstReq.id && firstReq.id.includes('req-gen-')) {
-                deleteRequirement(firstReq.id);
-              }
-            } else {
-              console.log('⚠️ Auto-parsing completed but yielded single requirement or failed, using standard processing');
-            }
-          } catch (error) {
-            console.error('💥 Error during auto-parsing:', error);
-          }
-        } else {
-          console.log('ℹ️ Content does not appear to need JSON parsing');
-        }
-      }
-      
-      // Fallback to standard processing if automatic parsing failed
-      if (!parseSuccess) {
-        console.log('Using standard initiatives processing');
-        addGeneratedInitiatives(useCaseId, initiatives);
-      }
+      // Save initiatives to the initiative store 
+      console.log('💾 Saving initiatives to store...');
+      const savedInitiatives = addGeneratedInitiatives(useCaseId, initiatives);
+      console.log(`✅ Successfully saved ${savedInitiatives.length} initiatives to store`);
 
-      // Save to backend (for persistence)
+      // Optional: Save to backend for persistence (if needed)
+      // Note: Currently using frontend store, backend persistence can be added later
       try {
-        const saveResponse = await fetch('/api/requirements/save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            businessBriefId: useCaseId,
-            initiatives: initiatives,
-          }),
-        });
-
-        if (!saveResponse.ok) {
-          const saveError = await saveResponse.json();
-          console.warn('Save failed but continuing:', saveError);
-          // Don't throw error - generation was successful, just save failed
-        }
+        // TODO: Create /api/initiatives/save endpoint if backend persistence is needed
+        console.log('📊 Initiatives stored in frontend state management');
       } catch (saveError) {
-        console.warn('Save error (non-critical):', saveError);
-        // Continue anyway - the important part (generation) worked
+        console.warn('Backend save not implemented yet (using frontend store):', saveError);
       }
 
       // Show success message with details  
-      if (parseSuccess) {
-        notify.autoParsed(parseResult?.requirementsCount || initiatives.length);
-      } else {
-        notify.requirementGenerated(initiatives.length, metadata);
-      }
+      notify.success('Initiatives Generated', `Successfully generated ${initiatives.length} initiative${initiatives.length !== 1 ? 's' : ''} from business brief`);
       
       // Log final results for debugging
-      console.log('🏁 Final results - Parse success:', parseSuccess, 'Initiatives generated:', parseSuccess ? parseResult?.requirementsCount : initiatives.length);
+      console.log('🏁 Final results - Initiatives generated:', initiatives.length);
       
       // Redirect to requirements page to view the generated initiatives and their features
       // Use setTimeout to ensure store is updated before redirect
@@ -332,10 +251,10 @@ export default function UseCasesPage() {
       }, 100);
 
     } catch (error) {
-      console.error('Error generating requirements:', error);
+      console.error('Error generating initiatives:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       setGenerationError(errorMessage);
-      notify.error('Generation Failed', errorMessage);
+      notify.error('Initiative Generation Failed', errorMessage);
     } finally {
       setIsGeneratingRequirements(null);
     }

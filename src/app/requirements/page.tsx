@@ -583,12 +583,12 @@ Format as JSON:
                 <div className="flex items-center space-x-3">
                   <Target className="h-6 w-6 text-yellow-600" />
                   <div>
-                    <CardTitle className="flex items-center space-x-2">
+              <CardTitle className="flex items-center space-x-2">
                       <Badge variant="outline" className="font-mono text-sm">
                         {group.businessBriefId}
                       </Badge>
                       <span>{group.businessBriefTitle}</span>
-                    </CardTitle>
+              </CardTitle>
                     <CardDescription className="flex items-center space-x-2 mt-1">
                       <Layers className="h-4 w-4" />
                       <span>{group.requirements.length} {requirementLevel?.name?.toLowerCase() || 'requirement'}{group.requirements.length !== 1 ? 's' : ''}</span>
@@ -606,12 +606,12 @@ Format as JSON:
                   <Card key={`${req.id}-${index}`} className="border border-gray-200 hover:border-gray-300 transition-colors border-l-4 border-l-green-400">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          {getStatusIcon(req.status)}
-                          <span className="font-medium text-sm">{req.id}</span>
-                          <Badge className={getStatusColor(req.status)}>
-                            {req.status}
-                          </Badge>
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(req.status)}
+                        <span className="font-medium text-sm">{req.id}</span>
+                      <Badge className={getStatusColor(req.status)}>
+                        {req.status}
+                      </Badge>
                         </div>
                                                  <div className="flex items-center space-x-2">
                            {needsParsing(req) && (
@@ -667,41 +667,41 @@ Format as JSON:
                            <p className={`text-sm text-gray-800 ${needsParsing(req) ? 'line-clamp-3 font-mono text-xs' : 'line-clamp-2'}`}>
                              {parseRequirementText(req.originalText)}
                            </p>
-                         </div>
-                        
+                    </div>
+                    
                         {req.enhancedText && req.enhancedText !== req.originalText && (
                           <div>
                             <p className="text-sm font-medium text-blue-700 mb-1 flex items-center space-x-1">
                               <Sparkles size={14} />
                               <span>Enhanced:</span>
-                            </p>
-                            <p className="text-sm text-gray-800 line-clamp-2">
+                      </p>
+                      <p className="text-sm text-gray-800 line-clamp-2">
                               {parseRequirementText(req.enhancedText)}
-                            </p>
+                      </p>
                           </div>
                         )}
-
-                        {req.reviewedBy && (
+                      
+                      {req.reviewedBy && (
                           <div className="flex items-center text-xs text-gray-500">
-                            <User size={12} className="mr-1" />
-                            {req.reviewedBy === 'AI System' ? (
-                              <span className="text-blue-600 font-medium">🤖 AI Generated</span>
-                            ) : (
-                              req.reviewedBy
-                            )}
-                            <Calendar size={12} className="ml-2 mr-1" />
+                          <User size={12} className="mr-1" />
+                          {req.reviewedBy === 'AI System' ? (
+                            <span className="text-blue-600 font-medium">🤖 AI Generated</span>
+                          ) : (
+                            req.reviewedBy
+                          )}
+                          <Calendar size={12} className="ml-2 mr-1" />
                             {req.reviewedAt ? new Intl.DateTimeFormat('en-US', { 
                               year: 'numeric', 
                               month: 'short', 
                               day: 'numeric' 
                             }).format(new Date(req.reviewedAt)) : 'N/A'}
-                          </div>
-                        )}
+                        </div>
+                      )}
 
                         {/* Expanded details */}
                         {selectedReqId === req.id && (
                           <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
-                            {/* Quality Indicators */}
+              {/* Quality Indicators */}
                             <div>
                               <h4 className="text-sm font-medium text-gray-700 mb-2">Quality Assessment</h4>
                               <div className="grid grid-cols-3 gap-3">
@@ -709,53 +709,53 @@ Format as JSON:
                                   <div key={idx} className="flex items-center justify-between">
                                     <span className="text-xs">{indicator.label}</span>
                                     <div className="flex items-center space-x-1">
-                                      {indicator.value ? (
+                          {indicator.value ? (
                                         <CheckCircle size={12} className="text-green-600" />
-                                      ) : (
+                          ) : (
                                         <XCircle size={12} className="text-red-600" />
-                                      )}
+                          )}
                                       <span className={`text-xs ${indicator.color}`}>
-                                        {indicator.value ? 'Yes' : 'No'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                            {indicator.value ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                             </div>
 
-                            {/* Action Buttons */}
+              {/* Action Buttons */}
                             <div className="flex items-center justify-between pt-2">
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
                                   onClick={() => handleReject(req.id)}
                                   disabled={req.status === 'rejected'}
-                                >
-                                  <XCircle size={14} className="mr-1" />
-                                  Reject
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setIsEditing(true);
+                      >
+                        <XCircle size={14} className="mr-1" />
+                        Reject
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsEditing(true);
                                     setEditText(req.enhancedText || req.originalText);
                                     setSelectedReqId(req.id);
-                                  }}
-                                >
-                                  <Edit size={14} className="mr-1" />
-                                  Edit
-                                </Button>
-                                <Button
-                                  size="sm"
+                        }}
+                      >
+                        <Edit size={14} className="mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
                                   onClick={() => handleApprove(req.id)}
                                   disabled={req.status === 'approved'}
-                                >
-                                  <CheckCircle size={14} className="mr-1" />
-                                  Approve
-                                </Button>
-                              </div>
+                      >
+                        <CheckCircle size={14} className="mr-1" />
+                        Approve
+                      </Button>
+                    </div>
                             </div>
                           </div>
                         )}
@@ -763,9 +763,9 @@ Format as JSON:
                     </CardContent>
                   </Card>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                </CardContent>
+              </Card>
         ))}
       </div>
 
@@ -888,8 +888,8 @@ Format as JSON:
               <Button onClick={handleEditSave}>
                 Save Changes
               </Button>
-            </div>
-          </div>
+        </div>
+      </div>
         </DialogContent>
       </Dialog>
     </div>
