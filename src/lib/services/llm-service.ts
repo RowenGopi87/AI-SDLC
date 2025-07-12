@@ -106,6 +106,39 @@ export interface InitiativeData {
   workflowLevel: string;
 }
 
+export interface GeneratedEpic {
+  id: string;
+  text: string;
+  category: string;
+  priority: 'high' | 'medium' | 'low';
+  rationale: string;
+  acceptanceCriteria: string[];
+  businessValue: string;
+  workflowLevel: string;
+  estimatedEffort: string;
+  sprintEstimate: number;
+}
+
+export interface EpicsGenerationResult {
+  epics: GeneratedEpic[];
+  iterationCount: number;
+  totalTokensUsed: number;
+  processingTime: number;
+  provokingQuestions: string[];
+  selfReviewNotes: string[];
+}
+
+export interface FeatureData {
+  title: string;
+  description: string;
+  category: string;
+  priority: string;
+  rationale: string;
+  acceptanceCriteria: string[];
+  businessValue: string;
+  workflowLevel: string;
+}
+
 export class LLMService {
   private openai?: OpenAI;
   private googleAI?: GoogleGenerativeAI;
@@ -266,6 +299,52 @@ export class LLMService {
     } catch (error) {
       console.error('Error in features generation:', error);
       throw new Error(`Failed to generate features: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async generateEpics(feature: FeatureData): Promise<EpicsGenerationResult> {
+    const startTime = Date.now();
+    let totalTokensUsed = 0;
+    let iterationCount = 0;
+    const provokingQuestions: string[] = [];
+    const selfReviewNotes: string[] = [];
+
+    try {
+      // Step 1: Generate provoking questions about the feature
+      iterationCount++;
+      const questionsResult = await this.generateProvokingQuestionsForFeature(feature);
+      provokingQuestions.push(...questionsResult.questions);
+      totalTokensUsed += questionsResult.tokensUsed;
+
+      // Step 2: Self-review and answer the provoking questions
+      iterationCount++;
+      const analysisResult = await this.performSelfAnalysisForFeature(feature, questionsResult.questions);
+      selfReviewNotes.push(...analysisResult.insights);
+      totalTokensUsed += analysisResult.tokensUsed;
+
+      // Step 3: Generate initial epics based on analysis
+      iterationCount++;
+      const initialEpics = await this.generateInitialEpics(feature, analysisResult.analysis);
+      totalTokensUsed += initialEpics.tokensUsed;
+
+      // Step 4: Validate and refine epics
+      iterationCount++;
+      const refinedEpics = await this.validateAndRefineEpics(initialEpics.epics);
+      totalTokensUsed += refinedEpics.tokensUsed;
+
+      const processingTime = Date.now() - startTime;
+
+      return {
+        epics: refinedEpics.epics,
+        iterationCount,
+        totalTokensUsed,
+        processingTime,
+        provokingQuestions,
+        selfReviewNotes,
+      };
+    } catch (error) {
+      console.error('Error in epics generation:', error);
+      throw new Error(`Failed to generate epics: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -1110,6 +1189,289 @@ Return refined features:
 
       return {
         features: validatedFeatures,
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async generateProvokingQuestionsForFeature(feature: FeatureData) {
+    const workflowContext = getAIPromptContext();
+    const systemPrompt = `You are a senior technical lead and epic planning specialist. Your role is to ask provoking, insightful questions about a feature to ensure we fully understand how to decompose it into sprint-sized epics.
+
+${workflowContext}
+
+Analyze the feature and generate 6-8 thought-provoking questions that will help uncover:
+1. Technical implementation approach and architecture
+2. User workflows and interaction patterns
+3. Data requirements and integration points
+4. Testing and quality assurance considerations
+5. Performance and scalability factors
+6. Sprint boundaries and delivery milestones
+7. Risk mitigation and technical debt
+8. Dependencies on other systems or teams
+
+Focus on questions that would help size epics appropriately for sprint delivery and ensure comprehensive decomposition into manageable work packages.`;
+
+    const userPrompt = `Feature:
+Title: ${feature.title}
+Description: ${feature.description}
+Category: ${feature.category}
+Priority: ${feature.priority}
+Rationale: ${feature.rationale}
+Business Value: ${feature.businessValue}
+Acceptance Criteria: ${feature.acceptanceCriteria.join(', ')}
+
+Generate provoking questions as a JSON array: ["question 1", "question 2", ...]`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const questions = JSON.parse(result.content);
+      return {
+        questions: Array.isArray(questions) ? questions : [],
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      // Fallback: extract questions from text response
+      const lines = result.content.split('\n').filter(line => line.trim().startsWith('-') || line.trim().match(/^\d+\./));
+      const questions = lines.map(line => line.replace(/^[-\d.]\s*/, '').trim()).filter(q => q.length > 0);
+      return {
+        questions: questions.slice(0, 8),
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async performSelfAnalysisForFeature(feature: FeatureData, questions: string[]) {
+    const systemPrompt = `You are a thoughtful technical architect performing a deep analysis of a feature. Answer the provoking questions with detailed insights, considering technical implementation, sprint planning, and delivery perspectives.
+
+For each question, provide:
+- A thorough technical analysis based on the feature
+- Sprint sizing and delivery considerations
+- Recommendations for epic decomposition
+
+Be analytical, objective, and comprehensive in your responses with focus on deliverable work packages.`;
+
+    const userPrompt = `Feature:
+${JSON.stringify(feature, null, 2)}
+
+Provoking Questions:
+${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+
+Provide a comprehensive analysis addressing each question. Format as JSON:
+{
+  "analysis": "comprehensive analysis text addressing all questions",
+  "insights": ["insight 1", "insight 2", "..."],
+  "keyConsiderations": ["consideration 1", "consideration 2", "..."]
+}`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const analysisData = JSON.parse(result.content);
+      return {
+        analysis: analysisData.analysis || result.content,
+        insights: analysisData.insights || [],
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      return {
+        analysis: result.content,
+        insights: [result.content],
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async generateInitialEpics(feature: FeatureData, analysis: string) {
+    const workflowContext = getAIPromptContext();
+    const systemPrompt = `You are an expert technical lead and sprint planning specialist. Based on the feature and comprehensive analysis, generate epics that can be delivered in 1-3 sprints each.
+
+${workflowContext}
+
+IMPORTANT: 
+- Each epic should be a deliverable work package that fits within 1-3 sprints
+- Epics should be substantial enough to be broken down into user stories
+- Focus on technical implementation and delivery milestones
+- Consider team capacity and sprint boundaries
+
+Each epic must be:
+- SPRINT-SIZED: Deliverable within 1-3 sprints
+- TECHNICALLY-FOCUSED: Addresses specific implementation aspects
+- TESTABLE: Has clear definition of done
+- INDEPENDENT: Can be worked on with minimal dependencies
+- VALUABLE: Contributes to the overall feature delivery
+
+RESPONSE FORMAT REQUIREMENTS:
+- Return ONLY valid JSON without any explanatory text
+- Do NOT use markdown formatting or code blocks
+- Do NOT include phrases like "Here are the epics:" or "Based on the analysis:"
+- Your entire response must be parseable as JSON`;
+
+    const userPrompt = `Feature:
+${JSON.stringify(feature, null, 2)}
+
+Analysis & Insights:
+${analysis}
+
+Generate epics as PURE JSON (no markdown, no code blocks, no explanatory text):
+{
+  "epics": [
+    {
+      "id": "EPIC-001",
+      "text": "epic description",
+      "category": "technical|user-experience|integration|testing|infrastructure|data",
+      "priority": "high|medium|low",
+      "rationale": "why this epic is needed",
+      "acceptanceCriteria": ["criteria 1", "criteria 2"],
+      "workflowLevel": "epic",
+      "businessValue": "value this epic provides",
+      "estimatedEffort": "Small|Medium|Large",
+      "sprintEstimate": 1-3
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Return ONLY the JSON object above, no markdown formatting, no \`\`\`json blocks
+- Priority must be exactly one of: "high", "medium", "low" (lowercase only)
+- Each epic should be sized for 1-3 sprints maximum
+- Focus on technical delivery and implementation aspects
+- sprintEstimate must be a number between 1 and 3
+- Response must be valid JSON that can be parsed directly`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const epicsData = JSON.parse(result.content);
+      
+      // Handle different JSON response formats
+      let epics = [];
+      
+      if (Array.isArray(epicsData)) {
+        epics = epicsData;
+      } else if (epicsData.epics && Array.isArray(epicsData.epics)) {
+        epics = epicsData.epics;
+      } else {
+        console.log('Unexpected JSON structure, storing raw content for manual parsing');
+        return {
+          epics: [{
+            id: 'EPIC-PARSE-NEEDED',
+            text: result.content,
+            category: 'needs-parsing',
+            priority: 'high' as const,
+            rationale: 'JSON response needs manual parsing',
+            acceptanceCriteria: ['Parse individual epics from JSON'],
+            businessValue: 'Manual parsing required',
+            workflowLevel: 'epic',
+            estimatedEffort: 'Medium',
+            sprintEstimate: 2,
+            rawJsonContent: result.content
+          }],
+          tokensUsed: result.tokensUsed,
+        };
+      }
+      
+      return {
+        epics: epics.map((epic: any, index: number) => ({
+          id: epic.id || `EPIC-${String(index + 1).padStart(3, '0')}`,
+          text: epic.text || epic.description || epic.title || 'Epic text not found',
+          category: epic.category || 'technical',
+          priority: (epic.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
+          rationale: epic.rationale || epic.businessValue || 'Generated from feature analysis',
+          acceptanceCriteria: epic.acceptanceCriteria || ['To be defined'],
+          businessValue: epic.businessValue || 'Business value to be determined',
+          workflowLevel: epic.workflowLevel || 'epic',
+          estimatedEffort: epic.estimatedEffort || 'Medium',
+          sprintEstimate: Math.min(Math.max(epic.sprintEstimate || 2, 1), 3) // Ensure 1-3 range
+        })),
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      console.log('JSON parse failed for epics, using fallback');
+      return {
+        epics: [{
+          id: 'EPIC-PARSE-NEEDED',
+          text: result.content,
+          category: 'needs-parsing',
+          priority: 'high' as const,
+          rationale: 'Response format needs manual review',
+          acceptanceCriteria: ['Review and parse epics manually'],
+          businessValue: 'Manual parsing required',
+          workflowLevel: 'epic',
+          estimatedEffort: 'Medium',
+          sprintEstimate: 2,
+          rawJsonContent: result.content
+        }],
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async validateAndRefineEpics(epics: any[]) {
+    const systemPrompt = `You are a sprint planning expert and epic validation specialist. Evaluate each epic to ensure it meets sprint delivery standards and can be effectively implemented.
+
+For each epic, assess:
+- Sprint-sized: Can it be delivered within 1-3 sprints?
+- Technically-focused: Does it address specific implementation aspects?
+- Testable: Are the acceptance criteria clear and measurable?
+- Independent: Can it be worked on with minimal dependencies?
+- Valuable: Does it contribute to the overall feature delivery?
+
+Refine epics that don't meet these criteria. Ensure proper sprint sizing.`;
+
+    const userPrompt = `Epics to validate and refine:
+${JSON.stringify(epics, null, 2)}
+
+Return refined epics:
+{
+  "epics": [
+    {
+      "id": "EPIC-001",
+      "text": "refined epic text",
+      "category": "category",
+      "priority": "priority",
+      "rationale": "rationale",
+      "acceptanceCriteria": ["criteria"],
+      "businessValue": "business value",
+      "workflowLevel": "workflowLevel",
+      "estimatedEffort": "effort level",
+      "sprintEstimate": 1-3
+    }
+  ]
+}`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const refinedData = JSON.parse(result.content);
+      const validatedEpics = refinedData.epics.map((epic: any, index: number) => ({
+        ...epic,
+        id: epic.id || `EPIC-${String(index + 1).padStart(3, '0')}`,
+        sprintEstimate: Math.min(Math.max(epic.sprintEstimate || 2, 1), 3), // Ensure 1-3 range
+      }));
+
+      return {
+        epics: validatedEpics,
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      // Fallback: apply basic validation to original epics
+      const validatedEpics = epics.map((epic, index) => ({
+        id: epic.id || `EPIC-${String(index + 1).padStart(3, '0')}`,
+        text: epic.text || 'Epic text',
+        category: epic.category || 'technical',
+        priority: epic.priority || 'medium',
+        rationale: epic.rationale || 'Derived from feature analysis',
+        acceptanceCriteria: epic.acceptanceCriteria || ['To be defined'],
+        businessValue: epic.businessValue || 'Business value to be determined',
+        workflowLevel: epic.workflowLevel || 'epic',
+        estimatedEffort: epic.estimatedEffort || 'Medium',
+        sprintEstimate: Math.min(Math.max(epic.sprintEstimate || 2, 1), 3), // Ensure 1-3 range
+      }));
+
+      return {
+        epics: validatedEpics,
         tokensUsed: result.tokensUsed,
       };
     }

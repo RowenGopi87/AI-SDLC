@@ -6,6 +6,7 @@ import { useRequirementStore } from '@/store/requirement-store';
 import { useUseCaseStore } from '@/store/use-case-store';
 import { useInitiativeStore } from '@/store/initiative-store';
 import { useFeatureStore } from '@/store/feature-store';
+import { useEpicStore } from '@/store/epic-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,7 @@ export default function RequirementsPage() {
   const { useCases } = useUseCaseStore();
   const { initiatives, addInitiative, updateInitiative, deleteInitiative } = useInitiativeStore();
   const { features, addGeneratedFeatures, getFeaturesByInitiative } = useFeatureStore();
+  const { epics, addGeneratedEpics, getEpicsByFeature } = useEpicStore();
   const { llmSettings, validateSettings } = useSettingsStore();
   
   // State management
@@ -113,8 +115,17 @@ export default function RequirementsPage() {
         }, {} as Record<string, any[]>));
         return features;
       };
+      (window as any).debugEpics = () => {
+        console.log('🔍 Debug: Current epics from store:', epics);
+        console.log('🔍 Debug: Epics by feature:', epics.reduce((acc, epic) => {
+          if (!acc[epic.featureId]) acc[epic.featureId] = [];
+          acc[epic.featureId].push(epic);
+          return acc;
+        }, {} as Record<string, any[]>));
+        return epics;
+      };
     }
-  }, [initiatives, features]);
+  }, [initiatives, features, epics]);
 
   // Toggle expanded state
   const toggleExpanded = (id: string) => {
@@ -266,6 +277,110 @@ export default function RequirementsPage() {
     }
   };
 
+  // Epic Generation function
+  const handleGenerateEpics = async (featureId: string) => {
+    const feature = features.find(feat => feat.id === featureId);
+    if (!feature) {
+      console.error('Feature not found:', featureId);
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      console.log('Generating epics for feature:', featureId);
+      
+      // Check if settings are valid
+      if (!validateSettings()) {
+        throw new Error('Please configure your LLM provider and API key in Settings');
+      }
+
+      // Validate settings via API
+      const settingsResponse = await fetch('/api/settings/validate', {
+        headers: {
+          'x-llm-provider': llmSettings.provider,
+          'x-llm-model': llmSettings.model,
+          'x-llm-api-key': llmSettings.apiKey,
+          'x-llm-temperature': llmSettings.temperature?.toString() || '0.7',
+          'x-llm-max-tokens': llmSettings.maxTokens?.toString() || '4000',
+        },
+      });
+      
+      if (!settingsResponse.ok) {
+        throw new Error('Please configure LLM settings in the Settings page first');
+      }
+
+      const { isValid, settings } = await settingsResponse.json();
+      if (!isValid) {
+        throw new Error('Please configure your LLM provider and API key in Settings');
+      }
+
+      // Generate epics using the configured LLM
+      const response = await fetch('/api/generate-epics', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          featureId: feature.id,
+          initiativeId: feature.initiativeId,
+          businessBriefId: feature.businessBriefId,
+          featureData: {
+            title: feature.title,
+            description: feature.description,
+            category: feature.category,
+            priority: feature.priority,
+            rationale: feature.rationale,
+            acceptanceCriteria: feature.acceptanceCriteria,
+            businessValue: feature.businessValue,
+            workflowLevel: feature.workflowLevel,
+          },
+          llmSettings: settings,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate epics');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Epic generation failed');
+      }
+
+      // Save generated epics to the store
+      const { epics: generatedEpics, metadata } = result.data;
+      
+      console.log('💾 Saving epics to store...');
+      const savedEpics = addGeneratedEpics(featureId, feature.initiativeId, feature.businessBriefId, generatedEpics);
+      console.log(`✅ Successfully saved ${savedEpics.length} epics to store`);
+
+      // Show success message
+      console.log('Epics generated successfully:', savedEpics.length);
+      
+      // Create a temporary success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `✅ Generated ${savedEpics.length} epics successfully`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 3000);
+      
+    } catch (error) {
+      console.error('Error generating epics:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      
+      // Create a temporary error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `❌ Epic Generation Failed: ${errorMessage}`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 5000);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Manual entry functions
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,6 +461,7 @@ export default function RequirementsPage() {
   const activeInitiatives = initiatives.filter(item => item.status === 'active').length;
   const completedInitiatives = initiatives.filter(item => item.status === 'completed').length;
   const totalFeatures = features.length;
+  const totalEpics = epics.length;
 
   // Group initiatives by business brief for better organization
   const initiativesByBusinessBrief = initiatives.reduce((groups, initiative) => {
@@ -371,6 +487,17 @@ export default function RequirementsPage() {
   const renderWorkItem = (item: any, level: number = 0, type: string = 'initiative') => {
     const isSelected = selectedItem === item.id;
     const initiativeFeatures = type === 'initiative' ? getFeaturesByInitiative(item.id) : [];
+    const featureEpics = type === 'feature' ? getEpicsByFeature(item.id) : [];
+
+    // Get appropriate badge color for type
+    const getTypeBadgeColor = (type: string) => {
+      switch (type) {
+        case 'initiative': return 'bg-purple-100 text-purple-800';
+        case 'feature': return 'bg-blue-100 text-blue-800';
+        case 'epic': return 'bg-green-100 text-green-800';
+        default: return 'bg-gray-100 text-gray-800';
+      }
+    };
 
     return (
       <div key={item.id} className="space-y-2">
@@ -384,7 +511,7 @@ export default function RequirementsPage() {
           {/* Type Icon */}
           <div className="flex items-center space-x-2">
             {getTypeIcon(type)}
-            <Badge className={`${type === 'initiative' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`} variant="secondary">
+            <Badge className={getTypeBadgeColor(type)} variant="secondary">
               {type}
             </Badge>
           </div>
@@ -409,6 +536,16 @@ export default function RequirementsPage() {
                   {initiativeFeatures.length} features
                 </Badge>
               )}
+              {type === 'feature' && featureEpics.length > 0 && (
+                <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                  {featureEpics.length} epics
+                </Badge>
+              )}
+              {type === 'epic' && item.sprintEstimate && (
+                <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">
+                  {item.sprintEstimate} sprint{item.sprintEstimate !== 1 ? 's' : ''}
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-gray-600 truncate">{item.description}</p>
           </div>
@@ -431,6 +568,25 @@ export default function RequirementsPage() {
                   <Loader2 size={12} className="animate-spin text-blue-600" />
                 ) : (
                   <Wand2 size={12} className="text-blue-600" />
+                )}
+              </Button>
+            )}
+            {type === 'feature' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-1 h-6 w-6"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleGenerateEpics(item.id);
+                }}
+                disabled={isGenerating}
+                title="Generate Epics"
+              >
+                {isGenerating ? (
+                  <Loader2 size={12} className="animate-spin text-green-600" />
+                ) : (
+                  <Wand2 size={12} className="text-green-600" />
                 )}
               </Button>
             )}
@@ -482,6 +638,20 @@ export default function RequirementsPage() {
                 <p className="text-sm text-gray-600">{item.businessValue}</p>
               </div>
             )}
+
+            {type === 'epic' && item.estimatedEffort && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Estimated Effort</h4>
+                <p className="text-sm text-gray-600">{item.estimatedEffort}</p>
+              </div>
+            )}
+
+            {type === 'epic' && item.sprintEstimate && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Sprint Estimate</h4>
+                <p className="text-sm text-gray-600">{item.sprintEstimate} sprint{item.sprintEstimate !== 1 ? 's' : ''}</p>
+              </div>
+            )}
             
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Acceptance Criteria</h4>
@@ -501,6 +671,13 @@ export default function RequirementsPage() {
         {type === 'initiative' && initiativeFeatures.length > 0 && (
           <div className="ml-8 space-y-2">
             {initiativeFeatures.map((feature) => renderWorkItem(feature, level + 1, 'feature'))}
+          </div>
+        )}
+
+        {/* Render Epics under Feature */}
+        {type === 'feature' && featureEpics.length > 0 && (
+          <div className="ml-8 space-y-2">
+            {featureEpics.map((epic) => renderWorkItem(epic, level + 1, 'epic'))}
           </div>
         )}
       </div>
@@ -712,7 +889,7 @@ export default function RequirementsPage() {
         </CardHeader>
         {summaryCardsVisible && (
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
@@ -757,6 +934,18 @@ export default function RequirementsPage() {
                       <p className="text-2xl font-bold text-blue-600">{totalFeatures}</p>
                     </div>
                     <Layers className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Epics</p>
+                      <p className="text-2xl font-bold text-green-600">{totalEpics}</p>
+                    </div>
+                    <BookOpen className="h-8 w-8 text-green-600" />
                   </div>
                 </CardContent>
               </Card>
