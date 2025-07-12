@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface Initiative {
   id: string;
@@ -28,60 +29,74 @@ interface InitiativeState {
   getInitiativeById: (id: string) => Initiative | undefined;
 }
 
-export const useInitiativeStore = create<InitiativeState>((set, get) => ({
-  initiatives: [],
+export const useInitiativeStore = create<InitiativeState>()(
+  persist(
+    (set, get) => ({
+      initiatives: [],
 
-  addInitiative: (initiative) =>
-    set((state) => ({
-      initiatives: [...state.initiatives, initiative],
-    })),
+      addInitiative: (initiative) =>
+        set((state) => ({
+          initiatives: [...state.initiatives, initiative],
+        })),
 
-  addGeneratedInitiatives: (businessBriefId, generatedInitiatives) => {
-    const newInitiatives: Initiative[] = generatedInitiatives.map((gen, index) => ({
-      id: gen.id || `init-gen-${Date.now().toString(36)}-${index}`,
-      businessBriefId,
-      title: gen.text || gen.title || `Initiative ${index + 1}`,
-      description: gen.rationale || gen.description || 'Generated initiative',
-      category: gen.category || 'strategic',
-      priority: gen.priority || 'medium',
-      rationale: gen.rationale || 'Generated from business brief analysis',
-      acceptanceCriteria: gen.acceptanceCriteria || ['To be defined'],
-      businessValue: gen.businessValue || 'Business value to be determined',
-      workflowLevel: gen.workflowLevel || 'initiative',
-      status: 'draft' as const,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'AI System',
-    }));
+      addGeneratedInitiatives: (businessBriefId, generatedInitiatives) => {
+        console.log('🔄 Adding generated initiatives to store...', { businessBriefId, count: generatedInitiatives.length });
+        
+        const newInitiatives: Initiative[] = generatedInitiatives.map((gen, index) => ({
+          id: gen.id || `init-gen-${Date.now().toString(36)}-${index}`,
+          businessBriefId,
+          title: gen.text || gen.title || `Initiative ${index + 1}`,
+          description: gen.rationale || gen.description || 'Generated initiative',
+          category: gen.category || 'strategic',
+          priority: gen.priority || 'medium',
+          rationale: gen.rationale || 'Generated from business brief analysis',
+          acceptanceCriteria: gen.acceptanceCriteria || ['To be defined'],
+          businessValue: gen.businessValue || 'Business value to be determined',
+          workflowLevel: gen.workflowLevel || 'initiative',
+          status: 'draft' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: 'AI System',
+        }));
 
-    set((state) => ({
-      initiatives: [...state.initiatives, ...newInitiatives],
-    }));
+        console.log('🔍 Generated initiatives preview:', newInitiatives.map(init => ({ id: init.id, title: init.title, businessBriefId: init.businessBriefId })));
 
-    return newInitiatives;
-  },
+        set((state) => ({
+          initiatives: [...state.initiatives, ...newInitiatives],
+        }));
 
-  updateInitiative: (id, updates) =>
-    set((state) => ({
-      initiatives: state.initiatives.map((initiative) =>
-        initiative.id === id
-          ? { ...initiative, ...updates, updatedAt: new Date() }
-          : initiative
-      ),
-    })),
+        console.log('✅ Initiatives added to store successfully');
+        return newInitiatives;
+      },
 
-  deleteInitiative: (id) =>
-    set((state) => ({
-      initiatives: state.initiatives.filter((initiative) => initiative.id !== id),
-    })),
+      updateInitiative: (id, updates) =>
+        set((state) => ({
+          initiatives: state.initiatives.map((initiative) =>
+            initiative.id === id
+              ? { ...initiative, ...updates, updatedAt: new Date() }
+              : initiative
+          ),
+        })),
 
-  getInitiativesByBusinessBrief: (businessBriefId) => {
-    const state = get();
-    return state.initiatives.filter((initiative) => initiative.businessBriefId === businessBriefId);
-  },
+      deleteInitiative: (id) =>
+        set((state) => ({
+          initiatives: state.initiatives.filter((initiative) => initiative.id !== id),
+        })),
 
-  getInitiativeById: (id) => {
-    const state = get();
-    return state.initiatives.find((initiative) => initiative.id === id);
-  },
-})); 
+      getInitiativesByBusinessBrief: (businessBriefId) => {
+        const state = get();
+        return state.initiatives.filter((initiative) => initiative.businessBriefId === businessBriefId);
+      },
+
+      getInitiativeById: (id) => {
+        const state = get();
+        return state.initiatives.find((initiative) => initiative.id === id);
+      },
+    }),
+    {
+      name: 'aura-initiatives',
+      // Persist all initiative data
+      partialize: (state) => ({ initiatives: state.initiatives }),
+    }
+  )
+); 

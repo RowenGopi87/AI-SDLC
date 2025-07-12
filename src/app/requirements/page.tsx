@@ -79,9 +79,27 @@ export default function RequirementsPage() {
 
   // Auto-expand initiative groups when initiatives are loaded
   useEffect(() => {
+    console.log('🔍 Requirements page - Current initiatives:', initiatives);
+    console.log('🔍 Requirements page - Initiatives count:', initiatives.length);
     if (initiatives.length > 0) {
+      console.log('🔍 Requirements page - First initiative:', initiatives[0]);
       const businessBriefIds = [...new Set(initiatives.map(init => init.businessBriefId))];
       setExpandedItems(new Set(businessBriefIds));
+    }
+  }, [initiatives]);
+
+  // Debug helper for the browser console
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).debugInitiatives = () => {
+        console.log('🔍 Debug: Current initiatives from store:', initiatives);
+        console.log('🔍 Debug: Store state:', { 
+          count: initiatives.length, 
+          businessBriefs: [...new Set(initiatives.map(init => init.businessBriefId))],
+          statuses: [...new Set(initiatives.map(init => init.status))]
+        });
+        return initiatives;
+      };
     }
   }, [initiatives]);
 
