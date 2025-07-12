@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useUseCaseStore } from '@/store/use-case-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useRequirementStore } from '@/store/requirement-store';
+import { useInitiativeStore } from '@/store/initiative-store';
 import { setSelectedItem } from '@/components/layout/sidebar';
 import { notify } from '@/lib/notification-helper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +43,7 @@ export default function UseCasesPage() {
   const { useCases, addUseCase, updateUseCase, selectUseCase, selectedUseCase } = useUseCaseStore();
   const { llmSettings, validateSettings } = useSettingsStore();
   const { addGeneratedRequirements, addGeneratedRequirementsFromJSON, deleteRequirement } = useRequirementStore();
+  const { addGeneratedInitiatives } = useInitiativeStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   // Commented out workflow modal - using sidebar workflow steps instead
@@ -287,7 +289,7 @@ export default function UseCasesPage() {
       // Fallback to standard processing if automatic parsing failed
       if (!parseSuccess) {
         console.log('Using standard initiatives processing');
-        addGeneratedRequirements(useCaseId, initiatives);
+        addGeneratedInitiatives(useCaseId, initiatives);
       }
 
       // Save to backend (for persistence)
@@ -323,10 +325,10 @@ export default function UseCasesPage() {
       // Log final results for debugging
       console.log('🏁 Final results - Parse success:', parseSuccess, 'Initiatives generated:', parseSuccess ? parseResult?.requirementsCount : initiatives.length);
       
-      // Redirect to requirements page to view the generated requirements
+      // Redirect to requirements page to view the generated initiatives and their features
       // Use setTimeout to ensure store is updated before redirect
       setTimeout(() => {
-        window.location.href = `/requirements?filter=generated&businessBrief=${useCaseId}`;
+        window.location.href = `/requirements?filter=initiatives&businessBrief=${useCaseId}`;
       }, 100);
 
     } catch (error) {

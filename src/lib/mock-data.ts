@@ -1,4 +1,5 @@
 import { CURRENT_WORKFLOW } from './workflow-config';
+import type { Initiative } from '@/store/initiative-store';
 
 // Types for the mock data - Updated for configurable workflows
 export interface UseCase {
@@ -317,6 +318,80 @@ export const mockRequirements: Requirement[] = [
      workflowStage: "enhancement",
      completionPercentage: 90
    }
+];
+
+export const mockInitiatives: Initiative[] = [
+  // Customer Portal Enhancement Initiative (from BB-001)
+  {
+    id: "init-001",
+    businessBriefId: "uc-001",
+    title: "Customer Portal Enhancement Initiative",
+    description: "Transform customer experience through comprehensive self-service capabilities and digital modernization",
+    category: "strategic",
+    priority: "high",
+    rationale: "Address customer frustration with current portal limitations while reducing operational support costs",
+    acceptanceCriteria: [
+      "All portal features fully functional and tested",
+      "Performance meets or exceeds benchmarks",
+      "User satisfaction scores improve by 25%",
+      "Support call reduction of 40% achieved"
+    ],
+    businessValue: "Reduce customer service costs by 40%, improve customer satisfaction by 25%, and establish foundation for future digital services",
+    workflowLevel: "initiative",
+    status: "active",
+    createdAt: new Date("2024-01-15"),
+    updatedAt: new Date("2024-01-26"),
+    createdBy: "Joshua Payne",
+    assignedTo: "Technology Team"
+  },
+  
+  // Mobile Payment Integration Initiative (from BB-002)
+  {
+    id: "init-002", 
+    businessBriefId: "uc-002",
+    title: "Mobile Payment Integration Initiative",
+    description: "Implement modern mobile payment solutions to reduce cart abandonment and increase mobile conversion rates",
+    category: "business",
+    priority: "medium",
+    rationale: "Mobile commerce growth requires modern payment options to remain competitive and meet customer expectations",
+    acceptanceCriteria: [
+      "Apple Pay, Google Pay, and Samsung Pay fully integrated",
+      "PCI DSS compliance maintained",
+      "Mobile conversion rate improves by 30%",
+      "Cart abandonment reduces by 20%"
+    ],
+    businessValue: "Increase mobile sales revenue by 15%, improve user experience, and capture market share from competitors",
+    workflowLevel: "initiative",
+    status: "draft",
+    createdAt: new Date("2024-01-20"),
+    updatedAt: new Date("2024-01-23"),
+    createdBy: "Jane Smith",
+    assignedTo: "Payment Team"
+  },
+
+  // AI-Powered Inventory Optimization Initiative (from BB-003)
+  {
+    id: "init-003",
+    businessBriefId: "uc-003", 
+    title: "AI-Powered Inventory Optimization Initiative",
+    description: "Leverage machine learning and AI to optimize inventory levels, reduce costs, and prevent stockouts",
+    category: "operational",
+    priority: "high",
+    rationale: "Current inventory management is reactive and inefficient, leading to high carrying costs and frequent stockouts",
+    acceptanceCriteria: [
+      "ML models achieve 85%+ accuracy in demand forecasting",
+      "Inventory carrying costs reduced by 18%",
+      "Stockouts decreased by 35%",
+      "ROI positive within 12 months"
+    ],
+    businessValue: "Reduce inventory carrying costs by 18%, decrease stockouts by 35%, improve inventory turnover ratio by 25%",
+    workflowLevel: "initiative",
+    status: "draft",
+    createdAt: new Date("2024-01-25"),
+    updatedAt: new Date("2024-01-25"),
+    createdBy: "Mike Johnson",
+    assignedTo: "Operations Team"
+  }
 ];
 
 export const mockWorkItems: WorkItem[] = [
