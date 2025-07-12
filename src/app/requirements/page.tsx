@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useRequirementStore } from '@/store/requirement-store';
 import { useUseCaseStore } from '@/store/use-case-store';
 import { useInitiativeStore } from '@/store/initiative-store';
+import { useFeatureStore } from '@/store/feature-store';
+import { useSettingsStore } from '@/store/settings-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +46,8 @@ export default function RequirementsPage() {
   const { requirements, updateRequirement } = useRequirementStore();
   const { useCases } = useUseCaseStore();
   const { initiatives, addInitiative, updateInitiative, deleteInitiative } = useInitiativeStore();
+  const { features, addGeneratedFeatures, getFeaturesByInitiative } = useFeatureStore();
+  const { llmSettings, validateSettings } = useSettingsStore();
   
   // State management
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -100,8 +104,17 @@ export default function RequirementsPage() {
         });
         return initiatives;
       };
+      (window as any).debugFeatures = () => {
+        console.log('🔍 Debug: Current features from store:', features);
+        console.log('🔍 Debug: Features by initiative:', features.reduce((acc, feat) => {
+          if (!acc[feat.initiativeId]) acc[feat.initiativeId] = [];
+          acc[feat.initiativeId].push(feat);
+          return acc;
+        }, {} as Record<string, any[]>));
+        return features;
+      };
     }
-  }, [initiatives]);
+  }, [initiatives, features]);
 
   // Toggle expanded state
   const toggleExpanded = (id: string) => {
@@ -152,13 +165,102 @@ export default function RequirementsPage() {
 
   // AI Generation functions
   const handleGenerateFeatures = async (initiativeId: string) => {
+    const initiative = initiatives.find(init => init.id === initiativeId);
+    if (!initiative) {
+      console.error('Initiative not found:', initiativeId);
+      return;
+    }
+
     setIsGenerating(true);
     try {
       console.log('Generating features for initiative:', initiativeId);
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Mock delay
-      console.log('Features generated successfully');
+      
+      // Check if settings are valid
+      if (!validateSettings()) {
+        throw new Error('Please configure your LLM provider and API key in Settings');
+      }
+
+      // Validate settings via API
+      const settingsResponse = await fetch('/api/settings/validate', {
+        headers: {
+          'x-llm-provider': llmSettings.provider,
+          'x-llm-model': llmSettings.model,
+          'x-llm-api-key': llmSettings.apiKey,
+          'x-llm-temperature': llmSettings.temperature?.toString() || '0.7',
+          'x-llm-max-tokens': llmSettings.maxTokens?.toString() || '4000',
+        },
+      });
+      
+      if (!settingsResponse.ok) {
+        throw new Error('Please configure LLM settings in the Settings page first');
+      }
+
+      const { isValid, settings } = await settingsResponse.json();
+      if (!isValid) {
+        throw new Error('Please configure your LLM provider and API key in Settings');
+      }
+
+      // Generate features using the configured LLM
+      const response = await fetch('/api/generate-features', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          initiativeId: initiative.id,
+          businessBriefId: initiative.businessBriefId,
+          initiativeData: {
+            title: initiative.title,
+            description: initiative.description,
+            category: initiative.category,
+            priority: initiative.priority,
+            rationale: initiative.rationale,
+            acceptanceCriteria: initiative.acceptanceCriteria,
+            businessValue: initiative.businessValue,
+            workflowLevel: initiative.workflowLevel,
+          },
+          llmSettings: settings,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate features');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Feature generation failed');
+      }
+
+      // Save generated features to the store
+      const { features: generatedFeatures, metadata } = result.data;
+      
+      console.log('💾 Saving features to store...');
+      const savedFeatures = addGeneratedFeatures(initiativeId, initiative.businessBriefId, generatedFeatures);
+      console.log(`✅ Successfully saved ${savedFeatures.length} features to store`);
+
+      // Show success message
+      console.log('Features generated successfully:', savedFeatures.length);
+      
+      // Create a temporary success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `✅ Generated ${savedFeatures.length} features successfully`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 3000);
+      
     } catch (error) {
       console.error('Error generating features:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      
+      // Create a temporary error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `❌ Feature Generation Failed: ${errorMessage}`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 5000);
     } finally {
       setIsGenerating(false);
     }
@@ -243,6 +345,7 @@ export default function RequirementsPage() {
   const totalInitiatives = initiatives.length;
   const activeInitiatives = initiatives.filter(item => item.status === 'active').length;
   const completedInitiatives = initiatives.filter(item => item.status === 'completed').length;
+  const totalFeatures = features.length;
 
   // Group initiatives by business brief for better organization
   const initiativesByBusinessBrief = initiatives.reduce((groups, initiative) => {
@@ -264,9 +367,10 @@ export default function RequirementsPage() {
 
   const businessBriefGroups = Object.values(initiativesByBusinessBrief);
 
-  // Render work item (simplified for now - can be expanded to handle hierarchy later)
-  const renderWorkItem = (item: any, level: number = 0) => {
+  // Render work item with hierarchical structure
+  const renderWorkItem = (item: any, level: number = 0, type: string = 'initiative') => {
     const isSelected = selectedItem === item.id;
+    const initiativeFeatures = type === 'initiative' ? getFeaturesByInitiative(item.id) : [];
 
     return (
       <div key={item.id} className="space-y-2">
@@ -279,9 +383,9 @@ export default function RequirementsPage() {
         >
           {/* Type Icon */}
           <div className="flex items-center space-x-2">
-            {getTypeIcon('initiative')}
-            <Badge className="bg-purple-100 text-purple-800" variant="secondary">
-              initiative
+            {getTypeIcon(type)}
+            <Badge className={`${type === 'initiative' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`} variant="secondary">
+              {type}
             </Badge>
           </div>
 
@@ -300,24 +404,36 @@ export default function RequirementsPage() {
                   {item.category}
                 </Badge>
               )}
+              {type === 'initiative' && initiativeFeatures.length > 0 && (
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                  {initiativeFeatures.length} features
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-gray-600 truncate">{item.description}</p>
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-1 h-6 w-6"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleGenerateFeatures(item.id);
-              }}
-              disabled={isGenerating}
-            >
-              <Wand2 size={12} className="text-blue-600" />
-            </Button>
+            {type === 'initiative' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-1 h-6 w-6"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleGenerateFeatures(item.id);
+                }}
+                disabled={isGenerating}
+                title="Generate Features"
+              >
+                {isGenerating ? (
+                  <Loader2 size={12} className="animate-spin text-blue-600" />
+                ) : (
+                  <Wand2 size={12} className="text-blue-600" />
+                )}
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -326,6 +442,7 @@ export default function RequirementsPage() {
                 e.stopPropagation();
                 handleEdit(item);
               }}
+              title="Edit"
             >
               <Edit size={12} />
             </Button>
@@ -337,6 +454,7 @@ export default function RequirementsPage() {
                 e.stopPropagation();
                 handleDelete(item.id);
               }}
+              title="Delete"
             >
               <Trash2 size={12} />
             </Button>
@@ -376,6 +494,13 @@ export default function RequirementsPage() {
                 ))}
               </ul>
             </div>
+          </div>
+        )}
+
+        {/* Render Features under Initiative */}
+        {type === 'initiative' && initiativeFeatures.length > 0 && (
+          <div className="ml-8 space-y-2">
+            {initiativeFeatures.map((feature) => renderWorkItem(feature, level + 1, 'feature'))}
           </div>
         )}
       </div>
@@ -629,7 +754,7 @@ export default function RequirementsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Features</p>
-                      <p className="text-2xl font-bold text-blue-600">0</p>
+                      <p className="text-2xl font-bold text-blue-600">{totalFeatures}</p>
                     </div>
                     <Layers className="h-8 w-8 text-blue-600" />
                   </div>

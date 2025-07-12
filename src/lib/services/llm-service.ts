@@ -75,6 +75,37 @@ export interface InitiativesGenerationResult {
   selfReviewNotes: string[];
 }
 
+export interface GeneratedFeature {
+  id: string;
+  text: string;
+  category: string;
+  priority: 'high' | 'medium' | 'low';
+  rationale: string;
+  acceptanceCriteria: string[];
+  businessValue: string;
+  workflowLevel: string;
+}
+
+export interface FeaturesGenerationResult {
+  features: GeneratedFeature[];
+  iterationCount: number;
+  totalTokensUsed: number;
+  processingTime: number;
+  provokingQuestions: string[];
+  selfReviewNotes: string[];
+}
+
+export interface InitiativeData {
+  title: string;
+  description: string;
+  category: string;
+  priority: string;
+  rationale: string;
+  acceptanceCriteria: string[];
+  businessValue: string;
+  workflowLevel: string;
+}
+
 export class LLMService {
   private openai?: OpenAI;
   private googleAI?: GoogleGenerativeAI;
@@ -189,6 +220,52 @@ export class LLMService {
     } catch (error) {
       console.error('Error in initiatives generation:', error);
       throw new Error(`Failed to generate initiatives: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async generateFeatures(initiative: InitiativeData): Promise<FeaturesGenerationResult> {
+    const startTime = Date.now();
+    let totalTokensUsed = 0;
+    let iterationCount = 0;
+    const provokingQuestions: string[] = [];
+    const selfReviewNotes: string[] = [];
+
+    try {
+      // Step 1: Generate provoking questions about the initiative
+      iterationCount++;
+      const questionsResult = await this.generateProvokingQuestionsForInitiative(initiative);
+      provokingQuestions.push(...questionsResult.questions);
+      totalTokensUsed += questionsResult.tokensUsed;
+
+      // Step 2: Self-review and answer the provoking questions
+      iterationCount++;
+      const analysisResult = await this.performSelfAnalysisForInitiative(initiative, questionsResult.questions);
+      selfReviewNotes.push(...analysisResult.insights);
+      totalTokensUsed += analysisResult.tokensUsed;
+
+      // Step 3: Generate initial features based on analysis
+      iterationCount++;
+      const initialFeatures = await this.generateInitialFeatures(initiative, analysisResult.analysis);
+      totalTokensUsed += initialFeatures.tokensUsed;
+
+      // Step 4: Validate and refine features
+      iterationCount++;
+      const refinedFeatures = await this.validateAndRefineFeatures(initialFeatures.features);
+      totalTokensUsed += refinedFeatures.tokensUsed;
+
+      const processingTime = Date.now() - startTime;
+
+      return {
+        features: refinedFeatures.features,
+        iterationCount,
+        totalTokensUsed,
+        processingTime,
+        provokingQuestions,
+        selfReviewNotes,
+      };
+    } catch (error) {
+      console.error('Error in features generation:', error);
+      throw new Error(`Failed to generate features: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -762,5 +839,279 @@ Return refined initiatives:
       content: response.text(),
       tokensUsed: 0, // Google AI doesn't provide token count in the same way
     };
+  }
+
+  private async generateProvokingQuestionsForInitiative(initiative: InitiativeData) {
+    const workflowContext = getAIPromptContext();
+    const systemPrompt = `You are a senior product manager and feature analyst. Your role is to ask provoking, insightful questions about an initiative to ensure we fully understand how to decompose it into features.
+
+${workflowContext}
+
+Analyze the initiative and generate 6-8 thought-provoking questions that will help uncover:
+1. User needs and personas affected
+2. Technical architecture and integration points
+3. User experience and workflow considerations
+4. Performance and scalability requirements
+5. Security and compliance considerations
+6. Edge cases and error handling
+7. Metrics and success criteria
+8. Dependencies and risks
+
+Focus on questions that would challenge the initiative and ensure comprehensive decomposition into features.`;
+
+    const userPrompt = `Initiative:
+Title: ${initiative.title}
+Description: ${initiative.description}
+Category: ${initiative.category}
+Priority: ${initiative.priority}
+Rationale: ${initiative.rationale}
+Business Value: ${initiative.businessValue}
+Acceptance Criteria: ${initiative.acceptanceCriteria.join(', ')}
+
+Generate provoking questions as a JSON array: ["question 1", "question 2", ...]`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const questions = JSON.parse(result.content);
+      return {
+        questions: Array.isArray(questions) ? questions : [],
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      // Fallback: extract questions from text response
+      const lines = result.content.split('\n').filter(line => line.trim().startsWith('-') || line.trim().match(/^\d+\./));
+      const questions = lines.map(line => line.replace(/^[-\d.]\s*/, '').trim()).filter(q => q.length > 0);
+      return {
+        questions: questions.slice(0, 8),
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async performSelfAnalysisForInitiative(initiative: InitiativeData, questions: string[]) {
+    const systemPrompt = `You are a thoughtful product manager performing a deep analysis of an initiative. Answer the provoking questions with detailed insights, considering technical, user experience, and business perspectives.
+
+For each question, provide:
+- A thorough analysis based on the initiative
+- Potential technical and user experience considerations
+- Recommendations for feature decomposition
+
+Be analytical, objective, and comprehensive in your responses.`;
+
+    const userPrompt = `Initiative:
+${JSON.stringify(initiative, null, 2)}
+
+Provoking Questions:
+${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+
+Provide a comprehensive analysis addressing each question. Format as JSON:
+{
+  "analysis": "comprehensive analysis text addressing all questions",
+  "insights": ["insight 1", "insight 2", "..."],
+  "keyConsiderations": ["consideration 1", "consideration 2", "..."]
+}`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const analysisData = JSON.parse(result.content);
+      return {
+        analysis: analysisData.analysis || result.content,
+        insights: analysisData.insights || [],
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      return {
+        analysis: result.content,
+        insights: [result.content],
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async generateInitialFeatures(initiative: InitiativeData, analysis: string) {
+    const workflowContext = getAIPromptContext();
+    const mappings = CURRENT_WORKFLOW.mappings;
+    const systemPrompt = `You are an expert product manager and feature decomposition specialist. Based on the initiative and comprehensive analysis, generate features that can be implemented to achieve the initiative's objectives.
+
+${workflowContext}
+
+IMPORTANT: 
+- Each feature should be a discrete piece of functionality
+- Features should be substantial enough to be broken down into epics and stories
+- Focus on user-facing capabilities and system functionality
+
+Each feature must be:
+- USER-FOCUSED: Addresses specific user needs
+- IMPLEMENTABLE: Can be built by development teams
+- TESTABLE: Has clear acceptance criteria
+- MEASURABLE: Success can be tracked
+- SCOPED: Well-defined boundaries
+
+Generate features following the hierarchy:
+${CURRENT_WORKFLOW.levels.map((level, index) => 
+  `${index + 1}. ${level.name} (${level.description})`
+).join('\n')}
+
+RESPONSE FORMAT REQUIREMENTS:
+- Return ONLY valid JSON without any explanatory text
+- Do NOT use markdown formatting or code blocks
+- Do NOT include phrases like "Here are the features:" or "Based on the analysis:"
+- Your entire response must be parseable as JSON`;
+
+    const userPrompt = `Initiative:
+${JSON.stringify(initiative, null, 2)}
+
+Analysis & Insights:
+${analysis}
+
+Generate features as PURE JSON (no markdown, no code blocks, no explanatory text):
+{
+  "features": [
+    {
+      "id": "FEA-001",
+      "text": "feature description",
+      "category": "functional|user-experience|integration|performance|security|business",
+      "priority": "high|medium|low",
+      "rationale": "why this feature is needed",
+      "acceptanceCriteria": ["criteria 1", "criteria 2"],
+      "workflowLevel": "feature",
+      "businessValue": "value this feature provides"
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Return ONLY the JSON object above, no markdown formatting, no \`\`\`json blocks
+- Priority must be exactly one of: "high", "medium", "low" (lowercase only)
+- Each feature should be substantial enough to be broken down into multiple epics
+- Focus on user-facing capabilities and system functionality
+- Response must be valid JSON that can be parsed directly`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const featuresData = JSON.parse(result.content);
+      
+      // Handle different JSON response formats
+      let features = [];
+      
+      if (Array.isArray(featuresData)) {
+        features = featuresData;
+      } else if (featuresData.features && Array.isArray(featuresData.features)) {
+        features = featuresData.features;
+      } else {
+        console.log('Unexpected JSON structure, storing raw content for manual parsing');
+        return {
+          features: [{
+            id: 'FEA-PARSE-NEEDED',
+            text: result.content,
+            category: 'needs-parsing',
+            priority: 'high' as const,
+            rationale: 'JSON response needs manual parsing',
+            acceptanceCriteria: ['Parse individual features from JSON'],
+            businessValue: 'Manual parsing required',
+            workflowLevel: 'feature',
+            rawJsonContent: result.content
+          }],
+          tokensUsed: result.tokensUsed,
+        };
+      }
+      
+      return {
+        features: features.map((feat: any, index: number) => ({
+          id: feat.id || `FEA-${String(index + 1).padStart(3, '0')}`,
+          text: feat.text || feat.description || feat.title || 'Feature text not found',
+          category: feat.category || 'functional',
+          priority: (feat.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
+          rationale: feat.rationale || feat.businessValue || 'Generated from initiative analysis',
+          acceptanceCriteria: feat.acceptanceCriteria || ['To be defined'],
+          businessValue: feat.businessValue || 'Business value to be determined',
+          workflowLevel: feat.workflowLevel || 'feature'
+        })),
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      console.log('JSON parse failed for features, using fallback');
+      return {
+        features: [{
+          id: 'FEA-PARSE-NEEDED',
+          text: result.content,
+          category: 'needs-parsing',
+          priority: 'high' as const,
+          rationale: 'Response format needs manual review',
+          acceptanceCriteria: ['Review and parse features manually'],
+          businessValue: 'Manual parsing required',
+          workflowLevel: 'feature',
+          rawJsonContent: result.content
+        }],
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async validateAndRefineFeatures(features: any[]) {
+    const systemPrompt = `You are a product quality expert and feature validation specialist. Evaluate each feature to ensure it meets product standards and can be effectively implemented.
+
+For each feature, assess:
+- User-focused: Does it address specific user needs?
+- Implementable: Can it be built by development teams?
+- Testable: Are the acceptance criteria clear?
+- Measurable: Can success be tracked?
+- Scoped: Are the boundaries well-defined?
+
+Refine features that don't meet these criteria.`;
+
+    const userPrompt = `Features to validate and refine:
+${JSON.stringify(features, null, 2)}
+
+Return refined features:
+{
+  "features": [
+    {
+      "id": "FEA-001",
+      "text": "refined feature text",
+      "category": "category",
+      "priority": "priority",
+      "rationale": "rationale",
+      "acceptanceCriteria": ["criteria"],
+      "businessValue": "business value",
+      "workflowLevel": "workflowLevel"
+    }
+  ]
+}`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const refinedData = JSON.parse(result.content);
+      const validatedFeatures = refinedData.features.map((feat: any, index: number) => ({
+        ...feat,
+        id: feat.id || `FEA-${String(index + 1).padStart(3, '0')}`,
+      }));
+
+      return {
+        features: validatedFeatures,
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      // Fallback: apply basic validation to original features
+      const validatedFeatures = features.map((feat, index) => ({
+        id: feat.id || `FEA-${String(index + 1).padStart(3, '0')}`,
+        text: feat.text || 'Feature text',
+        category: feat.category || 'functional',
+        priority: feat.priority || 'medium',
+        rationale: feat.rationale || 'Derived from initiative analysis',
+        acceptanceCriteria: feat.acceptanceCriteria || ['To be defined'],
+        businessValue: feat.businessValue || 'Business value to be determined',
+        workflowLevel: feat.workflowLevel || 'feature',
+      }));
+
+      return {
+        features: validatedFeatures,
+        tokensUsed: result.tokensUsed,
+      };
+    }
   }
 } 
