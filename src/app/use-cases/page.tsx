@@ -140,7 +140,7 @@ export default function UseCasesPage() {
   const [isGeneratingRequirements, setIsGeneratingRequirements] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
-  const handleGenerateRequirements = async (useCaseId: string) => {
+  const handleGenerateInitiatives = async (useCaseId: string) => {
     const useCase = useCases.find(uc => uc.id === useCaseId);
     if (!useCase) {
       notify.error('Error', 'Use case not found');
@@ -176,8 +176,8 @@ export default function UseCasesPage() {
         throw new Error('Please configure your LLM provider and API key in Settings');
       }
 
-      // Generate requirements using the configured LLM
-      const response = await fetch('/api/generate-requirements', {
+      // Generate initiatives using the configured LLM
+      const response = await fetch('/api/generate-initiatives', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -210,26 +210,26 @@ export default function UseCasesPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate requirements');
+        throw new Error(errorData.error || 'Failed to generate initiatives');
       }
 
       const result = await response.json();
       
       if (!result.success) {
-        throw new Error(result.error || 'Requirements generation failed');
+        throw new Error(result.error || 'Initiatives generation failed');
       }
 
-      // Save generated requirements to the store
-      const { requirements, metadata } = result.data;
+      // Save generated initiatives to the store
+      const { initiatives, metadata } = result.data;
       
             // Always attempt automatic JSON parsing first for any OpenAI response that looks like JSON
       let parseSuccess = false;
       let parseResult: any = null;
       
-      console.log('🔍 Checking if auto-parsing is needed for', requirements.length, 'requirements');
+      console.log('🔍 Checking if auto-parsing is needed for', initiatives.length, 'initiatives');
       
-      if (requirements.length >= 1) {
-        const firstReq = requirements[0];
+      if (initiatives.length >= 1) {
+        const firstReq = initiatives[0];
         
         // Get the content to parse - prioritize rawJsonContent, then fall back to description
         let textToParse = firstReq.rawJsonContent || firstReq.description || firstReq.text;
@@ -260,7 +260,7 @@ export default function UseCasesPage() {
         );
         
         if (textToParse && (looksLikeStructuredJSON || hasEmbeddedFeaturesFormat || hasMultipleFeaturePattern)) {
-          console.log('🎯 Content looks like structured JSON with multiple requirements, attempting auto-parsing...');
+          console.log('🎯 Content looks like structured JSON with multiple initiatives, attempting auto-parsing...');
           
           try {
             parseResult = addGeneratedRequirementsFromJSON(useCaseId, textToParse);
@@ -286,8 +286,8 @@ export default function UseCasesPage() {
       
       // Fallback to standard processing if automatic parsing failed
       if (!parseSuccess) {
-        console.log('Using standard requirements processing');
-        addGeneratedRequirements(useCaseId, requirements);
+        console.log('Using standard initiatives processing');
+        addGeneratedRequirements(useCaseId, initiatives);
       }
 
       // Save to backend (for persistence)
@@ -299,7 +299,7 @@ export default function UseCasesPage() {
           },
           body: JSON.stringify({
             businessBriefId: useCaseId,
-            requirements: requirements,
+            initiatives: initiatives,
           }),
         });
 
@@ -315,13 +315,13 @@ export default function UseCasesPage() {
 
       // Show success message with details  
       if (parseSuccess) {
-        notify.autoParsed(parseResult?.requirementsCount || requirements.length);
+        notify.autoParsed(parseResult?.requirementsCount || initiatives.length);
       } else {
-        notify.requirementGenerated(requirements.length, metadata);
+        notify.requirementGenerated(initiatives.length, metadata);
       }
       
       // Log final results for debugging
-      console.log('🏁 Final results - Parse success:', parseSuccess, 'Requirements generated:', parseSuccess ? parseResult?.requirementsCount : requirements.length);
+      console.log('🏁 Final results - Parse success:', parseSuccess, 'Initiatives generated:', parseSuccess ? parseResult?.requirementsCount : initiatives.length);
       
       // Redirect to requirements page to view the generated requirements
       // Use setTimeout to ensure store is updated before redirect
@@ -1079,7 +1079,7 @@ export default function UseCasesPage() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleGenerateRequirements(useCase.id);
+                        handleGenerateInitiatives(useCase.id);
                       }}
                       disabled={isGeneratingRequirements === useCase.id}
                       className="flex items-center space-x-1"
@@ -1092,7 +1092,7 @@ export default function UseCasesPage() {
                       ) : (
                         <>
                           <Lightbulb size={14} />
-                          <span>Generate Requirements</span>
+                          <span>Generate Initiatives</span>
                         </>
                       )}
                     </Button>

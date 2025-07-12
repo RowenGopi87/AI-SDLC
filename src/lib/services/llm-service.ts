@@ -55,6 +55,26 @@ export interface RequirementsGenerationResult {
   selfReviewNotes: string[];
 }
 
+export interface GeneratedInitiative {
+  id: string;
+  text: string;
+  category: string;
+  priority: 'high' | 'medium' | 'low';
+  rationale: string;
+  acceptanceCriteria: string[];
+  businessValue: string;
+  workflowLevel: string;
+}
+
+export interface InitiativesGenerationResult {
+  initiatives: GeneratedInitiative[];
+  iterationCount: number;
+  totalTokensUsed: number;
+  processingTime: number;
+  provokingQuestions: string[];
+  selfReviewNotes: string[];
+}
+
 export class LLMService {
   private openai?: OpenAI;
   private googleAI?: GoogleGenerativeAI;
@@ -123,6 +143,52 @@ export class LLMService {
     } catch (error) {
       console.error('Error in requirements generation:', error);
       throw new Error(`Failed to generate requirements: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async generateInitiatives(businessBrief: BusinessBriefData): Promise<InitiativesGenerationResult> {
+    const startTime = Date.now();
+    let totalTokensUsed = 0;
+    let iterationCount = 0;
+    const provokingQuestions: string[] = [];
+    const selfReviewNotes: string[] = [];
+
+    try {
+      // Step 1: Generate provoking questions about the business brief
+      iterationCount++;
+      const questionsResult = await this.generateProvokingQuestions(businessBrief);
+      provokingQuestions.push(...questionsResult.questions);
+      totalTokensUsed += questionsResult.tokensUsed;
+
+      // Step 2: Self-review and answer the provoking questions
+      iterationCount++;
+      const analysisResult = await this.performSelfAnalysis(businessBrief, questionsResult.questions);
+      selfReviewNotes.push(...analysisResult.insights);
+      totalTokensUsed += analysisResult.tokensUsed;
+
+      // Step 3: Generate initial initiatives based on analysis
+      iterationCount++;
+      const initialInitiatives = await this.generateInitialInitiatives(businessBrief, analysisResult.analysis);
+      totalTokensUsed += initialInitiatives.tokensUsed;
+
+      // Step 4: Validate and refine initiatives
+      iterationCount++;
+      const refinedInitiatives = await this.validateAndRefineInitiatives(initialInitiatives.initiatives);
+      totalTokensUsed += refinedInitiatives.tokensUsed;
+
+      const processingTime = Date.now() - startTime;
+
+      return {
+        initiatives: refinedInitiatives.initiatives,
+        iterationCount,
+        totalTokensUsed,
+        processingTime,
+        provokingQuestions,
+        selfReviewNotes,
+      };
+    } catch (error) {
+      console.error('Error in initiatives generation:', error);
+      throw new Error(`Failed to generate initiatives: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -445,6 +511,187 @@ Return refined requirements with CLEAR principle assessments:
 
       return {
         requirements: validatedRequirements,
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async generateInitialInitiatives(businessBrief: BusinessBriefData, analysis: string) {
+    const workflowContext = getAIPromptContext();
+    const mappings = CURRENT_WORKFLOW.mappings;
+    const systemPrompt = `You are an expert business analyst and strategic decomposition specialist. Based on the business brief and comprehensive analysis, generate business initiatives according to the current workflow structure.
+
+${workflowContext}
+
+IMPORTANT: 
+- Business briefs map to: ${mappings.businessBrief}
+- Generate ${CURRENT_WORKFLOW.levels.find(l => l.id === mappings.businessBrief)?.pluralName || 'initiatives'} for this business brief
+- Each initiative must be substantial enough to be broken down into ${CURRENT_WORKFLOW.levels.find(l => l.parentLevel === mappings.businessBrief)?.pluralName || 'features'}
+
+Each initiative must be:
+- STRATEGIC: High-level business value driver
+- ACTIONABLE: Can be decomposed into executable work
+- MEASURABLE: Has clear success criteria
+- SCOPED: Well-defined boundaries
+- ALIGNED: Supports business objectives
+
+Generate initiatives following the hierarchy:
+${CURRENT_WORKFLOW.levels.map((level, index) => 
+  `${index + 1}. ${level.name} (${level.description})`
+).join('\n')}
+
+Focus on generating ${CURRENT_WORKFLOW.levels.find(l => l.id === mappings.businessBrief)?.pluralName || 'initiatives'} that represent major strategic work streams.`;
+
+    const targetLevel = CURRENT_WORKFLOW.levels.find(l => l.id === mappings.businessBrief);
+    
+    const userPrompt = `Business Brief:
+${JSON.stringify(businessBrief, null, 2)}
+
+Analysis & Insights:
+${analysis}
+
+Generate ${targetLevel?.pluralName || 'initiatives'} as JSON:
+{
+  "initiatives": [
+    {
+      "id": "INIT-001",
+      "text": "initiative description",
+      "category": "strategic|operational|technical|business",
+      "priority": "high|medium|low",
+      "rationale": "why this initiative is needed",
+      "acceptanceCriteria": ["criteria 1", "criteria 2"],
+      "workflowLevel": "${mappings.businessBrief}",
+      "businessValue": "value this initiative provides"
+    }
+  ]
+}
+
+IMPORTANT: 
+- Priority must be exactly one of: "high", "medium", "low" (lowercase only)
+- Each initiative should be substantial enough to be broken down into multiple ${CURRENT_WORKFLOW.levels.find(l => l.parentLevel === mappings.businessBrief)?.pluralName || 'features'}
+- Focus on strategic business outcomes rather than technical implementations`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const initiativesData = JSON.parse(result.content);
+      
+      // Handle different JSON response formats
+      let initiatives = [];
+      
+      if (Array.isArray(initiativesData)) {
+        initiatives = initiativesData;
+      } else if (initiativesData.initiatives && Array.isArray(initiativesData.initiatives)) {
+        initiatives = initiativesData.initiatives;
+      } else {
+        console.log('Unexpected JSON structure, storing raw content for manual parsing');
+        return {
+          initiatives: [{
+            id: 'INIT-PARSE-NEEDED',
+            text: result.content,
+            category: 'needs-parsing',
+            priority: 'high' as const,
+            rationale: 'JSON response needs manual parsing',
+            acceptanceCriteria: ['Parse individual initiatives from JSON'],
+            businessValue: 'Manual parsing required',
+            workflowLevel: mappings.businessBrief,
+            rawJsonContent: result.content
+          }],
+          tokensUsed: result.tokensUsed,
+        };
+      }
+      
+      return {
+        initiatives: initiatives.map((init: any, index: number) => ({
+          id: init.id || `INIT-${String(index + 1).padStart(3, '0')}`,
+          text: init.text || init.description || init.title || 'Initiative text not found',
+          category: init.category || 'strategic',
+          priority: (init.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
+          rationale: init.rationale || init.businessValue || 'Generated from business brief',
+          acceptanceCriteria: init.acceptanceCriteria || ['To be defined'],
+          businessValue: init.businessValue || 'Business value to be determined',
+          workflowLevel: init.workflowLevel || mappings.businessBrief
+        })),
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      console.log('JSON parse failed for initiatives, using fallback');
+      return {
+        initiatives: [{
+          id: 'INIT-PARSE-NEEDED',
+          text: result.content,
+          category: 'needs-parsing',
+          priority: 'high' as const,
+          rationale: 'Response format needs manual review',
+          acceptanceCriteria: ['Review and parse initiatives manually'],
+          businessValue: 'Manual parsing required',
+          workflowLevel: mappings.businessBrief,
+          rawJsonContent: result.content
+        }],
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async validateAndRefineInitiatives(initiatives: any[]) {
+    const systemPrompt = `You are a strategic business analyst and initiative quality expert. Evaluate each initiative to ensure it meets strategic standards and can be effectively decomposed.
+
+For each initiative, assess:
+- Strategic: Does it drive significant business value?
+- Actionable: Can it be broken down into executable work?
+- Measurable: Are the success criteria clear?
+- Scoped: Are the boundaries well-defined?
+- Aligned: Does it support business objectives?
+
+Refine initiatives that don't meet these criteria.`;
+
+    const userPrompt = `Initiatives to validate and refine:
+${JSON.stringify(initiatives, null, 2)}
+
+Return refined initiatives:
+{
+  "initiatives": [
+    {
+      "id": "INIT-001",
+      "text": "refined initiative text",
+      "category": "category",
+      "priority": "priority",
+      "rationale": "rationale",
+      "acceptanceCriteria": ["criteria"],
+      "businessValue": "business value",
+      "workflowLevel": "workflowLevel"
+    }
+  ]
+}`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const refinedData = JSON.parse(result.content);
+      const validatedInitiatives = refinedData.initiatives.map((init: any, index: number) => ({
+        ...init,
+        id: init.id || `INIT-${String(index + 1).padStart(3, '0')}`,
+      }));
+
+      return {
+        initiatives: validatedInitiatives,
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      // Fallback: apply basic validation to original initiatives
+      const validatedInitiatives = initiatives.map((init, index) => ({
+        id: init.id || `INIT-${String(index + 1).padStart(3, '0')}`,
+        text: init.text || 'Initiative text',
+        category: init.category || 'strategic',
+        priority: init.priority || 'medium',
+        rationale: init.rationale || 'Derived from business brief',
+        acceptanceCriteria: init.acceptanceCriteria || ['To be defined'],
+        businessValue: init.businessValue || 'Business value to be determined',
+        workflowLevel: init.workflowLevel || 'initiative',
+      }));
+
+      return {
+        initiatives: validatedInitiatives,
         tokensUsed: result.tokensUsed,
       };
     }
