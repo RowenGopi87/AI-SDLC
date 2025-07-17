@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { UseCase, mockUseCases } from '@/lib/mock-data';
 
 interface UseCaseStore {
@@ -13,7 +14,9 @@ interface UseCaseStore {
   getUseCasesByStatus: (status: UseCase['status']) => UseCase[];
 }
 
-export const useUseCaseStore = create<UseCaseStore>((set, get) => ({
+export const useUseCaseStore = create<UseCaseStore>()(
+  persist(
+    (set, get) => ({
   useCases: mockUseCases,
   selectedUseCase: null,
 
@@ -69,4 +72,10 @@ export const useUseCaseStore = create<UseCaseStore>((set, get) => ({
   getUseCasesByStatus: (status) => {
     return get().useCases.filter((useCase) => useCase.status === status);
   },
-})); 
+}),
+{
+  name: 'use-case-storage',
+  // Persist all use case data
+}
+)
+); 

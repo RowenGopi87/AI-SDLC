@@ -2138,4 +2138,59 @@ Return refined stories as PURE JSON (no markdown, no code blocks):
       };
     }
   }
+
+  async generateTestCases(systemPrompt: string): Promise<{ testCases: any[]; tokensUsed: number }> {
+    try {
+      console.log('🔧 LLMService: Generating test cases');
+      
+      const result = await this.callLLM(systemPrompt, 'Generate comprehensive test cases based on the requirements above.');
+      
+      if (!result.content) {
+        throw new Error('No content received from LLM');
+      }
+
+      // Parse the JSON response
+      let testCasesData;
+      try {
+        // Try to extract JSON from the response
+        const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          testCasesData = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in response');
+        }
+      } catch (parseError) {
+        console.error('Failed to parse test cases JSON:', parseError);
+        throw new Error('Invalid JSON response from LLM');
+      }
+
+      if (!testCasesData.testCases || !Array.isArray(testCasesData.testCases)) {
+        throw new Error('Invalid test cases format in LLM response');
+      }
+
+      // Validate and format test cases
+      const validatedTestCases = testCasesData.testCases.map((testCase: any, index: number) => ({
+        title: testCase.title || `Test Case ${index + 1}`,
+        summary: testCase.summary || 'Test case summary',
+        description: testCase.description || 'Test case description',
+        type: testCase.type || 'positive',
+        priority: testCase.priority || 'medium',
+        preconditions: Array.isArray(testCase.preconditions) ? testCase.preconditions : ['Prerequisites to be defined'],
+        steps: Array.isArray(testCase.steps) ? testCase.steps : ['Test steps to be defined'],
+        expectedResult: testCase.expectedResult || 'Expected result to be defined',
+        estimatedTime: testCase.estimatedTime || 10,
+        tags: Array.isArray(testCase.tags) ? testCase.tags : ['test'],
+      }));
+
+      console.log(`✅ LLMService: Generated ${validatedTestCases.length} test cases`);
+      
+      return {
+        testCases: validatedTestCases,
+        tokensUsed: result.tokensUsed || 0,
+      };
+    } catch (error) {
+      console.error('❌ LLMService: Error generating test cases:', error);
+      throw error;
+    }
+  }
 } 

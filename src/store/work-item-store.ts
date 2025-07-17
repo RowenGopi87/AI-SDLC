@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { WorkItem, mockWorkItems } from '@/lib/mock-data';
 
 interface WorkItemStore {
@@ -16,7 +17,9 @@ interface WorkItemStore {
   getWorkItemHierarchy: () => WorkItem[];
 }
 
-export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
+export const useWorkItemStore = create<WorkItemStore>()(
+  persist(
+    (set, get) => ({
   workItems: mockWorkItems,
   selectedWorkItem: null,
 
@@ -86,4 +89,10 @@ export const useWorkItemStore = create<WorkItemStore>((set, get) => ({
     
     return rootItems.map(buildHierarchy);
   },
-})); 
+}),
+{
+  name: 'work-item-storage',
+  // Persist all work item data
+}
+)
+); 
