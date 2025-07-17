@@ -40,7 +40,8 @@ import {
   Search,
   Wand2,
   TrendingUp,
-  Clock
+  Clock,
+  TestTube
 } from 'lucide-react';
 import { MockLLMService } from '@/lib/mock-data';
 import { mockInitiatives, mockFeatures, mockEpics, mockStories } from '@/lib/mock-data'; // Import mock data
@@ -262,11 +263,11 @@ export default function RequirementsPage() {
         return;
       }
       
-      const initiative = initiatives.find(init => init.id === initiativeId);
-      if (!initiative) {
-        console.error('Initiative not found:', initiativeId);
-        return;
-      }
+    const initiative = initiatives.find(init => init.id === initiativeId);
+    if (!initiative) {
+      console.error('Initiative not found:', initiativeId);
+      return;
+    }
 
       console.log(`🔍 Found initiative: ${initiative.id} - ${initiative.title}`);
 
@@ -296,7 +297,7 @@ export default function RequirementsPage() {
       // Use mock service in development mode
       if (useMockLLM) {
         console.log('🔧 Using MockLLMService for testing');
-        const result = await MockLLMService.generateFeatures(initiativeId);
+        const result = await MockLLMService.generateFeatures(initiativeId, initiative);
         
         if (!result.success) {
           throw new Error('Mock feature generation failed');
@@ -432,7 +433,13 @@ export default function RequirementsPage() {
     try {
       if (useMockLLM) {
         console.log('🔧 Using MockLLMService for testing');
-        const result = await MockLLMService.generateEpics(featureId);
+        const feature = features.find(feat => feat.id === featureId);
+        if (!feature) {
+          console.error('Feature not found for epic generation');
+          return;
+        }
+        const initiative = initiatives.find(init => init.id === feature?.initiativeId);
+        const result = await MockLLMService.generateEpics(featureId, feature, initiative);
         
         if (!result.success) {
           throw new Error('Mock epic generation failed');
@@ -442,7 +449,7 @@ export default function RequirementsPage() {
         const { epics: generatedEpics, metadata } = result.data;
         
         console.log('💾 Saving mock epics to store...');
-        const savedEpics = addGeneratedEpics(featureId, featureId, featureId, generatedEpics); // Mock data doesn't have initiativeId, featureId, businessBriefId
+        const savedEpics = addGeneratedEpics(featureId, feature.initiativeId, feature.businessBriefId, generatedEpics); // Mock data doesn't have initiativeId, featureId, businessBriefId
         console.log(`✅ Successfully saved ${savedEpics.length} mock epics to store`);
 
         // Show success message
@@ -459,11 +466,11 @@ export default function RequirementsPage() {
         return;
       }
       console.log('[AURA] User confirmed epic generation for feature:', featureId);
-      const feature = features.find(feat => feat.id === featureId);
-      if (!feature) {
-        console.error('Feature not found:', featureId);
-        return;
-      }
+    const feature = features.find(feat => feat.id === featureId);
+    if (!feature) {
+      console.error('Feature not found:', featureId);
+      return;
+    }
 
       setItemLoading(featureId, true);
       
@@ -593,7 +600,14 @@ export default function RequirementsPage() {
     try {
       if (useMockLLM) {
         console.log('🔧 Using MockLLMService for testing');
-        const result = await MockLLMService.generateStories(epicId);
+        const epic = epics.find(ep => ep.id === epicId);
+        if (!epic) {
+          console.error('Epic not found for story generation');
+          return;
+        }
+        const feature = features.find(feat => feat.id === epic?.featureId);
+        const initiative = initiatives.find(init => init.id === epic?.initiativeId);
+        const result = await MockLLMService.generateStories(epicId, epic, feature, initiative);
         
         if (!result.success) {
           throw new Error('Mock story generation failed');
@@ -603,7 +617,7 @@ export default function RequirementsPage() {
         const { stories: generatedStories, metadata } = result.data;
         
         console.log('💾 Saving mock stories to store...');
-        const savedStories = addGeneratedStories(epicId, epicId, epicId, epicId, generatedStories); // Mock data doesn't have epicId, featureId, initiativeId, businessBriefId
+        const savedStories = addGeneratedStories(epicId, epic.featureId, epic.initiativeId, epic.businessBriefId, generatedStories); // Mock data doesn't have epicId, featureId, initiativeId, businessBriefId
         console.log(`✅ Successfully saved ${savedStories.length} mock stories to store`);
 
         // Show success message
@@ -620,11 +634,11 @@ export default function RequirementsPage() {
         return;
       }
       console.log('[AURA] User confirmed story generation for epic:', epicId);
-      const epic = epics.find(ep => ep.id === epicId);
-      if (!epic) {
-        console.error('Epic not found:', epicId);
-        return;
-      }
+    const epic = epics.find(ep => ep.id === epicId);
+    if (!epic) {
+      console.error('Epic not found:', epicId);
+      return;
+    }
 
       setItemLoading(epicId, true);
       
@@ -1058,6 +1072,19 @@ export default function RequirementsPage() {
               className="p-1 h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation();
+                // TODO: Add test case generation functionality
+                console.log(`Generate test cases for ${type}: ${item.id}`);
+              }}
+              title="Generate Test Cases"
+            >
+              <TestTube size={12} className="text-green-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1 h-6 w-6"
+              onClick={(e) => {
+                e.stopPropagation();
                 handleEdit(item);
               }}
               title="Edit"
@@ -1181,30 +1208,33 @@ export default function RequirementsPage() {
   };
 
   useEffect(() => {
+    const initiativeStore = useInitiativeStore.getState();
+    const featureStore = useFeatureStore.getState();
+    const epicStore = useEpicStore.getState();
+    const storyStore = useStoryStore.getState();
+
     if (useMockData) {
-      const { initiatives, addInitiative } = useInitiativeStore.getState();
-      if (initiatives.length === 0) {
-        console.log('🔧 Loading mock initiatives...');
-        mockInitiatives.forEach(init => addInitiative(init));
+      console.log('🔧 Loading mock data...');
+      // Only add mock data if the stores are empty to avoid duplication
+      if (initiativeStore.initiatives.length === 0) {
+        mockInitiatives.forEach(init => initiativeStore.addInitiative(init));
       }
-
-      const { features, addFeature } = useFeatureStore.getState();
-      if (features.length === 0) {
-        console.log('🔧 Loading mock features...');
-        mockFeatures.forEach((feat: any) => addFeature(feat));
+      if (featureStore.features.length === 0) {
+        mockFeatures.forEach(feat => featureStore.addFeature(feat as any));
       }
-
-      const { epics, addEpic } = useEpicStore.getState();
-      if (epics.length === 0) {
-        console.log('🔧 Loading mock epics...');
-        mockEpics.forEach((epic: any) => addEpic(epic));
+      if (epicStore.epics.length === 0) {
+        mockEpics.forEach(epic => epicStore.addEpic(epic as any));
       }
-
-      const { stories, addStory } = useStoryStore.getState();
-      if (stories.length === 0) {
-        console.log('🔧 Loading mock stories...');
-        mockStories.forEach((story: any) => addStory(story));
+      if (storyStore.stories.length === 0) {
+        mockStories.forEach(story => storyStore.addStory(story as any));
       }
+    } else {
+      // When toggled off, remove ONLY the mock data by their specific IDs
+      console.log('🧹 Clearing mock data...');
+      mockInitiatives.forEach(init => initiativeStore.deleteInitiative(init.id));
+      mockFeatures.forEach(feat => featureStore.deleteFeature(feat.id));
+      mockEpics.forEach(epic => epicStore.deleteEpic(epic.id));
+      mockStories.forEach(story => storyStore.deleteStory(story.id));
     }
   }, [useMockData]);
 

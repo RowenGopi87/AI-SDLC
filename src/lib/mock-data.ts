@@ -1062,42 +1062,167 @@ export const getRelatedItems = (itemId: string, itemType: 'useCase' | 'requireme
   }
 }; 
 
-// Add mock LLM service for testing
+// Add mock LLM service for testing - Updated to mirror real LLM quality
 export class MockLLMService {
-  static async generateFeatures(initiativeId: string) {
+  static async generateFeatures(initiativeId: string, initiativeData: any) {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Generate unique timestamp to ensure uniqueness
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    // Generate contextually relevant features based on initiative type
+    const isPortalInitiative = initiativeData.title?.toLowerCase().includes('portal') || initiativeData.description?.toLowerCase().includes('portal');
+    const isPaymentInitiative = initiativeData.title?.toLowerCase().includes('payment') || initiativeData.description?.toLowerCase().includes('payment');
+    const isInventoryInitiative = initiativeData.title?.toLowerCase().includes('inventory') || initiativeData.description?.toLowerCase().includes('inventory');
     
-    const mockFeatures = [
-      {
-        id: `FEA-${timestamp}-${randomSuffix}-1`,
-        text: `Unique UI Feature for ${initiativeId}`,
-        category: 'functional',
-        priority: 'high',
-        rationale: `This UI feature is specifically for initiative ${initiativeId}, focusing on a unique user experience.`,
-        acceptanceCriteria: [`Custom UI redesign for ${initiativeId}`],
-        businessValue: `Improved user engagement for ${initiativeId}`,
-        workflowLevel: 'feature'
-      },
-      {
-        id: `FEA-${timestamp}-${randomSuffix}-2`,
-        text: `Custom Backend Service for ${initiativeId}`,
-        category: 'technical',
-        priority: 'medium',
-        rationale: `This backend service is tailored to the specific data processing needs of initiative ${initiativeId}.`,
-        acceptanceCriteria: [`Custom API for ${initiativeId}`],
-        businessValue: `Efficient data handling for ${initiativeId}`,
-        workflowLevel: 'feature'
-      }
-    ];
+    let mockFeatures = [];
     
-    console.log(`🔧 MockLLMService generated ${mockFeatures.length} unique features for initiative ${initiativeId}`);
+         if (isPortalInitiative) {
+       mockFeatures = [
+         {
+           title: "Mobile-First Design Overhaul",
+           description: "Rebuild the interface of the customer portal using mobile-first design principles, optimizing essential features and ensuring touch-friendly interfaces.",
+           rationale: "A significant portion of our users access the portal on mobile devices. A mobile-first design enhances their experience and potentially increases customer engagement.",
+           category: "functional",
+           priority: "high",
+           acceptanceCriteria: [
+             "Portal is fully functional on mobile devices",
+             "Touch-friendly interface",
+             "Optimized essential features"
+           ],
+           businessValue: "Improved user experience and potential increase in customer engagement",
+           workflowLevel: "feature"
+         },
+         {
+           title: "Responsive Layout Implementation",
+           description: "Modify the portal layout to be responsive, accommodating various screen sizes and orientations.",
+           rationale: "To enhance the user experience across devices, the portal needs to be responsive and adjust its layout based on the device's screen size.",
+           category: "functional",
+           priority: "high",
+           acceptanceCriteria: [
+             "Portal layout adjusts based on screen size",
+             "Consistent functionality across various screen sizes"
+           ],
+           businessValue: "Improved usability and consistency across devices, potentially increasing user engagement",
+           workflowLevel: "feature"
+         },
+         {
+           title: "Optimized Load Times",
+           description: "Optimize the portal for fast load times on slower networks by implementing methods such as image optimization, lazy loading, and leveraging a CDN.",
+           rationale: "Given the potential bandwidth limitations on mobile devices, optimizing load times enhances the user experience and can influence user engagement.",
+           category: "performance",
+           priority: "medium",
+           acceptanceCriteria: [
+             "Reduced load times on slower networks",
+             "Implementation of image optimization and lazy loading"
+           ],
+           businessValue: "Improved user experience, potentially reducing bounce rates and increasing user engagement",
+           workflowLevel: "feature"
+         },
+         {
+           title: "Enhanced Security",
+           description: "Improve security by implementing secure coding practices, using secure protocols, and conducting regular security audits.",
+           rationale: "Security is vital for user trust and can directly impact user engagement. Regular security audits and secure protocols ensure the safety of user data.",
+           category: "security",
+           priority: "high",
+           acceptanceCriteria: [
+             "Secure coding practices are followed",
+             "Secure protocols are used",
+             "Regular security audits are carried out"
+           ],
+           businessValue: "Improved user trust, potentially leading to increased user engagement and satisfaction",
+           workflowLevel: "feature"
+         }
+       ];
+    } else if (isPaymentInitiative) {
+      mockFeatures = [
+        {
+          title: "Digital Wallet Integration Platform",
+          description: "Develop a comprehensive digital wallet integration supporting Apple Pay, Google Pay, Samsung Pay, and PayPal with secure tokenization and fraud detection capabilities.",
+          rationale: "Modern consumers expect seamless digital payment options, and the absence of these features directly impacts conversion rates and competitive positioning.",
+          category: "integration",
+          priority: "high",
+          acceptanceCriteria: [
+            "Support for all major digital wallet providers",
+            "PCI DSS Level 1 compliance maintained",
+            "Fraud detection algorithms integrated",
+            "Seamless checkout experience across all devices"
+          ],
+          businessValue: "Increase mobile conversion rates by 40% and reduce cart abandonment by 25%",
+          workflowLevel: "feature"
+        },
+        {
+          title: "One-Click Payment Processing",
+          description: "Implement secure one-click payment functionality for returning customers with stored payment methods, biometric authentication, and intelligent payment method selection.",
+          rationale: "Reducing checkout friction is critical for improving conversion rates and meeting customer expectations for streamlined e-commerce experiences.",
+          category: "functional",
+          priority: "medium",
+          acceptanceCriteria: [
+            "Biometric authentication for payment authorization",
+            "Intelligent default payment method selection",
+            "Secure tokenization of payment data",
+            "Compliance with industry security standards"
+          ],
+          businessValue: "Improve checkout completion rates by 30% and enhance customer loyalty through convenience",
+          workflowLevel: "feature"
+        }
+      ];
+    } else if (isInventoryInitiative) {
+      mockFeatures = [
+        {
+          title: "AI-Powered Demand Forecasting Engine",
+          description: "Develop machine learning algorithms that analyze historical sales data, seasonal trends, market conditions, and external factors to predict demand with high accuracy and optimize inventory levels.",
+          rationale: "Traditional inventory management relies on outdated forecasting methods that fail to account for dynamic market conditions, resulting in costly overstock and stockout situations.",
+          category: "analytics",
+          priority: "high",
+          acceptanceCriteria: [
+            "Achieve 90%+ accuracy in demand predictions",
+            "Process real-time data from multiple sources",
+            "Generate automated reorder recommendations",
+            "Provide confidence intervals for all predictions"
+          ],
+          businessValue: "Reduce inventory carrying costs by 25% and decrease stockouts by 40%",
+          workflowLevel: "feature"
+        },
+        {
+          title: "Intelligent Inventory Optimization Dashboard",
+          description: "Create a comprehensive dashboard that provides real-time inventory insights, automated alerts for critical stock levels, and actionable recommendations for inventory managers.",
+          rationale: "Inventory managers need centralized visibility and actionable intelligence to make informed decisions quickly and prevent costly inventory issues.",
+          category: "analytics",
+          priority: "medium",
+          acceptanceCriteria: [
+            "Real-time inventory level monitoring",
+            "Customizable alert thresholds and notifications",
+            "Interactive analytics with drill-down capabilities",
+            "Integration with existing ERP systems"
+          ],
+          businessValue: "Improve inventory turnover by 20% and reduce manual monitoring overhead by 50%",
+          workflowLevel: "feature"
+        }
+      ];
+    } else {
+      // Generic high-quality features for other initiatives
+      mockFeatures = [
+        {
+          title: `Advanced ${initiativeData.title} Analytics Platform`,
+          description: `Build a comprehensive analytics platform that provides real-time insights, predictive analytics, and automated reporting capabilities specifically designed for ${initiativeData.title} optimization.`,
+          rationale: `Data-driven decision making is essential for maximizing the impact of ${initiativeData.title} and ensuring measurable business outcomes.`,
+          category: "analytics",
+          priority: "high",
+          acceptanceCriteria: [
+            "Real-time data processing and visualization",
+            "Customizable dashboard with role-based access",
+            "Automated alert system for key metrics",
+            "Export capabilities for executive reporting"
+          ],
+          businessValue: `Enable data-driven optimization resulting in 25% improvement in key performance indicators`,
+          workflowLevel: "feature"
+        }
+      ];
+    }
     
-    return {
+         console.log(`🔧 MockLLMService generated ${mockFeatures.length} contextual features for initiative ${initiativeId}`);
+     
+     // Return enhanced mock features with proper typing
+     return {
       success: true,
       data: {
         initiativeId,
@@ -1113,47 +1238,298 @@ export class MockLLMService {
     };
   }
 
-  static async generateEpics(featureId: string) {
+  static async generateEpics(featureId: string, featureData: any, initiativeData: any) {
     await new Promise(resolve => setTimeout(resolve, 1000));
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const mockEpics = [
-      {
-        id: `EPIC-${timestamp}-${randomSuffix}-1`,
-        text: `Unique Authentication Epic for ${featureId}`,
-        category: 'technical',
-        priority: 'high',
-        rationale: `This epic handles all security aspects for feature ${featureId}.`,
-        acceptanceCriteria: [`Secure login for ${featureId}`],
-        businessValue: `Enhanced security for ${featureId}`,
-        workflowLevel: 'epic',
-        sprintEstimate: 2,
-        estimatedEffort: 'High'
-      }
-    ];
-    console.log(`🔧 MockLLMService generated ${mockEpics.length} unique epics for feature ${featureId}`);
-    return { success: true, data: { featureId, epics: mockEpics, metadata: {} } };
+    
+    // Generate contextually relevant epics based on feature type
+    const isUIFeature = featureData.title?.toLowerCase().includes('interface') || featureData.title?.toLowerCase().includes('dashboard');
+    const isPaymentFeature = featureData.title?.toLowerCase().includes('payment') || featureData.title?.toLowerCase().includes('wallet');
+    const isAnalyticsFeature = featureData.title?.toLowerCase().includes('analytics') || featureData.title?.toLowerCase().includes('forecasting');
+    
+    let mockEpics = [];
+    
+         if (isUIFeature) {
+       mockEpics = [
+         {
+           title: "Design Responsive Layouts",
+           description: "This epic involves designing mobile-responsive layouts for the customer portal. These designs should accommodate various screen sizes and orientations and provide an improved user experience.",
+           rationale: "Designing responsive layouts is the foundation for implementing a mobile-responsive portal. The designs will guide development and ensure a consistent and intuitive user interface across devices.",
+           category: "technical",
+           priority: "high",
+           acceptanceCriteria: [
+             "Designs are adaptable to various screen sizes and orientations",
+             "Designs are intuitive and improve user experience"
+           ],
+           businessValue: "Provides a blueprint for the development team to implement a mobile-responsive portal, potentially increasing user engagement.",
+           workflowLevel: "epic",
+           estimatedEffort: "High",
+           sprintEstimate: 3
+         },
+         {
+           title: "Implement Responsive Layouts",
+           description: "This epic covers the development work to implement responsive layouts based on the approved designs. It involves modifying CSS and HTML structures and potentially integrating a responsive design framework like Bootstrap.",
+           rationale: "Implementing responsive layouts is necessary to make the customer portal mobile-responsive. This will enhance the user experience across devices, catering to the growing number of mobile users.",
+           category: "technical",
+           priority: "high",
+           acceptanceCriteria: [
+             "Portal layout adjusts based on screen size",
+             "Consistent functionality across various screen sizes"
+           ],
+           businessValue: "Improves usability and consistency across devices, potentially increasing user engagement.",
+           workflowLevel: "epic",
+           estimatedEffort: "High",
+           sprintEstimate: 3
+         },
+         {
+           title: "Testing and Optimization of Responsive Layouts",
+           description: "This epic focuses on testing the implemented responsive layouts on various devices and screen sizes, as well as optimizing performance and usability based on testing feedback.",
+           rationale: "Thorough testing and optimization are crucial to ensuring the responsive layouts function as expected and provide an improved user experience. They also help identify and resolve performance issues, contributing to a smoother user experience.",
+           category: "technical",
+           priority: "high",
+           acceptanceCriteria: [
+             "Responsive layouts function correctly on various devices and screen sizes",
+             "Performance is maintained or improved"
+           ],
+           businessValue: "Ensures the quality and performance of the mobile-responsive portal, contributing to improved user engagement.",
+           workflowLevel: "epic",
+           estimatedEffort: "Medium",
+           sprintEstimate: 2
+         }
+       ];
+    } else if (isPaymentFeature) {
+      mockEpics = [
+        {
+          title: "Payment Gateway Integration and Security",
+          description: "Implement secure payment processing infrastructure with multiple gateway support, fraud detection, and compliance with industry security standards including PCI DSS.",
+          rationale: "Robust payment security is non-negotiable for customer trust and regulatory compliance, forming the foundation for all payment functionality.",
+          category: "security",
+          priority: "high",
+          acceptanceCriteria: [
+            "PCI DSS Level 1 compliance achieved",
+            "Multi-gateway failover capability",
+            "Real-time fraud detection active",
+            "Security audit passed with zero critical issues"
+          ],
+          businessValue: "Ensure regulatory compliance and build customer trust through enterprise-grade security",
+          workflowLevel: "epic",
+          estimatedEffort: "High",
+          sprintEstimate: 3
+        },
+        {
+          title: "Digital Wallet API Integration",
+          description: "Develop comprehensive API integrations for major digital wallet providers with standardized error handling, transaction logging, and reconciliation processes.",
+          rationale: "Seamless digital wallet integration requires robust API management and error handling to ensure reliable payment processing across all platforms.",
+          category: "integration",
+          priority: "high",
+          acceptanceCriteria: [
+            "All major wallet providers integrated",
+            "99.9% uptime for payment processing",
+            "Comprehensive transaction logging",
+            "Automated reconciliation processes"
+          ],
+          businessValue: "Enable modern payment options resulting in 30% increase in mobile transactions",
+          workflowLevel: "epic",
+          estimatedEffort: "Medium",
+          sprintEstimate: 2
+        }
+      ];
+    } else if (isAnalyticsFeature) {
+      mockEpics = [
+        {
+          title: "Data Pipeline and Machine Learning Infrastructure",
+          description: "Build scalable data processing pipeline with real-time ingestion, feature engineering, and ML model training infrastructure to support advanced analytics capabilities.",
+          rationale: "Reliable data infrastructure is fundamental for accurate analytics and machine learning models that drive business value through intelligent automation.",
+          category: "data",
+          priority: "high",
+          acceptanceCriteria: [
+            "Real-time data processing at scale",
+            "ML model training pipeline operational",
+            "Data quality monitoring implemented",
+            "99.9% data pipeline uptime achieved"
+          ],
+          businessValue: "Enable advanced analytics capabilities resulting in 20% improvement in operational efficiency",
+          workflowLevel: "epic",
+          estimatedEffort: "High",
+          sprintEstimate: 3
+        }
+      ];
+    } else {
+      // Generic high-quality epics
+      mockEpics = [
+        {
+          title: `Core ${featureData.title} Implementation`,
+          description: `Develop the foundational architecture and core functionality for ${featureData.title} with emphasis on scalability, performance, and maintainability.`,
+          rationale: `A robust technical foundation is essential for delivering ${featureData.title} capabilities that meet both current requirements and future scalability needs.`,
+          category: "technical",
+          priority: "high",
+          acceptanceCriteria: [
+            "Core functionality implemented and tested",
+            "Performance benchmarks achieved",
+            "Scalability requirements validated",
+            "Code quality standards maintained"
+          ],
+          businessValue: `Provide technical foundation enabling ${featureData.title} business value realization`,
+          workflowLevel: "epic",
+          estimatedEffort: "Medium",
+          sprintEstimate: 2
+        }
+      ];
+    }
+    
+    console.log(`🔧 MockLLMService generated ${mockEpics.length} contextual epics for feature ${featureId}`);
+    return { 
+      success: true, 
+      data: { 
+        featureId, 
+        epics: mockEpics, 
+        metadata: {
+          iterationCount: 1,
+          totalTokensUsed: 0,
+          processingTime: 1000,
+          llmProvider: 'mock',
+          llmModel: 'mock-model'
+        }
+      } 
+    };
   }
 
-  static async generateStories(epicId: string) {
+  static async generateStories(epicId: string, epicData: any, featureData: any, initiativeData: any) {
     await new Promise(resolve => setTimeout(resolve, 1000));
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const mockStories = [
-      {
-        id: `STORY-${timestamp}-${randomSuffix}-1`,
-        text: `Unique Login Story for ${epicId}`,
-        category: 'functional',
-        priority: 'high',
-        rationale: `This story is the primary user entry point for epic ${epicId}.`,
-        acceptanceCriteria: [`Successful login for ${epicId}`],
-        businessValue: `User access for ${epicId}`,
-        workflowLevel: 'story',
-        storyPoints: 5,
-        labels: ['auth', 'ui']
-      }
-    ];
-    console.log(`🔧 MockLLMService generated ${mockStories.length} unique stories for epic ${epicId}`);
-    return { success: true, data: { epicId, stories: mockStories, metadata: {} } };
+    
+    // Generate contextually relevant stories based on epic type
+    const isTechnicalEpic = epicData.category === 'technical' || epicData.title?.toLowerCase().includes('architecture');
+    const isUIEpic = epicData.category === 'user-experience' || epicData.title?.toLowerCase().includes('frontend');
+    const isSecurityEpic = epicData.category === 'security' || epicData.title?.toLowerCase().includes('security');
+    
+    let mockStories = [];
+    
+         if (isTechnicalEpic) {
+       mockStories = [
+         {
+           title: "As a tester, I want to conduct device compatibility tests to ensure the portal's responsiveness",
+           description: "The tester needs to conduct device compatibility tests on a variety of mobile devices and screen sizes to validate the responsiveness of the portal's layout.",
+           rationale: "Conducting compatibility tests helps ensure that the portal's responsive layout functions correctly across various devices and screen sizes, providing a consistent user experience.",
+           category: "testing",
+           priority: "high",
+           acceptanceCriteria: [
+             "Given a variety of devices and screen sizes, When the tester views the portal, Then the layout adjusts correctly based on the device's screen size."
+           ],
+           businessValue: "Ensures the quality and performance of the mobile-responsive portal, contributing to improved user experience and engagement.",
+           workflowLevel: "story",
+           storyPoints: 5,
+           labels: ["testing", "responsiveness"],
+           testingNotes: "Test on a variety of mobile devices and screen sizes. Verify the layout adjusts correctly and maintains functionality."
+         },
+         {
+           title: "As a developer, I want to optimize the portal's performance based on testing feedback",
+           description: "The developer needs to optimize the portal's performance based on feedback from the device compatibility tests. This may involve adjusting the layout or resolving performance issues.",
+           rationale: "Optimizing the portal's performance based on testing feedback ensures the portal functions smoothly across a variety of devices and screen sizes, improving the user experience.",
+           category: "development",
+           priority: "high",
+           acceptanceCriteria: [
+             "Given feedback from the device compatibility tests, When the developer optimizes the portal's performance, Then performance is maintained or improved across various devices and screen sizes."
+           ],
+           businessValue: "Improves the performance and user experience of the mobile-responsive portal, potentially increasing user engagement.",
+           workflowLevel: "story",
+           storyPoints: 3,
+           labels: ["development", "optimization"],
+           testingNotes: "Test on a variety of mobile devices and screen sizes. Verify performance is maintained or improved."
+         }
+       ];
+    } else if (isUIEpic) {
+      mockStories = [
+        {
+          title: "As a customer, I want to see a personalized dashboard when I log in",
+          description: "Display a customized dashboard that shows relevant information based on the user's profile, recent activity, and preferences, with quick access to frequently used features.",
+          rationale: "Personalized experiences increase user engagement and satisfaction by surfacing the most relevant information and reducing time to complete common tasks.",
+          category: "user-interface",
+          priority: "high",
+          acceptanceCriteria: [
+            "Given a customer logs in, When the dashboard loads, Then personalized content is displayed within 3 seconds",
+            "Given user preferences are set, When the dashboard renders, Then layout reflects user customizations",
+            "Given recent activity exists, When the dashboard displays, Then relevant recent actions are highlighted"
+          ],
+          businessValue: "Increase user engagement by 40% and reduce time to complete common tasks by 30%",
+          workflowLevel: "story",
+          storyPoints: 5,
+          labels: ["frontend", "personalization"],
+          testingNotes: "Test personalization algorithms with various user profiles and verify performance with large datasets"
+        },
+        {
+          title: "As a mobile user, I want the interface to be fully responsive across all device sizes",
+          description: "Ensure all interface elements adapt seamlessly to different screen sizes and orientations while maintaining full functionality and optimal user experience on mobile devices.",
+          rationale: "Mobile responsiveness is essential for user accessibility and business growth, as mobile traffic continues to increase across all user segments.",
+          category: "user-interface",
+          priority: "high",
+          acceptanceCriteria: [
+            "Given a user accesses the site on mobile, When they navigate through features, Then all functionality is accessible and usable",
+            "Given the device orientation changes, When the interface adjusts, Then no functionality is lost or obscured",
+            "Given touch interactions are used, When users tap interface elements, Then responses are immediate and accurate"
+          ],
+          businessValue: "Improve mobile user satisfaction by 45% and increase mobile conversion rates",
+          workflowLevel: "story",
+          storyPoints: 6,
+          labels: ["mobile", "responsive"],
+          testingNotes: "Test across multiple device types, screen sizes, and operating system versions"
+        }
+      ];
+    } else if (isSecurityEpic) {
+      mockStories = [
+        {
+          title: "As a security administrator, I want to implement multi-factor authentication for all user accounts",
+          description: "Deploy comprehensive multi-factor authentication supporting SMS, email, and authenticator apps with fallback options and admin override capabilities for enhanced account security.",
+          rationale: "Multi-factor authentication is a critical security control that significantly reduces the risk of unauthorized account access and data breaches.",
+          category: "security",
+          priority: "high",
+          acceptanceCriteria: [
+            "Given a user enables MFA, When they log in, Then they must provide a second factor for authentication",
+            "Given MFA is required, When a user loses access to their second factor, Then admin recovery options are available",
+            "Given MFA is configured, When login attempts are made, Then all authentication events are logged for audit"
+          ],
+          businessValue: "Reduce security incidents by 80% and ensure compliance with industry security standards",
+          workflowLevel: "story",
+          storyPoints: 8,
+          labels: ["security", "authentication"],
+          testingNotes: "Verify MFA works with all supported methods and test recovery procedures thoroughly"
+        }
+      ];
+    } else {
+      // Generic high-quality stories
+      mockStories = [
+        {
+          title: `As a user, I want to access ${epicData.title} functionality efficiently`,
+          description: `Provide intuitive access to ${epicData.title} capabilities through well-designed user interfaces and streamlined workflows that minimize user effort and maximize productivity.`,
+          rationale: `Efficient access to ${epicData.title} functionality is essential for user adoption and realizing the intended business value from this investment.`,
+          category: "functional",
+          priority: "medium",
+          acceptanceCriteria: [
+            `Given ${epicData.title} is implemented, When users access the functionality, Then they can complete tasks efficiently`,
+            "Given the interface is designed, When users interact with features, Then the experience is intuitive and helpful",
+            "Given functionality is available, When users need assistance, Then help and guidance are readily accessible"
+          ],
+          businessValue: `Enable effective utilization of ${epicData.title} resulting in improved user productivity`,
+          workflowLevel: "story",
+          storyPoints: 5,
+          labels: ["functional", "user-experience"],
+          testingNotes: `Test ${epicData.title} functionality with representative user scenarios and validate usability`
+        }
+      ];
+    }
+    
+    console.log(`🔧 MockLLMService generated ${mockStories.length} contextual stories for epic ${epicId}`);
+    return { 
+      success: true, 
+      data: { 
+        epicId, 
+        stories: mockStories, 
+        metadata: {
+          iterationCount: 1,
+          totalTokensUsed: 0,
+          processingTime: 1000,
+          llmProvider: 'mock',
+          llmModel: 'mock-model'
+        }
+      } 
+    };
   }
 } 

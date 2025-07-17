@@ -105,23 +105,22 @@ export const useStoryStore = create<StoryState>()(
         }
 
         const newStories: Story[] = parsedStories.map((gen, index) => ({
-          // CRITICAL FIX: Always generate a new unique ID, ignore gen.id
           id: `story-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}-${index}`,
           epicId,
           featureId,
           initiativeId,
           businessBriefId,
-          title: gen.text || gen.title || `Story ${index + 1}`,
-          description: gen.rationale || gen.description || 'Generated story',
+          title: gen.title || 'Untitled Story',
+          description: gen.description || 'No description provided.',
+          rationale: gen.rationale || 'No rationale provided.',
           category: gen.category || 'functional',
           priority: gen.priority || 'medium',
-          rationale: gen.rationale || 'Generated from epic analysis',
           acceptanceCriteria: gen.acceptanceCriteria || ['To be defined'],
           businessValue: gen.businessValue || 'Business value to be determined',
           workflowLevel: gen.workflowLevel || 'story',
           storyPoints: gen.storyPoints || 1,
-          labels: gen.labels || [], // Add missing property
-          testingNotes: gen.testingNotes || '', // Add missing property
+          labels: gen.labels || [],
+          testingNotes: gen.testingNotes || '',
           status: 'draft' as const,
           createdAt: new Date(),
           updatedAt: new Date(),

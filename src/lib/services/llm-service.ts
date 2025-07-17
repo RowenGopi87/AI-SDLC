@@ -108,7 +108,8 @@ export interface RequirementsGenerationResult {
 
 export interface GeneratedInitiative {
   id: string;
-  text: string;
+  title: string;
+  description: string;
   category: string;
   priority: 'high' | 'medium' | 'low';
   rationale: string;
@@ -128,7 +129,8 @@ export interface InitiativesGenerationResult {
 
 export interface GeneratedFeature {
   id: string;
-  text: string;
+  title: string;
+  description: string;
   category: string;
   priority: 'high' | 'medium' | 'low';
   rationale: string;
@@ -159,7 +161,8 @@ export interface InitiativeData {
 
 export interface GeneratedEpic {
   id: string;
-  text: string;
+  title: string;
+  description: string;
   category: string;
   priority: 'high' | 'medium' | 'low';
   rationale: string;
@@ -192,7 +195,8 @@ export interface FeatureData {
 
 export interface GeneratedStory {
   id: string;
-  text: string;
+  title: string;
+  description: string;
   category: string;
   priority: 'high' | 'medium' | 'low';
   rationale: string;
@@ -826,9 +830,9 @@ Each initiative must be:
 - DETAILED: Rich descriptions that explain the strategic importance and approach
 
 CONTENT QUALITY REQUIREMENTS:
-- Descriptions should be comprehensive and strategic (minimum 120 words)
-- Rationale should clearly explain the business need and strategic importance
-- The 'description' and 'rationale' fields MUST be meaningfully different and not repeat the same content. If they are similar, rewrite the rationale to provide unique context or justification.
+- Title must be a concise summary (under 15 words).
+- Description must explain 'what' the item is.
+- Rationale must explain 'why' it's needed and MUST be different from the description.
 - Business value should be specific, quantifiable, and tied to business outcomes
 - Acceptance criteria should be measurable and business-focused
 - Include market context, competitive advantages, and strategic implications
@@ -862,10 +866,11 @@ Generate ${targetLevel?.pluralName || 'initiatives'} as PURE JSON (no markdown, 
   "initiatives": [
     {
       "id": "INIT-001",
-      "text": "initiative description",
+      "title": "A concise title for the initiative",
+      "description": "A detailed description of what the initiative entails.",
       "category": "strategic|operational|technical|business",
       "priority": "high|medium|low",
-      "rationale": "why this initiative is needed",
+      "rationale": "The strategic justification for why this initiative is necessary.",
       "acceptanceCriteria": ["criteria 1", "criteria 2"],
       "workflowLevel": "${mappings.businessBrief}",
       "businessValue": "value this initiative provides"
@@ -912,26 +917,25 @@ CRITICAL REQUIREMENTS:
       
       return {
         initiatives: initiatives.map((init: any, index: number) => {
-          // Ensure description and rationale are not identical or too similar
-          let text = init.text || init.description || init.title || 'Initiative text not found';
-          let rationale = init.rationale || init.businessValue || 'Generated from business brief';
+          let description = init.description || '';
+          let rationale = init.rationale || '';
           
-          // Check for similarity (exact match, substring, or high word overlap)
-          const textWords = text.toLowerCase().split(/\s+/);
+          const textWords = description.toLowerCase().split(/\s+/);
           const rationaleWords = rationale.toLowerCase().split(/\s+/);
           const commonWords = textWords.filter((word: string) => rationaleWords.includes(word));
           const similarityRatio = commonWords.length / Math.max(textWords.length, rationaleWords.length);
           
-          if (text.trim() === rationale.trim() || 
-              rationale.toLowerCase().includes(text.toLowerCase()) || 
-              text.toLowerCase().includes(rationale.toLowerCase()) ||
+          if (description.trim() === rationale.trim() || 
+              rationale.toLowerCase().includes(description.toLowerCase()) || 
+              description.toLowerCase().includes(rationale.toLowerCase()) ||
               similarityRatio > 0.7) {
-            rationale = generateDeterministicRationale(text, 'initiative');
+            rationale = generateDeterministicRationale(description, 'initiative');
           }
           
           return {
             id: init.id || `INIT-${String(index + 1).padStart(3, '0')}`,
-            text,
+            title: init.title || 'Untitled Initiative',
+            description,
             category: init.category || 'strategic',
             priority: (init.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
             rationale,
@@ -981,7 +985,8 @@ Return refined initiatives:
   "initiatives": [
     {
       "id": "INIT-001",
-      "text": "refined initiative text",
+      "title": "A concise title for the initiative",
+      "description": "A detailed description of what the initiative entails.",
       "category": "category",
       "priority": "priority",
       "rationale": "rationale",
@@ -1009,7 +1014,8 @@ Return refined initiatives:
       // Fallback: apply basic validation to original initiatives
       const validatedInitiatives = initiatives.map((init, index) => ({
         id: init.id || `INIT-${String(index + 1).padStart(3, '0')}`,
-        text: init.text || 'Initiative text',
+        title: init.title || 'Untitled Initiative',
+        description: init.description || '',
         category: init.category || 'strategic',
         priority: init.priority || 'medium',
         rationale: init.rationale || 'Derived from business brief',
@@ -1186,12 +1192,49 @@ IMPORTANT:
 - The 'description' and 'rationale' fields MUST NOT be identical or near-identical. If they are, rewrite the rationale to provide unique justification or context.
 - Avoid generic, vague, or shallow descriptions (such content will be rejected)
 - ...existing requirements...
-`;
 
-    const userPrompt = `${businessBrief ? `Business Brief Context:
+You will be provided with the parent Business Brief and Initiative for full context.
+
+CONTENT QUALITY REQUIREMENTS:
+- You MUST return a "title", a "description", and a "rationale" for each feature.
+- The "title" MUST be a concise summary of the feature (under 15 words).
+- The "description" MUST be a detailed explanation of what the feature entails.
+- The "rationale" MUST explain WHY the feature is necessary and must be different from the description.
+- Business value should be specific, quantifiable, and tied to business outcomes
+- Acceptance criteria should be measurable and business-focused
+- Include market context, competitive advantages, and strategic implications
+- Avoid generic, vague, or shallow strategic descriptions (such content will be rejected)
+- Specify target markets, user segments, and business impact metrics
+- DO NOT use generic phrases or repeat the business brief verbatim
+
+Generate features as PURE JSON (no markdown, no code blocks, no explanatory text):
+{
+  "features": [
+    {
+      "id": "FEA-001",
+      "title": "A concise title for the feature (under 15 words)",
+      "description": "A detailed description of what the feature entails.",
+      "rationale": "The justification for why this feature is necessary.",
+      "category": "functional",
+      "priority": "high",
+      "acceptanceCriteria": ["criteria 1", "criteria 2"],
+      "businessValue": "value this feature provides",
+      "workflowLevel": "feature"
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Return ONLY the JSON object above, no markdown formatting, no \`\`\`json blocks
+- Priority must be exactly one of: "high", "medium", "low" (lowercase only)
+- Each feature should be substantial enough to be broken down into multiple epics
+- Focus on user-facing capabilities and system functionality
+- Response must be valid JSON that can be parsed directly`;
+
+    const userPrompt = `Parent Business Brief Context:
 ${JSON.stringify(businessBrief, null, 2)}
 
-` : ''}Initiative:
+Parent Initiative Context:
 ${JSON.stringify(initiative, null, 2)}
 
 Analysis & Insights:
@@ -1202,13 +1245,14 @@ Generate features as PURE JSON (no markdown, no code blocks, no explanatory text
   "features": [
     {
       "id": "FEA-001",
-      "text": "feature description",
-      "category": "functional|user-experience|integration|performance|security|business",
-      "priority": "high|medium|low",
-      "rationale": "why this feature is needed",
-      "acceptanceCriteria": ["criteria 1", "criteria 2"],
-      "workflowLevel": "feature",
-      "businessValue": "value this feature provides"
+      "title": "Implement Apple Pay Integration",
+      "description": "Develop the necessary components and integrations to allow users to complete purchases using Apple Pay on supported iOS devices.",
+      "rationale": "Apple Pay is a widely-used mobile payment solution. Integrating it will cater to our large iOS user base and likely increase mobile conversion rates.",
+      "category": "integration",
+      "priority": "high",
+      "acceptanceCriteria": ["Users can select Apple Pay", "Transactions are processed securely"],
+      "businessValue": "Increases mobile conversion rate.",
+      "workflowLevel": "feature"
     }
   ]
 }
@@ -1237,7 +1281,8 @@ CRITICAL REQUIREMENTS:
         return {
           features: [{
             id: 'FEA-PARSE-NEEDED',
-            text: result.content,
+            title: 'Parse Needed',
+            description: result.content,
             category: 'needs-parsing',
             priority: 'high' as const,
             rationale: 'JSON response needs manual parsing',
@@ -1252,31 +1297,31 @@ CRITICAL REQUIREMENTS:
       
       return {
         features: features.map((feat: any, index: number) => {
-          let text = feat.text || feat.description || feat.title || 'Feature text not found';
-          let rationale = feat.rationale || feat.businessValue || 'Generated from initiative';
+          let description = feat.description || '';
+          let rationale = feat.rationale || '';
           
-          const textWords = text.toLowerCase().split(/\s+/);
+          const textWords = description.toLowerCase().split(/\s+/);
           const rationaleWords = rationale.toLowerCase().split(/\s+/);
           const commonWords = textWords.filter((word: string) => rationaleWords.includes(word));
           const similarityRatio = commonWords.length / Math.max(textWords.length, rationaleWords.length);
           
-          if (text.trim() === rationale.trim() || 
-              rationale.toLowerCase().includes(text.toLowerCase()) || 
-              text.toLowerCase().includes(rationale.toLowerCase()) ||
+          if (description.trim() === rationale.trim() || 
+              rationale.toLowerCase().includes(description.toLowerCase()) || 
+              description.toLowerCase().includes(rationale.toLowerCase()) ||
               similarityRatio > 0.7) {
-            rationale = generateDeterministicRationale(text, 'feature');
+            rationale = generateDeterministicRationale(description, 'feature');
           }
           
-          const featureLevel = CURRENT_WORKFLOW.levels.find(l => l.name.toLowerCase() === 'feature');
           return {
             id: feat.id || `FEA-${String(index + 1).padStart(3, '0')}`,
-            text,
+            title: feat.title || 'Untitled Feature',
+            description: feat.description || 'No description provided',
             category: feat.category || 'functional',
             priority: (feat.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
             rationale,
             acceptanceCriteria: feat.acceptanceCriteria || ['To be defined'],
             businessValue: feat.businessValue || 'Business value to be determined',
-            workflowLevel: featureLevel ? featureLevel.id : 'feature'
+            workflowLevel: feat.workflowLevel ? feat.workflowLevel.id : 'feature'
           };
         }),
         tokensUsed: result.tokensUsed,
@@ -1286,7 +1331,8 @@ CRITICAL REQUIREMENTS:
       return {
         features: [{
           id: 'FEA-PARSE-NEEDED',
-          text: result.content,
+          title: 'Parse Needed',
+          description: result.content,
           category: 'needs-parsing',
           priority: 'high' as const,
           rationale: 'Response format needs manual review',
@@ -1310,20 +1356,23 @@ For each feature, assess:
 - Measurable: Can success be tracked?
 - Scoped: Are the boundaries well-defined?
 
-Refine features that don't meet these criteria.`;
+Refine features that don't meet these criteria.
+
+CRITICAL: You MUST return features with "title", "description", and "rationale" fields. DO NOT use a "text" field.`;
 
     const userPrompt = `Features to validate and refine:
 ${JSON.stringify(features, null, 2)}
 
-Return refined features:
+Return refined features as PURE JSON (no markdown, no code blocks):
 {
   "features": [
     {
       "id": "FEA-001",
-      "text": "refined feature text",
+      "title": "Concise feature title",
+      "description": "Detailed feature description",
       "category": "category",
       "priority": "priority",
-      "rationale": "rationale",
+      "rationale": "Why this feature is necessary",
       "acceptanceCriteria": ["criteria"],
       "businessValue": "business value",
       "workflowLevel": "workflowLevel"
@@ -1336,8 +1385,15 @@ Return refined features:
     try {
       const refinedData = JSON.parse(result.content);
       const validatedFeatures = refinedData.features.map((feat: any, index: number) => ({
-        ...feat,
         id: feat.id || `FEA-${String(index + 1).padStart(3, '0')}`,
+        title: feat.title || 'Untitled Feature',
+        description: feat.description || feat.text || 'No description provided',
+        category: feat.category || 'functional',
+        priority: feat.priority || 'medium',
+        rationale: feat.rationale || 'Derived from initiative analysis',
+        acceptanceCriteria: feat.acceptanceCriteria || ['To be defined'],
+        businessValue: feat.businessValue || 'Business value to be determined',
+        workflowLevel: feat.workflowLevel || 'feature',
       }));
 
       return {
@@ -1348,7 +1404,8 @@ Return refined features:
       // Fallback: apply basic validation to original features
       const validatedFeatures = features.map((feat, index) => ({
         id: feat.id || `FEA-${String(index + 1).padStart(3, '0')}`,
-        text: feat.text || 'Feature text',
+        title: feat.title || 'Untitled Feature',
+        description: feat.description || feat.text || 'No description provided',
         category: feat.category || 'functional',
         priority: feat.priority || 'medium',
         rationale: feat.rationale || 'Derived from initiative analysis',
@@ -1465,15 +1522,55 @@ IMPORTANT:
 - The 'description' and 'rationale' fields MUST NOT be identical or near-identical. If they are, rewrite the rationale to provide unique justification or context.
 - Avoid generic, vague, or shallow descriptions (such content will be rejected)
 - ...existing requirements...
-`;
 
-    const userPrompt = `${businessBrief ? `Business Brief Context:
+You will be provided with the parent Initiative and Feature for full context.
+
+CONTENT QUALITY REQUIREMENTS:
+- You MUST return a "title", a "description", and a "rationale" for each epic.
+- The "title" MUST be a concise summary of the epic (under 15 words).
+- The "description" MUST be a detailed explanation of the epic's scope.
+- The "rationale" MUST explain WHY this epic is necessary and must be different from the description.
+- Business value should be specific, quantifiable, and tied to business outcomes
+- Acceptance criteria should be measurable and business-focused
+- Include market context, competitive advantages, and strategic implications
+- Avoid generic, vague, or shallow strategic descriptions (such content will be rejected)
+- Specify target markets, user segments, and business impact metrics
+- DO NOT use generic phrases or repeat the business brief verbatim
+
+Generate epics as PURE JSON (no markdown, no code blocks, no explanatory text):
+{
+  "epics": [
+    {
+      "id": "EPIC-001",
+      "title": "Develop Apple Pay Client-Side Integration",
+      "description": "This epic covers all client-side development to integrate the Apple Pay JS SDK, including UI components for payment selection and the payment sheet.",
+      "rationale": "A robust client-side implementation is crucial for a smooth user experience, which directly impacts conversion rates.",
+      "category": "technical",
+      "priority": "high",
+      "acceptanceCriteria": ["Payment sheet displays correctly on iOS devices", "User can authorize payment with Face ID/Touch ID"],
+      "businessValue": "Provides a seamless and familiar checkout experience for iOS users, reducing friction.",
+      "workflowLevel": "epic",
+      "estimatedEffort": "Medium",
+      "sprintEstimate": 2
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Return ONLY the JSON object above, no markdown formatting, no \`\`\`json blocks
+- Priority must be exactly one of: "high", "medium", "low" (lowercase only)
+- Each epic should be sized for 1-3 sprints maximum
+- Focus on technical delivery and implementation aspects
+- sprintEstimate must be a number between 1 and 3
+- Response must be valid JSON that can be parsed directly`;
+
+    const userPrompt = `Parent Business Brief Context:
 ${JSON.stringify(businessBrief, null, 2)}
 
-` : ''}${initiative ? `Initiative Context:
+Parent Initiative Context:
 ${JSON.stringify(initiative, null, 2)}
 
-` : ''}Feature:
+Parent Feature Context:
 ${JSON.stringify(feature, null, 2)}
 
 Analysis & Insights:
@@ -1484,15 +1581,16 @@ Generate epics as PURE JSON (no markdown, no code blocks, no explanatory text):
   "epics": [
     {
       "id": "EPIC-001",
-      "text": "epic description",
-      "category": "technical|user-experience|integration|testing|infrastructure|data",
-      "priority": "high|medium|low",
-      "rationale": "why this epic is needed",
-      "acceptanceCriteria": ["criteria 1", "criteria 2"],
+      "title": "Develop Apple Pay Client-Side Integration",
+      "description": "This epic covers all client-side development to integrate the Apple Pay JS SDK, including UI components for payment selection and the payment sheet.",
+      "rationale": "A robust client-side implementation is crucial for a smooth user experience, which directly impacts conversion rates.",
+      "category": "technical",
+      "priority": "high",
+      "acceptanceCriteria": ["Payment sheet displays correctly on iOS devices", "User can authorize payment with Face ID/Touch ID"],
+      "businessValue": "Provides a seamless and familiar checkout experience for iOS users, reducing friction.",
       "workflowLevel": "epic",
-      "businessValue": "value this epic provides",
-      "estimatedEffort": "Small|Medium|Large",
-      "sprintEstimate": 1-3
+      "estimatedEffort": "Medium",
+      "sprintEstimate": 2
     }
   ]
 }
@@ -1522,7 +1620,8 @@ CRITICAL REQUIREMENTS:
         return {
           epics: [{
             id: 'EPIC-PARSE-NEEDED',
-            text: result.content,
+            title: 'Parse Needed',
+            description: result.content,
             category: 'needs-parsing',
             priority: 'high' as const,
             rationale: 'JSON response needs manual parsing',
@@ -1539,25 +1638,26 @@ CRITICAL REQUIREMENTS:
       
       return {
         epics: epics.map((epic: any, index: number) => {
-          let text = epic.text || epic.description || epic.title || 'Epic text not found';
-          let rationale = epic.rationale || epic.businessValue || 'Generated from feature';
+          let description = epic.description || '';
+          let rationale = epic.rationale || '';
           
-          const textWords = text.toLowerCase().split(/\s+/);
+          const textWords = description.toLowerCase().split(/\s+/);
           const rationaleWords = rationale.toLowerCase().split(/\s+/);
           const commonWords = textWords.filter((word: string) => rationaleWords.includes(word));
           const similarityRatio = commonWords.length / Math.max(textWords.length, rationaleWords.length);
           
-          if (text.trim() === rationale.trim() || 
-              rationale.toLowerCase().includes(text.toLowerCase()) || 
-              text.toLowerCase().includes(rationale.toLowerCase()) ||
+          if (description.trim() === rationale.trim() || 
+              rationale.toLowerCase().includes(description.toLowerCase()) || 
+              description.toLowerCase().includes(rationale.toLowerCase()) ||
               similarityRatio > 0.7) {
-            rationale = generateDeterministicRationale(text, 'epic');
+            rationale = generateDeterministicRationale(description, 'epic');
           }
           
           const epicLevel = CURRENT_WORKFLOW.levels.find(l => l.name.toLowerCase() === 'epic');
           return {
             id: epic.id || `EPI-${String(index + 1).padStart(3, '0')}`,
-            text,
+            title: epic.title || epic.text || 'Untitled Epic',
+            description: epic.description || epic.text || 'No description provided',
             category: epic.category || 'functional',
             priority: (epic.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
             rationale,
@@ -1575,15 +1675,16 @@ CRITICAL REQUIREMENTS:
       return {
         epics: [{
           id: 'EPIC-PARSE-NEEDED',
-          text: result.content,
+          title: 'Parse Needed',
+          description: result.content,
           category: 'needs-parsing',
           priority: 'high' as const,
           rationale: 'Response format needs manual review',
           acceptanceCriteria: ['Review and parse epics manually'],
           businessValue: 'Manual parsing required',
           workflowLevel: 'epic',
-          estimatedEffort: '', // Add missing properties
-          sprintEstimate: 0,   // Add missing properties
+          estimatedEffort: 'Medium',
+          sprintEstimate: 1,
           rawJsonContent: result.content
         }],
         tokensUsed: result.tokensUsed,
@@ -1601,25 +1702,28 @@ For each epic, assess:
 - Independent: Can it be worked on with minimal dependencies?
 - Valuable: Does it contribute to the overall feature delivery?
 
-Refine epics that don't meet these criteria. Ensure proper sprint sizing.`;
+Refine epics that don't meet these criteria. Ensure proper sprint sizing.
+
+CRITICAL: You MUST return epics with "title", "description", and "rationale" fields. DO NOT use a "text" field.`;
 
     const userPrompt = `Epics to validate and refine:
 ${JSON.stringify(epics, null, 2)}
 
-Return refined epics:
+Return refined epics as PURE JSON (no markdown, no code blocks):
 {
   "epics": [
     {
       "id": "EPIC-001",
-      "text": "refined epic text",
+      "title": "Concise epic title",
+      "description": "Detailed epic description",
       "category": "category",
       "priority": "priority",
-      "rationale": "rationale",
+      "rationale": "Why this epic is necessary",
       "acceptanceCriteria": ["criteria"],
       "businessValue": "business value",
-      "workflowLevel": "workflowLevel",
+      "workflowLevel": "epic",
       "estimatedEffort": "effort level",
-      "sprintEstimate": 1-3
+      "sprintEstimate": 2
     }
   ]
 }`;
@@ -1629,8 +1733,16 @@ Return refined epics:
     try {
       const refinedData = JSON.parse(result.content);
       const validatedEpics = refinedData.epics.map((epic: any, index: number) => ({
-        ...epic,
         id: epic.id || `EPIC-${String(index + 1).padStart(3, '0')}`,
+        title: epic.title || 'Untitled Epic',
+        description: epic.description || epic.text || 'No description provided',
+        category: epic.category || 'technical',
+        priority: epic.priority || 'medium',
+        rationale: epic.rationale || 'Derived from feature analysis',
+        acceptanceCriteria: epic.acceptanceCriteria || ['To be defined'],
+        businessValue: epic.businessValue || 'Business value to be determined',
+        workflowLevel: epic.workflowLevel || 'epic',
+        estimatedEffort: epic.estimatedEffort || 'Medium',
         sprintEstimate: Math.min(Math.max(epic.sprintEstimate || 2, 1), 3), // Ensure 1-3 range
       }));
 
@@ -1642,7 +1754,8 @@ Return refined epics:
       // Fallback: apply basic validation to original epics
       const validatedEpics = epics.map((epic, index) => ({
         id: epic.id || `EPIC-${String(index + 1).padStart(3, '0')}`,
-        text: epic.text || 'Epic text',
+        title: epic.title || 'Untitled Epic',
+        description: epic.description || epic.text || 'No description provided',
         category: epic.category || 'technical',
         priority: epic.priority || 'medium',
         rationale: epic.rationale || 'Derived from feature analysis',
@@ -1763,18 +1876,60 @@ IMPORTANT:
 - The 'description' and 'rationale' fields MUST NOT be identical or near-identical. If they are, rewrite the rationale to provide unique justification or context.
 - Avoid generic, vague, or shallow descriptions (such content will be rejected)
 - ...existing requirements...
-`;
 
-    const userPrompt = `${businessBrief ? `Business Brief Context:
+You will be provided with the full hierarchy (Initiative, Feature, Epic) for complete context.
+
+CONTENT QUALITY REQUIREMENTS:
+- You MUST return a "title", a "description", and a "rationale" for each story.
+- The "title" MUST be a concise user story, ideally in the format "As a [user], I want [action]...".
+- The "description" MUST be a detailed explanation of the story's requirements.
+- The "rationale" MUST explain WHY this story is valuable and must be different from the description.
+- Business value should be specific, quantifiable, and tied to business outcomes
+- Acceptance criteria should be measurable and business-focused
+- Include market context, competitive advantages, and strategic implications
+- Avoid generic, vague, or shallow descriptions (such content will be rejected)
+- Specify target markets, user segments, and business impact metrics
+- DO NOT use generic phrases or repeat the business brief verbatim
+
+Generate stories as PURE JSON (no markdown, no code blocks, no explanatory text):
+{
+  "stories": [
+    {
+      "id": "STORY-001",
+      "title": "As a user, I want to see the Apple Pay button on the checkout screen",
+      "description": "The Apple Pay button should be displayed prominently as a payment option on the checkout screen for users on supported iOS devices.",
+      "rationale": "Displaying the Apple Pay button clearly is the first step in the user journey for this payment method.",
+      "category": "frontend",
+      "priority": "high",
+      "acceptanceCriteria": ["Given a user is on an iOS device with Apple Pay enabled, When they reach the checkout screen, Then the Apple Pay button is visible and enabled."],
+      "businessValue": "Increases visibility of a key payment option, guiding users towards a faster checkout.",
+      "workflowLevel": "story",
+      "storyPoints": 3,
+      "labels": ["ui", "checkout"],
+      "testingNotes": "Test on multiple iPhone models and iOS versions. Verify it does not appear on Android or desktop."
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Return ONLY the JSON object above, no markdown formatting, no \`\`\`json blocks
+- Priority must be exactly one of: "high", "medium", "low" (lowercase only)
+- Each story should be implementable within a few days
+- Use proper user story format: "As a [user], I want [goal] so that [benefit]"
+- storyPoints must be a number between 1 and 8
+- Include specific, testable acceptance criteria
+- Response must be valid JSON that can be parsed directly`;
+
+    const userPrompt = `Parent Business Brief Context:
 ${JSON.stringify(businessBrief, null, 2)}
 
-` : ''}${initiative ? `Initiative Context:
+Parent Initiative Context:
 ${JSON.stringify(initiative, null, 2)}
 
-` : ''}${feature ? `Feature Context:
+Parent Feature Context:
 ${JSON.stringify(feature, null, 2)}
 
-` : ''}Epic:
+Parent Epic Context:
 ${JSON.stringify(epic, null, 2)}
 
 Analysis & Insights:
@@ -1785,16 +1940,17 @@ Generate stories as PURE JSON (no markdown, no code blocks, no explanatory text)
   "stories": [
     {
       "id": "STORY-001",
-      "text": "As a [user type], I want [goal] so that [benefit]",
-      "category": "frontend|backend|api|database|testing|deployment",
-      "priority": "high|medium|low",
-      "rationale": "why this story is needed",
-      "acceptanceCriteria": ["Given [context], When [action], Then [outcome]", "criteria 2"],
+      "title": "As a user, I want to see the Apple Pay button on the checkout screen",
+      "description": "The Apple Pay button should be displayed prominently as a payment option on the checkout screen for users on supported iOS devices.",
+      "rationale": "Displaying the Apple Pay button clearly is the first step in the user journey for this payment method.",
+      "category": "frontend",
+      "priority": "high",
+      "acceptanceCriteria": ["Given a user is on an iOS device with Apple Pay enabled, When they reach the checkout screen, Then the Apple Pay button is visible and enabled."],
+      "businessValue": "Increases visibility of a key payment option, guiding users towards a faster checkout.",
       "workflowLevel": "story",
-      "businessValue": "value this story provides",
-      "storyPoints": 1-8,
-      "labels": ["frontend", "api", "etc"],
-      "testingNotes": "specific testing guidance for this story"
+      "storyPoints": 3,
+      "labels": ["ui", "checkout"],
+      "testingNotes": "Test on multiple iPhone models and iOS versions. Verify it does not appear on Android or desktop."
     }
   ]
 }
@@ -1843,25 +1999,26 @@ CRITICAL REQUIREMENTS:
       
       return {
         stories: stories.map((story: any, index: number) => {
-          let text = story.text || story.description || story.title || 'Story text not found';
-          let rationale = story.rationale || story.businessValue || 'Generated from epic';
+          let description = story.description || '';
+          let rationale = story.rationale || '';
           
-          const textWords = text.toLowerCase().split(/\s+/);
+          const textWords = description.toLowerCase().split(/\s+/);
           const rationaleWords = rationale.toLowerCase().split(/\s+/);
           const commonWords = textWords.filter((word: string) => rationaleWords.includes(word));
           const similarityRatio = commonWords.length / Math.max(textWords.length, rationaleWords.length);
           
-          if (text.trim() === rationale.trim() || 
-              rationale.toLowerCase().includes(text.toLowerCase()) || 
-              text.toLowerCase().includes(rationale.toLowerCase()) ||
+          if (description.trim() === rationale.trim() || 
+              rationale.toLowerCase().includes(description.toLowerCase()) || 
+              description.toLowerCase().includes(rationale.toLowerCase()) ||
               similarityRatio > 0.7) {
-            rationale = generateDeterministicRationale(text, 'story');
+            rationale = generateDeterministicRationale(description, 'story');
           }
           
           const storyLevel = CURRENT_WORKFLOW.levels.find(l => l.name.toLowerCase() === 'story');
           return {
             id: story.id || `STO-${String(index + 1).padStart(3, '0')}`,
-            text,
+            title: story.title || story.text || 'Untitled Story',
+            description: story.description || story.text || 'No description provided',
             category: story.category || 'functional',
             priority: (story.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
             rationale,
@@ -1908,24 +2065,27 @@ For each story, assess:
 - Small: Can it be completed within a few days?
 - Testable: Are the acceptance criteria clear and verifiable?
 
-Refine stories that don't meet these criteria. Ensure proper user story format and clear acceptance criteria.`;
+Refine stories that don't meet these criteria. Ensure proper user story format and clear acceptance criteria.
+
+CRITICAL: You MUST return stories with "title", "description", and "rationale" fields. DO NOT use a "text" field.`;
 
     const userPrompt = `Stories to validate and refine:
 ${JSON.stringify(stories, null, 2)}
 
-Return refined stories:
+Return refined stories as PURE JSON (no markdown, no code blocks):
 {
   "stories": [
     {
       "id": "STORY-001",
-      "text": "As a [user], I want [goal] so that [benefit]",
+      "title": "As a [user], I want [goal] so that [benefit]",
+      "description": "Detailed description of the story requirements",
       "category": "category",
       "priority": "priority",
-      "rationale": "rationale",
+      "rationale": "Why this story is valuable",
       "acceptanceCriteria": ["Given [context], When [action], Then [outcome]"],
       "businessValue": "business value",
       "workflowLevel": "story",
-      "storyPoints": 1-8,
+      "storyPoints": 3,
       "labels": ["label1", "label2"],
       "testingNotes": "testing guidance"
     }
@@ -1937,10 +2097,18 @@ Return refined stories:
     try {
       const refinedData = JSON.parse(result.content);
       const validatedStories = refinedData.stories.map((story: any, index: number) => ({
-        ...story,
         id: story.id || `STORY-${String(index + 1).padStart(3, '0')}`,
+        title: story.title || 'Untitled Story',
+        description: story.description || story.text || 'No description provided',
+        category: story.category || 'development',
+        priority: story.priority || 'medium',
+        rationale: story.rationale || 'Derived from epic analysis',
+        acceptanceCriteria: story.acceptanceCriteria || ['To be defined'],
+        businessValue: story.businessValue || 'Business value to be determined',
+        workflowLevel: story.workflowLevel || 'story',
         storyPoints: Math.min(Math.max(story.storyPoints || 3, 1), 8), // Ensure 1-8 range
         labels: Array.isArray(story.labels) ? story.labels : ['development'],
+        testingNotes: story.testingNotes || 'Testing notes to be added',
       }));
 
       return {
@@ -1951,7 +2119,8 @@ Return refined stories:
       // Fallback: apply basic validation to original stories
       const validatedStories = stories.map((story, index) => ({
         id: story.id || `STORY-${String(index + 1).padStart(3, '0')}`,
-        text: story.text || 'Story text',
+        title: story.title || 'Untitled Story',
+        description: story.description || story.text || 'No description provided',
         category: story.category || 'development',
         priority: story.priority || 'medium',
         rationale: story.rationale || 'Derived from epic analysis',

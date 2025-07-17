@@ -96,14 +96,13 @@ export const useInitiativeStore = create<InitiativeState>()(
         }
 
         const newInitiatives: Initiative[] = parsedInitiatives.map((gen, index) => ({
-          // CRITICAL FIX: Always generate a new unique ID, ignore gen.id
           id: `init-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}-${index}`,
           businessBriefId,
-          title: gen.text || gen.title || `Initiative ${index + 1}`,
-          description: gen.rationale || gen.description || 'Generated initiative',
+          title: gen.title || 'Untitled Initiative',
+          description: gen.description || 'No description provided.',
+          rationale: gen.rationale || 'No rationale provided.',
           category: gen.category || 'strategic',
           priority: gen.priority || 'medium',
-          rationale: gen.rationale || 'Generated from business brief analysis',
           acceptanceCriteria: gen.acceptanceCriteria || ['To be defined'],
           businessValue: gen.businessValue || 'Business value to be determined',
           workflowLevel: gen.workflowLevel || 'initiative',

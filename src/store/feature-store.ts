@@ -101,15 +101,14 @@ export const useFeatureStore = create<FeatureState>()(
         }
 
         const newFeatures: Feature[] = parsedFeatures.map((gen, index) => ({
-          // CRITICAL FIX: Always generate a new unique ID, ignore gen.id
           id: `feat-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}-${index}`,
           initiativeId,
           businessBriefId,
-          title: gen.text || gen.title || `Feature ${index + 1}`,
-          description: gen.rationale || gen.description || 'Generated feature',
+          title: gen.title || 'Untitled Feature',
+          description: gen.description || 'No description provided.',
+          rationale: gen.rationale || 'No rationale provided.',
           category: gen.category || 'functional',
           priority: gen.priority || 'medium',
-          rationale: gen.rationale || 'Generated from initiative analysis',
           acceptanceCriteria: gen.acceptanceCriteria || ['To be defined'],
           businessValue: gen.businessValue || 'Business value to be determined',
           workflowLevel: gen.workflowLevel || 'feature',
