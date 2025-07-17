@@ -96,7 +96,8 @@ export const useInitiativeStore = create<InitiativeState>()(
         }
 
         const newInitiatives: Initiative[] = parsedInitiatives.map((gen, index) => ({
-          id: gen.id || `init-gen-${Date.now().toString(36)}-${index}`,
+          // CRITICAL FIX: Always generate a new unique ID, ignore gen.id
+          id: `init-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}-${index}`,
           businessBriefId,
           title: gen.text || gen.title || `Initiative ${index + 1}`,
           description: gen.rationale || gen.description || 'Generated initiative',
@@ -112,8 +113,7 @@ export const useInitiativeStore = create<InitiativeState>()(
           createdBy: 'AI System',
         }));
 
-        console.log('🔍 Generated initiatives preview:', newInitiatives.map(init => ({ id: init.id, title: init.title, businessBriefId: init.businessBriefId })));
-
+        console.log('✅ Generated new unique IDs for initiatives:', newInitiatives.map(init => init.id));
         set((state) => ({
           initiatives: [...state.initiatives, ...newInitiatives],
         }));

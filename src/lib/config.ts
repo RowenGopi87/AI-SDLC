@@ -5,9 +5,9 @@ export const APP_DESCRIPTION = "Automated Unified Requirement & Assurance";
 export const APP_VERSION = "1.0.0-MVP";
 
 export const MODULES = [
-  { id: "use-cases", name: "Use Cases", path: "/use-cases" },
-  { id: "requirements", name: "Requirements", path: "/requirements" },
-  { id: "decomposition", name: "Decomposition", path: "/decomposition" },
+  { id: "use-cases", name: "Idea", path: "/use-cases" },
+  { id: "requirements", name: "Work Items", path: "/requirements" },
+  // { id: "decomposition", name: "Decomposition", path: "/decomposition" }, // Disabled
   { id: "test-cases", name: "Test Cases", path: "/test-cases" },
   { id: "execution", name: "Execution", path: "/execution" },
   { id: "defects", name: "Defects", path: "/defects" },

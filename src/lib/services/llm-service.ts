@@ -2,6 +2,57 @@ import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CURRENT_WORKFLOW, getAIPromptContext } from '../workflow-config';
 
+// Deterministic rationale generator for fallback
+function generateDeterministicRationale(description: string, type: string): string {
+  // Extract key concepts from description
+  const lowerDesc = description.toLowerCase();
+  const sentences = description.split('.').map(s => s.trim()).filter(Boolean);
+  
+  // Determine business context
+  let businessContext = '';
+  let strategicAlignment = '';
+  let riskMitigation = '';
+  
+  if (/customer|user|experience|satisfaction|portal|interface/i.test(description)) {
+    businessContext = 'customer experience enhancement';
+    strategicAlignment = 'align with our customer-centric strategy';
+  } else if (/payment|transaction|financial|billing|revenue/i.test(description)) {
+    businessContext = 'financial optimization and revenue growth';
+    strategicAlignment = 'support our digital transformation objectives';
+  } else if (/security|compliance|risk|fraud|protection/i.test(description)) {
+    businessContext = 'security and compliance strengthening';
+    strategicAlignment = 'meet regulatory requirements and industry standards';
+  } else if (/performance|scalability|optimization|efficiency/i.test(description)) {
+    businessContext = 'operational efficiency and system reliability';
+    strategicAlignment = 'ensure sustainable business growth';
+  } else {
+    businessContext = 'business value creation';
+    strategicAlignment = 'advance our strategic business objectives';
+  }
+  
+  if (/security|risk|breach|compliance|fraud/i.test(description)) {
+    riskMitigation = ', mitigate potential security and compliance risks';
+  } else if (/cost|expense|budget|financial/i.test(description)) {
+    riskMitigation = ', reduce operational costs and financial inefficiencies';
+  } else if (/competition|market|competitive/i.test(description)) {
+    riskMitigation = ', maintain competitive advantage in the market';
+  } else {
+    riskMitigation = ', minimize business disruption and operational risks';
+  }
+  
+  // Generate different rationale structures
+  const templates = [
+    `The strategic rationale behind this ${type} centers on ${businessContext}. By implementing this solution, we can ${strategicAlignment}${riskMitigation}, ultimately delivering measurable business impact.`,
+    `This ${type} is justified by the critical business need for ${businessContext}. The implementation will ${strategicAlignment}${riskMitigation}, ensuring long-term organizational success.`,
+    `From a business perspective, this ${type} addresses fundamental requirements for ${businessContext}. The initiative will ${strategicAlignment}${riskMitigation}, creating sustainable competitive advantages.`,
+    `The business case for this ${type} is built on the foundation of ${businessContext}. This strategic investment will ${strategicAlignment}${riskMitigation}, driving organizational transformation.`
+  ];
+  
+  // Select template based on description hash to ensure consistency
+  const templateIndex = Math.abs(description.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % templates.length;
+  return templates[templateIndex];
+}
+
 export interface LLMSettings {
   provider: string;
   model: string;
@@ -139,6 +190,42 @@ export interface FeatureData {
   workflowLevel: string;
 }
 
+export interface GeneratedStory {
+  id: string;
+  text: string;
+  category: string;
+  priority: 'high' | 'medium' | 'low';
+  rationale: string;
+  acceptanceCriteria: string[];
+  businessValue: string;
+  workflowLevel: string;
+  storyPoints: number;
+  labels: string[];
+  testingNotes: string;
+}
+
+export interface StoriesGenerationResult {
+  stories: GeneratedStory[];
+  iterationCount: number;
+  totalTokensUsed: number;
+  processingTime: number;
+  provokingQuestions: string[];
+  selfReviewNotes: string[];
+}
+
+export interface EpicData {
+  title: string;
+  description: string;
+  category: string;
+  priority: string;
+  rationale: string;
+  acceptanceCriteria: string[];
+  businessValue: string;
+  workflowLevel: string;
+  estimatedEffort?: string;
+  sprintEstimate?: number;
+}
+
 export class LLMService {
   private openai?: OpenAI;
   private googleAI?: GoogleGenerativeAI;
@@ -256,7 +343,7 @@ export class LLMService {
     }
   }
 
-  async generateFeatures(initiative: InitiativeData): Promise<FeaturesGenerationResult> {
+  async generateFeatures(initiative: InitiativeData, businessBrief?: BusinessBriefData): Promise<FeaturesGenerationResult> {
     const startTime = Date.now();
     let totalTokensUsed = 0;
     let iterationCount = 0;
@@ -278,7 +365,7 @@ export class LLMService {
 
       // Step 3: Generate initial features based on analysis
       iterationCount++;
-      const initialFeatures = await this.generateInitialFeatures(initiative, analysisResult.analysis);
+      const initialFeatures = await this.generateInitialFeatures(initiative, analysisResult.analysis, businessBrief);
       totalTokensUsed += initialFeatures.tokensUsed;
 
       // Step 4: Validate and refine features
@@ -302,7 +389,7 @@ export class LLMService {
     }
   }
 
-  async generateEpics(feature: FeatureData): Promise<EpicsGenerationResult> {
+  async generateEpics(feature: FeatureData, businessBrief?: BusinessBriefData, initiative?: InitiativeData): Promise<EpicsGenerationResult> {
     const startTime = Date.now();
     let totalTokensUsed = 0;
     let iterationCount = 0;
@@ -324,7 +411,7 @@ export class LLMService {
 
       // Step 3: Generate initial epics based on analysis
       iterationCount++;
-      const initialEpics = await this.generateInitialEpics(feature, analysisResult.analysis);
+      const initialEpics = await this.generateInitialEpics(feature, analysisResult.analysis, businessBrief, initiative);
       totalTokensUsed += initialEpics.tokensUsed;
 
       // Step 4: Validate and refine epics
@@ -345,6 +432,52 @@ export class LLMService {
     } catch (error) {
       console.error('Error in epics generation:', error);
       throw new Error(`Failed to generate epics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async generateStories(epic: EpicData, businessBrief?: BusinessBriefData, initiative?: InitiativeData, feature?: FeatureData): Promise<StoriesGenerationResult> {
+    const startTime = Date.now();
+    let totalTokensUsed = 0;
+    let iterationCount = 0;
+    const provokingQuestions: string[] = [];
+    const selfReviewNotes: string[] = [];
+
+    try {
+      // Step 1: Generate provoking questions about the epic
+      iterationCount++;
+      const questionsResult = await this.generateProvokingQuestionsForEpic(epic);
+      provokingQuestions.push(...questionsResult.questions);
+      totalTokensUsed += questionsResult.tokensUsed;
+
+      // Step 2: Self-review and answer the provoking questions
+      iterationCount++;
+      const analysisResult = await this.performSelfAnalysisForEpic(epic, questionsResult.questions);
+      selfReviewNotes.push(...analysisResult.insights);
+      totalTokensUsed += analysisResult.tokensUsed;
+
+      // Step 3: Generate initial stories based on analysis
+      iterationCount++;
+      const initialStories = await this.generateInitialStories(epic, analysisResult.analysis, businessBrief, initiative, feature);
+      totalTokensUsed += initialStories.tokensUsed;
+
+      // Step 4: Validate and refine stories
+      iterationCount++;
+      const refinedStories = await this.validateAndRefineStories(initialStories.stories);
+      totalTokensUsed += refinedStories.tokensUsed;
+
+      const processingTime = Date.now() - startTime;
+
+      return {
+        stories: refinedStories.stories,
+        iterationCount,
+        totalTokensUsed,
+        processingTime,
+        provokingQuestions,
+        selfReviewNotes,
+      };
+    } catch (error) {
+      console.error('Error in stories generation:', error);
+      throw new Error(`Failed to generate stories: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -685,11 +818,23 @@ IMPORTANT:
 - Each initiative must be substantial enough to be broken down into ${CURRENT_WORKFLOW.levels.find(l => l.parentLevel === mappings.businessBrief)?.pluralName || 'features'}
 
 Each initiative must be:
-- STRATEGIC: High-level business value driver
-- ACTIONABLE: Can be decomposed into executable work
-- MEASURABLE: Has clear success criteria
-- SCOPED: Well-defined boundaries
-- ALIGNED: Supports business objectives
+- STRATEGIC: High-level business value driver with clear market impact
+- ACTIONABLE: Can be decomposed into executable work with defined deliverables
+- MEASURABLE: Has clear success criteria with specific KPIs and metrics
+- SCOPED: Well-defined boundaries with clear inclusion/exclusion criteria
+- ALIGNED: Supports business objectives with direct contribution to goals
+- DETAILED: Rich descriptions that explain the strategic importance and approach
+
+CONTENT QUALITY REQUIREMENTS:
+- Descriptions should be comprehensive and strategic (minimum 120 words)
+- Rationale should clearly explain the business need and strategic importance
+- The 'description' and 'rationale' fields MUST be meaningfully different and not repeat the same content. If they are similar, rewrite the rationale to provide unique context or justification.
+- Business value should be specific, quantifiable, and tied to business outcomes
+- Acceptance criteria should be measurable and business-focused
+- Include market context, competitive advantages, and strategic implications
+- Avoid generic, vague, or shallow strategic descriptions (such content will be rejected)
+- Specify target markets, user segments, and business impact metrics
+- DO NOT use generic phrases or repeat the business brief verbatim
 
 Generate initiatives following the hierarchy:
 ${CURRENT_WORKFLOW.levels.map((level, index) => 
@@ -766,16 +911,35 @@ CRITICAL REQUIREMENTS:
       }
       
       return {
-        initiatives: initiatives.map((init: any, index: number) => ({
-          id: init.id || `INIT-${String(index + 1).padStart(3, '0')}`,
-          text: init.text || init.description || init.title || 'Initiative text not found',
-          category: init.category || 'strategic',
-          priority: (init.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
-          rationale: init.rationale || init.businessValue || 'Generated from business brief',
-          acceptanceCriteria: init.acceptanceCriteria || ['To be defined'],
-          businessValue: init.businessValue || 'Business value to be determined',
-          workflowLevel: init.workflowLevel || mappings.businessBrief
-        })),
+        initiatives: initiatives.map((init: any, index: number) => {
+          // Ensure description and rationale are not identical or too similar
+          let text = init.text || init.description || init.title || 'Initiative text not found';
+          let rationale = init.rationale || init.businessValue || 'Generated from business brief';
+          
+          // Check for similarity (exact match, substring, or high word overlap)
+          const textWords = text.toLowerCase().split(/\s+/);
+          const rationaleWords = rationale.toLowerCase().split(/\s+/);
+          const commonWords = textWords.filter((word: string) => rationaleWords.includes(word));
+          const similarityRatio = commonWords.length / Math.max(textWords.length, rationaleWords.length);
+          
+          if (text.trim() === rationale.trim() || 
+              rationale.toLowerCase().includes(text.toLowerCase()) || 
+              text.toLowerCase().includes(rationale.toLowerCase()) ||
+              similarityRatio > 0.7) {
+            rationale = generateDeterministicRationale(text, 'initiative');
+          }
+          
+          return {
+            id: init.id || `INIT-${String(index + 1).padStart(3, '0')}`,
+            text,
+            category: init.category || 'strategic',
+            priority: (init.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
+            rationale,
+            acceptanceCriteria: init.acceptanceCriteria || ['To be defined'],
+            businessValue: init.businessValue || 'Business value to be determined',
+            workflowLevel: init.workflowLevel || mappings.businessBrief
+          };
+        }),
         tokensUsed: result.tokensUsed,
       };
     } catch (error) {
@@ -1009,37 +1173,25 @@ Provide a comprehensive analysis addressing each question. Format as JSON:
     }
   }
 
-  private async generateInitialFeatures(initiative: InitiativeData, analysis: string) {
+  private async generateInitialFeatures(initiative: InitiativeData, analysis: string, businessBrief?: BusinessBriefData) {
     const workflowContext = getAIPromptContext();
     const mappings = CURRENT_WORKFLOW.mappings;
-    const systemPrompt = `You are an expert product manager and feature decomposition specialist. Based on the initiative and comprehensive analysis, generate features that can be implemented to achieve the initiative's objectives.
+    const systemPrompt = `You are a senior product manager and feature decomposition expert. Based on the initiative and analysis, generate features according to the current workflow structure.
 
 ${workflowContext}
 
-IMPORTANT: 
-- Each feature should be a discrete piece of functionality
-- Features should be substantial enough to be broken down into epics and stories
-- Focus on user-facing capabilities and system functionality
+IMPORTANT:
+- Features must be actionable, valuable, and decomposable into epics
+- Each feature must have a unique, detailed description and a rationale that is meaningfully different from the description
+- The 'description' and 'rationale' fields MUST NOT be identical or near-identical. If they are, rewrite the rationale to provide unique justification or context.
+- Avoid generic, vague, or shallow descriptions (such content will be rejected)
+- ...existing requirements...
+`;
 
-Each feature must be:
-- USER-FOCUSED: Addresses specific user needs
-- IMPLEMENTABLE: Can be built by development teams
-- TESTABLE: Has clear acceptance criteria
-- MEASURABLE: Success can be tracked
-- SCOPED: Well-defined boundaries
+    const userPrompt = `${businessBrief ? `Business Brief Context:
+${JSON.stringify(businessBrief, null, 2)}
 
-Generate features following the hierarchy:
-${CURRENT_WORKFLOW.levels.map((level, index) => 
-  `${index + 1}. ${level.name} (${level.description})`
-).join('\n')}
-
-RESPONSE FORMAT REQUIREMENTS:
-- Return ONLY valid JSON without any explanatory text
-- Do NOT use markdown formatting or code blocks
-- Do NOT include phrases like "Here are the features:" or "Based on the analysis:"
-- Your entire response must be parseable as JSON`;
-
-    const userPrompt = `Initiative:
+` : ''}Initiative:
 ${JSON.stringify(initiative, null, 2)}
 
 Analysis & Insights:
@@ -1099,16 +1251,34 @@ CRITICAL REQUIREMENTS:
       }
       
       return {
-        features: features.map((feat: any, index: number) => ({
-          id: feat.id || `FEA-${String(index + 1).padStart(3, '0')}`,
-          text: feat.text || feat.description || feat.title || 'Feature text not found',
-          category: feat.category || 'functional',
-          priority: (feat.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
-          rationale: feat.rationale || feat.businessValue || 'Generated from initiative analysis',
-          acceptanceCriteria: feat.acceptanceCriteria || ['To be defined'],
-          businessValue: feat.businessValue || 'Business value to be determined',
-          workflowLevel: feat.workflowLevel || 'feature'
-        })),
+        features: features.map((feat: any, index: number) => {
+          let text = feat.text || feat.description || feat.title || 'Feature text not found';
+          let rationale = feat.rationale || feat.businessValue || 'Generated from initiative';
+          
+          const textWords = text.toLowerCase().split(/\s+/);
+          const rationaleWords = rationale.toLowerCase().split(/\s+/);
+          const commonWords = textWords.filter((word: string) => rationaleWords.includes(word));
+          const similarityRatio = commonWords.length / Math.max(textWords.length, rationaleWords.length);
+          
+          if (text.trim() === rationale.trim() || 
+              rationale.toLowerCase().includes(text.toLowerCase()) || 
+              text.toLowerCase().includes(rationale.toLowerCase()) ||
+              similarityRatio > 0.7) {
+            rationale = generateDeterministicRationale(text, 'feature');
+          }
+          
+          const featureLevel = CURRENT_WORKFLOW.levels.find(l => l.name.toLowerCase() === 'feature');
+          return {
+            id: feat.id || `FEA-${String(index + 1).padStart(3, '0')}`,
+            text,
+            category: feat.category || 'functional',
+            priority: (feat.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
+            rationale,
+            acceptanceCriteria: feat.acceptanceCriteria || ['To be defined'],
+            businessValue: feat.businessValue || 'Business value to be determined',
+            workflowLevel: featureLevel ? featureLevel.id : 'feature'
+          };
+        }),
         tokensUsed: result.tokensUsed,
       };
     } catch (error) {
@@ -1283,32 +1453,27 @@ Provide a comprehensive analysis addressing each question. Format as JSON:
     }
   }
 
-  private async generateInitialEpics(feature: FeatureData, analysis: string) {
+  private async generateInitialEpics(feature: FeatureData, analysis: string, businessBrief?: BusinessBriefData, initiative?: InitiativeData) {
     const workflowContext = getAIPromptContext();
-    const systemPrompt = `You are an expert technical lead and sprint planning specialist. Based on the feature and comprehensive analysis, generate epics that can be delivered in 1-3 sprints each.
+    const systemPrompt = `You are a senior product owner and epic decomposition expert. Based on the feature and analysis, generate epics according to the current workflow structure.
 
 ${workflowContext}
 
-IMPORTANT: 
-- Each epic should be a deliverable work package that fits within 1-3 sprints
-- Epics should be substantial enough to be broken down into user stories
-- Focus on technical implementation and delivery milestones
-- Consider team capacity and sprint boundaries
+IMPORTANT:
+- Epics must be substantial, valuable, and decomposable into stories
+- Each epic must have a unique, detailed description and a rationale that is meaningfully different from the description
+- The 'description' and 'rationale' fields MUST NOT be identical or near-identical. If they are, rewrite the rationale to provide unique justification or context.
+- Avoid generic, vague, or shallow descriptions (such content will be rejected)
+- ...existing requirements...
+`;
 
-Each epic must be:
-- SPRINT-SIZED: Deliverable within 1-3 sprints
-- TECHNICALLY-FOCUSED: Addresses specific implementation aspects
-- TESTABLE: Has clear definition of done
-- INDEPENDENT: Can be worked on with minimal dependencies
-- VALUABLE: Contributes to the overall feature delivery
+    const userPrompt = `${businessBrief ? `Business Brief Context:
+${JSON.stringify(businessBrief, null, 2)}
 
-RESPONSE FORMAT REQUIREMENTS:
-- Return ONLY valid JSON without any explanatory text
-- Do NOT use markdown formatting or code blocks
-- Do NOT include phrases like "Here are the epics:" or "Based on the analysis:"
-- Your entire response must be parseable as JSON`;
+` : ''}${initiative ? `Initiative Context:
+${JSON.stringify(initiative, null, 2)}
 
-    const userPrompt = `Feature:
+` : ''}Feature:
 ${JSON.stringify(feature, null, 2)}
 
 Analysis & Insights:
@@ -1373,18 +1538,36 @@ CRITICAL REQUIREMENTS:
       }
       
       return {
-        epics: epics.map((epic: any, index: number) => ({
-          id: epic.id || `EPIC-${String(index + 1).padStart(3, '0')}`,
-          text: epic.text || epic.description || epic.title || 'Epic text not found',
-          category: epic.category || 'technical',
-          priority: (epic.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
-          rationale: epic.rationale || epic.businessValue || 'Generated from feature analysis',
-          acceptanceCriteria: epic.acceptanceCriteria || ['To be defined'],
-          businessValue: epic.businessValue || 'Business value to be determined',
-          workflowLevel: epic.workflowLevel || 'epic',
-          estimatedEffort: epic.estimatedEffort || 'Medium',
-          sprintEstimate: Math.min(Math.max(epic.sprintEstimate || 2, 1), 3) // Ensure 1-3 range
-        })),
+        epics: epics.map((epic: any, index: number) => {
+          let text = epic.text || epic.description || epic.title || 'Epic text not found';
+          let rationale = epic.rationale || epic.businessValue || 'Generated from feature';
+          
+          const textWords = text.toLowerCase().split(/\s+/);
+          const rationaleWords = rationale.toLowerCase().split(/\s+/);
+          const commonWords = textWords.filter((word: string) => rationaleWords.includes(word));
+          const similarityRatio = commonWords.length / Math.max(textWords.length, rationaleWords.length);
+          
+          if (text.trim() === rationale.trim() || 
+              rationale.toLowerCase().includes(text.toLowerCase()) || 
+              text.toLowerCase().includes(rationale.toLowerCase()) ||
+              similarityRatio > 0.7) {
+            rationale = generateDeterministicRationale(text, 'epic');
+          }
+          
+          const epicLevel = CURRENT_WORKFLOW.levels.find(l => l.name.toLowerCase() === 'epic');
+          return {
+            id: epic.id || `EPI-${String(index + 1).padStart(3, '0')}`,
+            text,
+            category: epic.category || 'functional',
+            priority: (epic.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
+            rationale,
+            acceptanceCriteria: epic.acceptanceCriteria || ['To be defined'],
+            businessValue: epic.businessValue || 'Business value to be determined',
+            workflowLevel: epicLevel ? epicLevel.id : 'epic',
+            estimatedEffort: epic.estimatedEffort || '',
+            sprintEstimate: epic.sprintEstimate || 0
+          };
+        }),
         tokensUsed: result.tokensUsed,
       };
     } catch (error) {
@@ -1399,8 +1582,8 @@ CRITICAL REQUIREMENTS:
           acceptanceCriteria: ['Review and parse epics manually'],
           businessValue: 'Manual parsing required',
           workflowLevel: 'epic',
-          estimatedEffort: 'Medium',
-          sprintEstimate: 2,
+          estimatedEffort: '', // Add missing properties
+          sprintEstimate: 0,   // Add missing properties
           rawJsonContent: result.content
         }],
         tokensUsed: result.tokensUsed,
@@ -1472,6 +1655,316 @@ Return refined epics:
 
       return {
         epics: validatedEpics,
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async generateProvokingQuestionsForEpic(epic: EpicData) {
+    const workflowContext = getAIPromptContext();
+    const systemPrompt = `You are a senior software engineer and story decomposition specialist. Your role is to ask provoking, insightful questions about an epic to ensure we create clear, testable, implementable user stories.
+
+${workflowContext}
+
+Analyze the epic and generate 6-8 thought-provoking questions that will help uncover:
+1. Specific user interactions and workflows
+2. Technical implementation details and components
+3. Data requirements and validation rules
+4. UI/UX considerations and user experience
+5. Testing scenarios and edge cases
+6. Integration points and dependencies
+7. Performance and security considerations
+8. Definition of done criteria
+
+Focus on questions that would help create clear, concise, testable stories that development teams can implement directly.`;
+
+    const userPrompt = `Epic:
+Title: ${epic.title}
+Description: ${epic.description}
+Category: ${epic.category}
+Priority: ${epic.priority}
+Rationale: ${epic.rationale}
+Business Value: ${epic.businessValue}
+Acceptance Criteria: ${epic.acceptanceCriteria.join(', ')}
+Sprint Estimate: ${epic.sprintEstimate || 'Not specified'} sprints
+Estimated Effort: ${epic.estimatedEffort || 'Not specified'}
+
+Generate provoking questions as a JSON array: ["question 1", "question 2", ...]`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const questions = JSON.parse(result.content);
+      return {
+        questions: Array.isArray(questions) ? questions : [],
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      // Fallback: extract questions from text response
+      const lines = result.content.split('\n').filter(line => line.trim().startsWith('-') || line.trim().match(/^\d+\./));
+      const questions = lines.map(line => line.replace(/^[-\d.]\s*/, '').trim()).filter(q => q.length > 0);
+      return {
+        questions: questions.slice(0, 8),
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async performSelfAnalysisForEpic(epic: EpicData, questions: string[]) {
+    const systemPrompt = `You are a thoughtful software engineer performing a deep analysis of an epic for story decomposition. Answer the provoking questions with detailed insights, considering implementation details, user experience, and development team perspectives.
+
+For each question, provide:
+- A thorough technical analysis based on the epic
+- User story decomposition considerations
+- Implementation and testing guidance
+
+Be analytical, objective, and comprehensive with focus on creating implementable user stories.`;
+
+    const userPrompt = `Epic:
+${JSON.stringify(epic, null, 2)}
+
+Provoking Questions:
+${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+
+Provide a comprehensive analysis addressing each question. Format as JSON:
+{
+  "analysis": "comprehensive analysis text addressing all questions",
+  "insights": ["insight 1", "insight 2", "..."],
+  "keyConsiderations": ["consideration 1", "consideration 2", "..."]
+}`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const analysisData = JSON.parse(result.content);
+      return {
+        analysis: analysisData.analysis || result.content,
+        insights: analysisData.insights || [],
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      return {
+        analysis: result.content,
+        insights: [result.content],
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async generateInitialStories(epic: EpicData, analysis: string, businessBrief?: BusinessBriefData, initiative?: InitiativeData, feature?: FeatureData) {
+    const workflowContext = getAIPromptContext();
+    const systemPrompt = `You are a senior business analyst and user story expert. Based on the epic and analysis, generate user stories according to the current workflow structure.
+
+${workflowContext}
+
+IMPORTANT:
+- Stories must be actionable, valuable, and testable
+- Each story must have a unique, detailed description and a rationale that is meaningfully different from the description
+- The 'description' and 'rationale' fields MUST NOT be identical or near-identical. If they are, rewrite the rationale to provide unique justification or context.
+- Avoid generic, vague, or shallow descriptions (such content will be rejected)
+- ...existing requirements...
+`;
+
+    const userPrompt = `${businessBrief ? `Business Brief Context:
+${JSON.stringify(businessBrief, null, 2)}
+
+` : ''}${initiative ? `Initiative Context:
+${JSON.stringify(initiative, null, 2)}
+
+` : ''}${feature ? `Feature Context:
+${JSON.stringify(feature, null, 2)}
+
+` : ''}Epic:
+${JSON.stringify(epic, null, 2)}
+
+Analysis & Insights:
+${analysis}
+
+Generate stories as PURE JSON (no markdown, no code blocks, no explanatory text):
+{
+  "stories": [
+    {
+      "id": "STORY-001",
+      "text": "As a [user type], I want [goal] so that [benefit]",
+      "category": "frontend|backend|api|database|testing|deployment",
+      "priority": "high|medium|low",
+      "rationale": "why this story is needed",
+      "acceptanceCriteria": ["Given [context], When [action], Then [outcome]", "criteria 2"],
+      "workflowLevel": "story",
+      "businessValue": "value this story provides",
+      "storyPoints": 1-8,
+      "labels": ["frontend", "api", "etc"],
+      "testingNotes": "specific testing guidance for this story"
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Return ONLY the JSON object above, no markdown formatting, no \`\`\`json blocks
+- Priority must be exactly one of: "high", "medium", "low" (lowercase only)
+- Each story should be implementable within a few days
+- Use proper user story format: "As a [user], I want [goal] so that [benefit]"
+- storyPoints must be a number between 1 and 8
+- Include specific, testable acceptance criteria
+- Response must be valid JSON that can be parsed directly`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const storiesData = JSON.parse(result.content);
+      
+      // Handle different JSON response formats
+      let stories = [];
+      
+      if (Array.isArray(storiesData)) {
+        stories = storiesData;
+      } else if (storiesData.stories && Array.isArray(storiesData.stories)) {
+        stories = storiesData.stories;
+      } else {
+        console.log('Unexpected JSON structure, storing raw content for manual parsing');
+        return {
+          stories: [{
+            id: 'STORY-PARSE-NEEDED',
+            text: result.content,
+            category: 'needs-parsing',
+            priority: 'high' as const,
+            rationale: 'JSON response needs manual parsing',
+            acceptanceCriteria: ['Parse individual stories from JSON'],
+            businessValue: 'Manual parsing required',
+            workflowLevel: 'story',
+            storyPoints: 3,
+            labels: ['development'],
+            testingNotes: 'Manual parsing required',
+            rawJsonContent: result.content
+          }],
+          tokensUsed: result.tokensUsed,
+        };
+      }
+      
+      return {
+        stories: stories.map((story: any, index: number) => {
+          let text = story.text || story.description || story.title || 'Story text not found';
+          let rationale = story.rationale || story.businessValue || 'Generated from epic';
+          
+          const textWords = text.toLowerCase().split(/\s+/);
+          const rationaleWords = rationale.toLowerCase().split(/\s+/);
+          const commonWords = textWords.filter((word: string) => rationaleWords.includes(word));
+          const similarityRatio = commonWords.length / Math.max(textWords.length, rationaleWords.length);
+          
+          if (text.trim() === rationale.trim() || 
+              rationale.toLowerCase().includes(text.toLowerCase()) || 
+              text.toLowerCase().includes(rationale.toLowerCase()) ||
+              similarityRatio > 0.7) {
+            rationale = generateDeterministicRationale(text, 'story');
+          }
+          
+          const storyLevel = CURRENT_WORKFLOW.levels.find(l => l.name.toLowerCase() === 'story');
+          return {
+            id: story.id || `STO-${String(index + 1).padStart(3, '0')}`,
+            text,
+            category: story.category || 'functional',
+            priority: (story.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low',
+            rationale,
+            acceptanceCriteria: story.acceptanceCriteria || ['To be defined'],
+            businessValue: story.businessValue || 'Business value to be determined',
+            workflowLevel: storyLevel ? storyLevel.id : 'story',
+            storyPoints: story.storyPoints || 0,
+            labels: story.labels || [],
+            testingNotes: story.testingNotes || ''
+          };
+        }),
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      console.log('JSON parse failed for stories, using fallback');
+      return {
+        stories: [{
+          id: 'STORY-PARSE-NEEDED',
+          text: result.content,
+          category: 'needs-parsing',
+          priority: 'high' as const,
+          rationale: 'Response format needs manual review',
+          acceptanceCriteria: ['Review and parse stories manually'],
+          businessValue: 'Manual parsing required',
+          workflowLevel: 'story',
+          storyPoints: 0,
+          labels: [],
+          testingNotes: '',
+          rawJsonContent: result.content
+        }],
+        tokensUsed: result.tokensUsed,
+      };
+    }
+  }
+
+  private async validateAndRefineStories(stories: any[]) {
+    const systemPrompt = `You are a user story quality expert and development team advocate. Evaluate each story to ensure it meets INVEST principles and can be implemented directly by development teams.
+
+For each story, assess:
+- Independent: Can it be worked on independently?
+- Negotiable: Is there room for discussion about implementation?
+- Valuable: Does it provide clear user or business value?
+- Estimable: Can developers estimate the effort?
+- Small: Can it be completed within a few days?
+- Testable: Are the acceptance criteria clear and verifiable?
+
+Refine stories that don't meet these criteria. Ensure proper user story format and clear acceptance criteria.`;
+
+    const userPrompt = `Stories to validate and refine:
+${JSON.stringify(stories, null, 2)}
+
+Return refined stories:
+{
+  "stories": [
+    {
+      "id": "STORY-001",
+      "text": "As a [user], I want [goal] so that [benefit]",
+      "category": "category",
+      "priority": "priority",
+      "rationale": "rationale",
+      "acceptanceCriteria": ["Given [context], When [action], Then [outcome]"],
+      "businessValue": "business value",
+      "workflowLevel": "story",
+      "storyPoints": 1-8,
+      "labels": ["label1", "label2"],
+      "testingNotes": "testing guidance"
+    }
+  ]
+}`;
+
+    const result = await this.callLLM(systemPrompt, userPrompt);
+    
+    try {
+      const refinedData = JSON.parse(result.content);
+      const validatedStories = refinedData.stories.map((story: any, index: number) => ({
+        ...story,
+        id: story.id || `STORY-${String(index + 1).padStart(3, '0')}`,
+        storyPoints: Math.min(Math.max(story.storyPoints || 3, 1), 8), // Ensure 1-8 range
+        labels: Array.isArray(story.labels) ? story.labels : ['development'],
+      }));
+
+      return {
+        stories: validatedStories,
+        tokensUsed: result.tokensUsed,
+      };
+    } catch (error) {
+      // Fallback: apply basic validation to original stories
+      const validatedStories = stories.map((story, index) => ({
+        id: story.id || `STORY-${String(index + 1).padStart(3, '0')}`,
+        text: story.text || 'Story text',
+        category: story.category || 'development',
+        priority: story.priority || 'medium',
+        rationale: story.rationale || 'Derived from epic analysis',
+        acceptanceCriteria: story.acceptanceCriteria || ['To be defined'],
+        businessValue: story.businessValue || 'Business value to be determined',
+        workflowLevel: story.workflowLevel || 'story',
+        storyPoints: Math.min(Math.max(story.storyPoints || 3, 1), 8), // Ensure 1-8 range
+        labels: Array.isArray(story.labels) ? story.labels : ['development'],
+        testingNotes: story.testingNotes || 'Testing notes to be added',
+      }));
+
+      return {
+        stories: validatedStories,
         tokensUsed: result.tokensUsed,
       };
     }

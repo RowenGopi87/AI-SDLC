@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { LLMService } from '@/lib/services/llm-service';
 
-// Request validation schema for epics
-const generateEpicsSchema = z.object({
+// Request validation schema for stories
+const generateStoriesSchema = z.object({
+  epicId: z.string(),
   featureId: z.string(),
   initiativeId: z.string(),
   businessBriefId: z.string(),
-  featureData: z.object({
+  epicData: z.object({
     title: z.string(),
     description: z.string(),
     category: z.string(),
@@ -16,6 +17,8 @@ const generateEpicsSchema = z.object({
     acceptanceCriteria: z.array(z.string()),
     businessValue: z.string(),
     workflowLevel: z.string(),
+    estimatedEffort: z.string().optional(),
+    sprintEstimate: z.number().optional(),
   }),
   businessBriefData: z.object({
     title: z.string(),
@@ -29,6 +32,16 @@ const generateEpicsSchema = z.object({
     changeImpactExpected: z.string().optional(),
   }).optional(),
   initiativeData: z.object({
+    title: z.string(),
+    description: z.string(),
+    category: z.string(),
+    priority: z.string(),
+    rationale: z.string(),
+    acceptanceCriteria: z.array(z.string()),
+    businessValue: z.string(),
+    workflowLevel: z.string(),
+  }).optional(),
+  featureData: z.object({
     title: z.string(),
     description: z.string(),
     category: z.string(),
@@ -52,22 +65,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Validate request
-    const validatedData = generateEpicsSchema.parse(body);
-    const { featureId, initiativeId, businessBriefId, featureData, businessBriefData, initiativeData, llmSettings } = validatedData;
+    const validatedData = generateStoriesSchema.parse(body);
+    const { epicId, featureId, initiativeId, businessBriefId, epicData, businessBriefData, initiativeData, featureData, llmSettings } = validatedData;
 
     // Initialize LLM service
     const llmService = new LLMService(llmSettings);
 
-    // Generate epics through iterative process with full context
-    const result = await llmService.generateEpics(featureData, businessBriefData, initiativeData);
+    // Generate stories through iterative process with full context
+    const result = await llmService.generateStories(epicData, businessBriefData, initiativeData, featureData);
 
     return NextResponse.json({
       success: true,
       data: {
+        epicId,
         featureId,
         initiativeId,
         businessBriefId,
-        epics: result.epics,
+        stories: result.stories,
         metadata: {
           iterationCount: result.iterationCount,
           totalTokensUsed: result.totalTokensUsed,
@@ -78,7 +92,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error generating epics:', error);
+    console.error('Error generating stories:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

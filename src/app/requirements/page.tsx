@@ -7,6 +7,7 @@ import { useUseCaseStore } from '@/store/use-case-store';
 import { useInitiativeStore } from '@/store/initiative-store';
 import { useFeatureStore } from '@/store/feature-store';
 import { useEpicStore } from '@/store/epic-store';
+import { useStoryStore } from '@/store/story-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,8 @@ import {
   TrendingUp,
   Clock
 } from 'lucide-react';
+import { MockLLMService } from '@/lib/mock-data';
+import { mockInitiatives, mockFeatures, mockEpics, mockStories } from '@/lib/mock-data'; // Import mock data
 
 export default function RequirementsPage() {
   const searchParams = useSearchParams();
@@ -49,17 +52,38 @@ export default function RequirementsPage() {
   const { initiatives, addInitiative, updateInitiative, deleteInitiative } = useInitiativeStore();
   const { features, addGeneratedFeatures, getFeaturesByInitiative } = useFeatureStore();
   const { epics, addGeneratedEpics, getEpicsByFeature } = useEpicStore();
+  const { stories, addGeneratedStories, getStoriesByEpic } = useStoryStore();
   const { llmSettings, validateSettings } = useSettingsStore();
   
   // State management
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [collapsedLevels, setCollapsedLevels] = useState<Set<string>>(new Set()); // For collapsible hierarchy
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Individual loading states for each item type and ID
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [generatingItems, setGeneratingItems] = useState<Record<string, boolean>>({});
+  
+  // Development mode toggle for testing without LLM costs
+  const [useMockLLM, setUseMockLLM] = useState(process.env.NODE_ENV === 'development');
+  const [useMockData, setUseMockData] = useState(process.env.NODE_ENV === 'development');
+  
+  // Helper to set loading state for specific item
+  const setItemLoading = (itemId: string, isLoading: boolean) => {
+    setLoadingStates(prev => ({
+      ...prev,
+      [itemId]: isLoading
+    }));
+  };
+  
+  // Helper to check if item is loading
+  const isItemLoading = (itemId: string) => {
+    return loadingStates[itemId] || false;
+  };
   
   // Form state - using Initiative interface types
   const [formData, setFormData] = useState({
@@ -115,6 +139,14 @@ export default function RequirementsPage() {
         }, {} as Record<string, any[]>));
         return features;
       };
+      (window as any).debugFeatureDisplay = () => {
+        console.log('🔍 Debug: Feature display analysis:');
+        initiatives.forEach(init => {
+          const featuresForInit = getFeaturesByInitiative(init.id);
+          console.log(`Initiative ${init.id} (${init.title}): ${featuresForInit.length} features`);
+          featuresForInit.forEach(f => console.log(`  - ${f.id}: ${f.title} (initiativeId: ${f.initiativeId})`));
+        });
+      };
       (window as any).debugEpics = () => {
         console.log('🔍 Debug: Current epics from store:', epics);
         console.log('🔍 Debug: Epics by feature:', epics.reduce((acc, epic) => {
@@ -124,8 +156,23 @@ export default function RequirementsPage() {
         }, {} as Record<string, any[]>));
         return epics;
       };
+      (window as any).debugStories = () => {
+        console.log('🔍 Debug: Current stories from store:', stories);
+        console.log('🔍 Debug: Stories by epic:', stories.reduce((acc, story) => {
+          if (!acc[story.epicId]) acc[story.epicId] = [];
+          acc[story.epicId].push(story);
+          return acc;
+        }, {} as Record<string, any[]>));
+        return stories;
+      };
+      (window as any).clearAllFeatures = () => {
+        console.log('🧹 Clearing all features from store...');
+        const { features } = useFeatureStore.getState();
+        features.forEach(f => useFeatureStore.getState().deleteFeature(f.id));
+        console.log('✅ All features cleared');
+      };
     }
-  }, [initiatives, features, epics]);
+  }, [initiatives, features, epics, stories, getFeaturesByInitiative]);
 
   // Toggle expanded state
   const toggleExpanded = (id: string) => {
@@ -147,10 +194,10 @@ export default function RequirementsPage() {
   // Get type icon
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'initiative': return <Target size={16} className="text-purple-600" />;
-      case 'feature': return <Layers size={16} className="text-blue-600" />;
-      case 'epic': return <BookOpen size={16} className="text-green-600" />;
-      case 'story': return <FileText size={16} className="text-orange-600" />;
+      case 'initiative': return <Target size={16} style={{color: '#D4A843'}} />; // Darker yellow for initiative
+      case 'feature': return <Layers size={16} style={{color: '#5B8DB8'}} />; // Darker blue for feature
+      case 'epic': return <BookOpen size={16} style={{color: '#8B7A9B'}} />; // Darker purple for epic
+      case 'story': return <FileText size={16} style={{color: '#7FB37C'}} />; // Darker green for story
       default: return <FileText size={16} className="text-gray-600" />;
     }
   };
@@ -174,18 +221,105 @@ export default function RequirementsPage() {
     }
   };
 
+  // Utility to check if content is shallow
+  const isShallow = (item: any, type: string) => {
+    if (!item) return true;
+    const desc = item.description || item.text || '';
+    const rationale = item.rationale || '';
+    const businessValue = item.businessValue || '';
+    // Consider shallow if description < 100 chars or rationale/businessValue missing
+    return desc.length < 100 || rationale.length < 30 || businessValue.length < 30;
+  };
+
+  // Enrich handler (regenerates the item)
+  const handleEnrich = async (item: any, type: string) => {
+    if (type === 'initiative') {
+      await handleGenerateFeatures(item.id); // For now, just regenerate features as a placeholder
+    } else if (type === 'feature') {
+      await handleGenerateEpics(item.id);
+    } else if (type === 'epic') {
+      await handleGenerateStories(item.id);
+    }
+    // You can expand this to call a dedicated enrich endpoint if needed
+  };
+
   // AI Generation functions
   const handleGenerateFeatures = async (initiativeId: string) => {
-    const initiative = initiatives.find(init => init.id === initiativeId);
-    if (!initiative) {
-      console.error('Initiative not found:', initiativeId);
+    if (generatingItems[initiativeId]) {
+      console.log(`⚠️ Generation already in progress for: ${initiativeId}`);
       return;
     }
-
-    setIsGenerating(true);
+    
+    setGeneratingItems(prev => ({ ...prev, [initiativeId]: true }));
+    
     try {
+      console.log(`🔍 handleGenerateFeatures called with initiativeId: ${initiativeId}`);
+      console.log(`🔍 Current loadingStates before check:`, loadingStates);
+      
+      // Prevent multiple simultaneous calls for the same initiative
+      if (loadingStates[initiativeId]) {
+        console.log(`⚠️ Feature generation already in progress for initiative: ${initiativeId}`);
+        return;
+      }
+      
+      const initiative = initiatives.find(init => init.id === initiativeId);
+      if (!initiative) {
+        console.error('Initiative not found:', initiativeId);
+        return;
+      }
+
+      console.log(`🔍 Found initiative: ${initiative.id} - ${initiative.title}`);
+
+      // Check if features already exist for this initiative
+      const existingFeatures = getFeaturesByInitiative(initiativeId);
+      console.log(`🔍 Existing features for ${initiativeId}:`, existingFeatures.length);
+      if (existingFeatures.length > 0) {
+        const confirmOverwrite = window.confirm(`This initiative already has ${existingFeatures.length} features. Do you want to generate additional features?`);
+        if (!confirmOverwrite) {
+          console.log('Feature generation cancelled - features already exist.');
+          return;
+        }
+      }
+
+      if (!window.confirm('Are you sure you want to generate features for this initiative?')) {
+        console.log('Feature generation cancelled by user.');
+        return;
+      }
+      console.log('[AURA] User confirmed feature generation for initiative:', initiativeId);
+
+      // CRITICAL: Set generating state ONLY for this specific initiative
+      console.log(`🔍 Setting generatingItems state for ONLY ${initiativeId}`);
+      setItemLoading(initiativeId, true);
+      
       console.log('Generating features for initiative:', initiativeId);
       
+      // Use mock service in development mode
+      if (useMockLLM) {
+        console.log('🔧 Using MockLLMService for testing');
+        const result = await MockLLMService.generateFeatures(initiativeId);
+        
+        if (!result.success) {
+          throw new Error('Mock feature generation failed');
+        }
+
+        // Save generated features to the store
+        const { features: generatedFeatures, metadata } = result.data;
+        
+        console.log('💾 Saving mock features to store...');
+        const savedFeatures = addGeneratedFeatures(initiativeId, initiative.businessBriefId, generatedFeatures);
+        console.log(`✅ Successfully saved ${savedFeatures.length} mock features to store`);
+
+        // Show success message
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        notification.textContent = `✅ Generated ${savedFeatures.length} mock features successfully`;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 3000);
+        
+        return;
+      }
+      
+      // Original LLM service code
       // Check if settings are valid
       if (!validateSettings()) {
         throw new Error('Please configure your LLM provider and API key in Settings');
@@ -211,6 +345,9 @@ export default function RequirementsPage() {
         throw new Error('Please configure your LLM provider and API key in Settings');
       }
 
+      // Get business brief data for context
+      const businessBrief = useCases.find(uc => uc.businessBriefId === initiative.businessBriefId);
+      
       // Generate features using the configured LLM
       const response = await fetch('/api/generate-features', {
         method: 'POST',
@@ -230,6 +367,17 @@ export default function RequirementsPage() {
             businessValue: initiative.businessValue,
             workflowLevel: initiative.workflowLevel,
           },
+          businessBriefData: businessBrief ? {
+            title: businessBrief.title,
+            businessObjective: businessBrief.businessObjective,
+            quantifiableBusinessOutcomes: businessBrief.quantifiableBusinessOutcomes,
+            inScope: businessBrief.inScope,
+            impactOfDoNothing: businessBrief.impactOfDoNothing,
+            happyPath: businessBrief.happyPath,
+            exceptions: businessBrief.exceptions,
+            impactedEndUsers: businessBrief.impactedEndUsers,
+            changeImpactExpected: businessBrief.changeImpactExpected,
+          } : undefined,
           llmSettings: settings,
         }),
       });
@@ -273,20 +421,52 @@ export default function RequirementsPage() {
       document.body.appendChild(notification);
       setTimeout(() => document.body.removeChild(notification), 5000);
     } finally {
-      setIsGenerating(false);
+      setGeneratingItems(prev => ({ ...prev, [initiativeId]: false }));
     }
   };
 
   // Epic Generation function
   const handleGenerateEpics = async (featureId: string) => {
-    const feature = features.find(feat => feat.id === featureId);
-    if (!feature) {
-      console.error('Feature not found:', featureId);
-      return;
-    }
-
-    setIsGenerating(true);
+    if (generatingItems[featureId]) return;
+    setGeneratingItems(prev => ({ ...prev, [featureId]: true }));
     try {
+      if (useMockLLM) {
+        console.log('🔧 Using MockLLMService for testing');
+        const result = await MockLLMService.generateEpics(featureId);
+        
+        if (!result.success) {
+          throw new Error('Mock epic generation failed');
+        }
+
+        // Save generated epics to the store
+        const { epics: generatedEpics, metadata } = result.data;
+        
+        console.log('💾 Saving mock epics to store...');
+        const savedEpics = addGeneratedEpics(featureId, featureId, featureId, generatedEpics); // Mock data doesn't have initiativeId, featureId, businessBriefId
+        console.log(`✅ Successfully saved ${savedEpics.length} mock epics to store`);
+
+        // Show success message
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        notification.textContent = `✅ Generated ${savedEpics.length} mock epics successfully`;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 3000);
+        
+        return;
+      }
+      if (!window.confirm('Are you sure you want to generate epics for this feature?')) {
+        console.log('Epic generation cancelled by user.');
+        return;
+      }
+      console.log('[AURA] User confirmed epic generation for feature:', featureId);
+      const feature = features.find(feat => feat.id === featureId);
+      if (!feature) {
+        console.error('Feature not found:', featureId);
+        return;
+      }
+
+      setItemLoading(featureId, true);
+      
       console.log('Generating epics for feature:', featureId);
       
       // Check if settings are valid
@@ -314,6 +494,10 @@ export default function RequirementsPage() {
         throw new Error('Please configure your LLM provider and API key in Settings');
       }
 
+      // Get business brief and initiative data for context
+      const businessBrief = useCases.find(uc => uc.businessBriefId === feature.businessBriefId);
+      const initiative = initiatives.find(init => init.id === feature.initiativeId);
+      
       // Generate epics using the configured LLM
       const response = await fetch('/api/generate-epics', {
         method: 'POST',
@@ -334,6 +518,27 @@ export default function RequirementsPage() {
             businessValue: feature.businessValue,
             workflowLevel: feature.workflowLevel,
           },
+          businessBriefData: businessBrief ? {
+            title: businessBrief.title,
+            businessObjective: businessBrief.businessObjective,
+            quantifiableBusinessOutcomes: businessBrief.quantifiableBusinessOutcomes,
+            inScope: businessBrief.inScope,
+            impactOfDoNothing: businessBrief.impactOfDoNothing,
+            happyPath: businessBrief.happyPath,
+            exceptions: businessBrief.exceptions,
+            impactedEndUsers: businessBrief.impactedEndUsers,
+            changeImpactExpected: businessBrief.changeImpactExpected,
+          } : undefined,
+          initiativeData: initiative ? {
+            title: initiative.title,
+            description: initiative.description,
+            category: initiative.category,
+            priority: initiative.priority,
+            rationale: initiative.rationale,
+            acceptanceCriteria: initiative.acceptanceCriteria,
+            businessValue: initiative.businessValue,
+            workflowLevel: initiative.workflowLevel,
+          } : undefined,
           llmSettings: settings,
         }),
       });
@@ -377,7 +582,182 @@ export default function RequirementsPage() {
       document.body.appendChild(notification);
       setTimeout(() => document.body.removeChild(notification), 5000);
     } finally {
-      setIsGenerating(false);
+      setGeneratingItems(prev => ({ ...prev, [featureId]: false }));
+    }
+  };
+
+  // Story Generation function
+  const handleGenerateStories = async (epicId: string) => {
+    if (generatingItems[epicId]) return;
+    setGeneratingItems(prev => ({ ...prev, [epicId]: true }));
+    try {
+      if (useMockLLM) {
+        console.log('🔧 Using MockLLMService for testing');
+        const result = await MockLLMService.generateStories(epicId);
+        
+        if (!result.success) {
+          throw new Error('Mock story generation failed');
+        }
+
+        // Save generated stories to the store
+        const { stories: generatedStories, metadata } = result.data;
+        
+        console.log('💾 Saving mock stories to store...');
+        const savedStories = addGeneratedStories(epicId, epicId, epicId, epicId, generatedStories); // Mock data doesn't have epicId, featureId, initiativeId, businessBriefId
+        console.log(`✅ Successfully saved ${savedStories.length} mock stories to store`);
+
+        // Show success message
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        notification.textContent = `✅ Generated ${savedStories.length} mock stories successfully`;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 3000);
+        
+        return;
+      }
+      if (!window.confirm('Are you sure you want to generate stories for this epic?')) {
+        console.log('Story generation cancelled by user.');
+        return;
+      }
+      console.log('[AURA] User confirmed story generation for epic:', epicId);
+      const epic = epics.find(ep => ep.id === epicId);
+      if (!epic) {
+        console.error('Epic not found:', epicId);
+        return;
+      }
+
+      setItemLoading(epicId, true);
+      
+      console.log('Generating stories for epic:', epicId);
+      
+      // Check if settings are valid
+      if (!validateSettings()) {
+        throw new Error('Please configure your LLM provider and API key in Settings');
+      }
+
+      // Validate settings via API
+      const settingsResponse = await fetch('/api/settings/validate', {
+        headers: {
+          'x-llm-provider': llmSettings.provider,
+          'x-llm-model': llmSettings.model,
+          'x-llm-api-key': llmSettings.apiKey,
+          'x-llm-temperature': llmSettings.temperature?.toString() || '0.7',
+          'x-llm-max-tokens': llmSettings.maxTokens?.toString() || '4000',
+        },
+      });
+      
+      if (!settingsResponse.ok) {
+        throw new Error('Please configure LLM settings in the Settings page first');
+      }
+
+      const { isValid, settings } = await settingsResponse.json();
+      if (!isValid) {
+        throw new Error('Please configure your LLM provider and API key in Settings');
+      }
+
+      // Get business brief, initiative, and feature data for context
+      const businessBrief = useCases.find(uc => uc.businessBriefId === epic.businessBriefId);
+      const initiative = initiatives.find(init => init.id === epic.initiativeId);
+      const feature = features.find(feat => feat.id === epic.featureId);
+      
+      // Generate stories using the configured LLM
+      const response = await fetch('/api/generate-stories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          epicId: epic.id,
+          featureId: epic.featureId,
+          initiativeId: epic.initiativeId,
+          businessBriefId: epic.businessBriefId,
+          epicData: {
+            title: epic.title,
+            description: epic.description,
+            category: epic.category,
+            priority: epic.priority,
+            rationale: epic.rationale,
+            acceptanceCriteria: epic.acceptanceCriteria,
+            businessValue: epic.businessValue,
+            workflowLevel: epic.workflowLevel,
+            estimatedEffort: epic.estimatedEffort,
+            sprintEstimate: epic.sprintEstimate,
+          },
+          businessBriefData: businessBrief ? {
+            title: businessBrief.title,
+            businessObjective: businessBrief.businessObjective,
+            quantifiableBusinessOutcomes: businessBrief.quantifiableBusinessOutcomes,
+            inScope: businessBrief.inScope,
+            impactOfDoNothing: businessBrief.impactOfDoNothing,
+            happyPath: businessBrief.happyPath,
+            exceptions: businessBrief.exceptions,
+            impactedEndUsers: businessBrief.impactedEndUsers,
+            changeImpactExpected: businessBrief.changeImpactExpected,
+          } : undefined,
+          initiativeData: initiative ? {
+            title: initiative.title,
+            description: initiative.description,
+            category: initiative.category,
+            priority: initiative.priority,
+            rationale: initiative.rationale,
+            acceptanceCriteria: initiative.acceptanceCriteria,
+            businessValue: initiative.businessValue,
+            workflowLevel: initiative.workflowLevel,
+          } : undefined,
+          featureData: feature ? {
+            title: feature.title,
+            description: feature.description,
+            category: feature.category,
+            priority: feature.priority,
+            rationale: feature.rationale,
+            acceptanceCriteria: feature.acceptanceCriteria,
+            businessValue: feature.businessValue,
+            workflowLevel: feature.workflowLevel,
+          } : undefined,
+          llmSettings: settings,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate stories');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Story generation failed');
+      }
+
+      // Save generated stories to the store
+      const { stories: generatedStories, metadata } = result.data;
+      
+      console.log('💾 Saving stories to store...');
+      const savedStories = addGeneratedStories(epicId, epic.featureId, epic.initiativeId, epic.businessBriefId, generatedStories);
+      console.log(`✅ Successfully saved ${savedStories.length} stories to store`);
+
+      // Show success message
+      console.log('Stories generated successfully:', savedStories.length);
+      
+      // Create a temporary success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `✅ Generated ${savedStories.length} stories successfully`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 3000);
+      
+    } catch (error) {
+      console.error('Error generating stories:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      
+      // Create a temporary error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `❌ Story Generation Failed: ${errorMessage}`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 5000);
+    } finally {
+      setGeneratingItems(prev => ({ ...prev, [epicId]: false }));
     }
   };
 
@@ -462,6 +842,7 @@ export default function RequirementsPage() {
   const completedInitiatives = initiatives.filter(item => item.status === 'completed').length;
   const totalFeatures = features.length;
   const totalEpics = epics.length;
+  const totalStories = stories.length;
 
   // Group initiatives by business brief for better organization
   const initiativesByBusinessBrief = initiatives.reduce((groups, initiative) => {
@@ -488,19 +869,31 @@ export default function RequirementsPage() {
     const isSelected = selectedItem === item.id;
     const initiativeFeatures = type === 'initiative' ? getFeaturesByInitiative(item.id) : [];
     const featureEpics = type === 'feature' ? getEpicsByFeature(item.id) : [];
+    const epicStories = type === 'epic' ? getStoriesByEpic(item.id) : [];
+
+    // Debug logging for feature display
+    if (type === 'initiative') {
+      console.log(`🔍 Rendering initiative ${item.id} (${item.title})`);
+      console.log(`🔍 Features for initiative ${item.id}:`, initiativeFeatures.length);
+      console.log(`🔍 Feature details:`, initiativeFeatures.map(f => ({ id: f.id, title: f.title, initiativeId: f.initiativeId })));
+    }
+
+    // Check if this level is collapsed
+    const isCollapsed = collapsedLevels.has(item.id);
 
     // Get appropriate badge color for type
     const getTypeBadgeColor = (type: string) => {
       switch (type) {
-        case 'initiative': return 'bg-purple-100 text-purple-800';
-        case 'feature': return 'bg-blue-100 text-blue-800';
-        case 'epic': return 'bg-green-100 text-green-800';
+        case 'initiative': return 'text-yellow-800 border-yellow-300'; // Custom initiative color
+        case 'feature': return 'text-blue-800 border-blue-300'; // Custom feature color
+        case 'epic': return 'text-purple-800 border-purple-300'; // Custom epic color
+        case 'story': return 'text-green-800 border-green-300'; // Custom story color
         default: return 'bg-gray-100 text-gray-800';
       }
     };
 
     return (
-      <div key={item.id} className="space-y-2">
+      <div key={item.id} className={`relative flex flex-col space-y-1 border-l-2 pl-4 ml-2 py-2 ${isSelected ? 'bg-gray-50' : ''}`}> 
         <div
           className={`flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:shadow-sm transition-all ${
             isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
@@ -508,10 +901,50 @@ export default function RequirementsPage() {
           style={{ marginLeft: `${level * 20}px` }}
           onClick={() => handleItemSelect(item)}
         >
+          {/* Collapse/Expand Chevron */}
+          {(type === 'initiative' && initiativeFeatures.length > 0) || 
+           (type === 'feature' && featureEpics.length > 0) || 
+           (type === 'epic' && epicStories.length > 0) ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1 h-6 w-6"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCollapsedLevels(prev => {
+                  const newSet = new Set(prev);
+                  if (newSet.has(item.id)) {
+                    newSet.delete(item.id);
+                  } else {
+                    newSet.add(item.id);
+                  }
+                  return newSet;
+                });
+              }}
+            >
+              {isCollapsed ? (
+                <ChevronRight size={12} className="text-gray-500" />
+              ) : (
+                <ChevronDown size={12} className="text-gray-500" />
+              )}
+            </Button>
+          ) : (
+            <div className="w-6 h-6" />
+          )}
+
           {/* Type Icon */}
           <div className="flex items-center space-x-2">
             {getTypeIcon(type)}
-            <Badge className={getTypeBadgeColor(type)} variant="secondary">
+            <Badge 
+              className={getTypeBadgeColor(type)} 
+              variant="secondary"
+              style={{
+                backgroundColor: type === 'initiative' ? '#FFECAD' : 
+                               type === 'feature' ? '#D4E1EC' : 
+                               type === 'epic' ? '#D6D0DD' : 
+                               type === 'story' ? '#CDE1CC' : undefined
+              }}
+            >
               {type}
             </Badge>
           </div>
@@ -537,13 +970,23 @@ export default function RequirementsPage() {
                 </Badge>
               )}
               {type === 'feature' && featureEpics.length > 0 && (
-                <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">
                   {featureEpics.length} epics
+                </Badge>
+              )}
+              {type === 'epic' && epicStories.length > 0 && (
+                <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                  {epicStories.length} stories
                 </Badge>
               )}
               {type === 'epic' && item.sprintEstimate && (
                 <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">
                   {item.sprintEstimate} sprint{item.sprintEstimate !== 1 ? 's' : ''}
+                </Badge>
+              )}
+              {type === 'story' && item.storyPoints && (
+                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700">
+                  {item.storyPoints} points
                 </Badge>
               )}
             </div>
@@ -561,13 +1004,13 @@ export default function RequirementsPage() {
                   e.stopPropagation();
                   handleGenerateFeatures(item.id);
                 }}
-                disabled={isGenerating}
+                disabled={generatingItems[item.id]}
                 title="Generate Features"
               >
-                {isGenerating ? (
-                  <Loader2 size={12} className="animate-spin text-blue-600" />
+                {generatingItems[item.id] ? (
+                  <Loader2 size={12} className="animate-spin" style={{color: '#5B8DB8'}} />
                 ) : (
-                  <Wand2 size={12} className="text-blue-600" />
+                  <Wand2 size={12} style={{color: '#5B8DB8'}} />
                 )}
               </Button>
             )}
@@ -580,13 +1023,32 @@ export default function RequirementsPage() {
                   e.stopPropagation();
                   handleGenerateEpics(item.id);
                 }}
-                disabled={isGenerating}
+                disabled={generatingItems[item.id]}
                 title="Generate Epics"
               >
-                {isGenerating ? (
-                  <Loader2 size={12} className="animate-spin text-green-600" />
+                {generatingItems[item.id] ? (
+                  <Loader2 size={12} className="animate-spin" style={{color: '#8B7A9B'}} />
                 ) : (
-                  <Wand2 size={12} className="text-green-600" />
+                  <Wand2 size={12} style={{color: '#8B7A9B'}} />
+                )}
+              </Button>
+            )}
+            {type === 'epic' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-1 h-6 w-6"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleGenerateStories(item.id);
+                }}
+                disabled={generatingItems[item.id]}
+                title="Generate Stories"
+              >
+                {generatingItems[item.id] ? (
+                  <Loader2 size={12} className="animate-spin" style={{color: '#7FB37C'}} />
+                ) : (
+                  <Wand2 size={12} style={{color: '#7FB37C'}} />
                 )}
               </Button>
             )}
@@ -652,6 +1114,33 @@ export default function RequirementsPage() {
                 <p className="text-sm text-gray-600">{item.sprintEstimate} sprint{item.sprintEstimate !== 1 ? 's' : ''}</p>
               </div>
             )}
+
+            {type === 'story' && item.storyPoints && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Story Points</h4>
+                <p className="text-sm text-gray-600">{item.storyPoints} points</p>
+              </div>
+            )}
+
+            {type === 'story' && item.labels && item.labels.length > 0 && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Labels</h4>
+                <div className="flex flex-wrap gap-2">
+                  {item.labels.map((label: string, index: number) => (
+                    <Badge key={index} variant="outline" className="text-xs">
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {type === 'story' && item.testingNotes && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Testing Notes</h4>
+                <p className="text-sm text-gray-600">{item.testingNotes}</p>
+              </div>
+            )}
             
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Acceptance Criteria</h4>
@@ -668,28 +1157,109 @@ export default function RequirementsPage() {
         )}
 
         {/* Render Features under Initiative */}
-        {type === 'initiative' && initiativeFeatures.length > 0 && (
+        {type === 'initiative' && initiativeFeatures.length > 0 && !isCollapsed && (
           <div className="ml-8 space-y-2">
             {initiativeFeatures.map((feature) => renderWorkItem(feature, level + 1, 'feature'))}
           </div>
         )}
 
         {/* Render Epics under Feature */}
-        {type === 'feature' && featureEpics.length > 0 && (
+        {type === 'feature' && featureEpics.length > 0 && !isCollapsed && (
           <div className="ml-8 space-y-2">
             {featureEpics.map((epic) => renderWorkItem(epic, level + 1, 'epic'))}
+          </div>
+        )}
+
+        {/* Render Stories under Epic */}
+        {type === 'epic' && epicStories.length > 0 && !isCollapsed && (
+          <div className="ml-8 space-y-2">
+            {epicStories.map((story) => renderWorkItem(story, level + 1, 'story'))}
           </div>
         )}
       </div>
     );
   };
 
+  useEffect(() => {
+    if (useMockData) {
+      const { initiatives, addInitiative } = useInitiativeStore.getState();
+      if (initiatives.length === 0) {
+        console.log('🔧 Loading mock initiatives...');
+        mockInitiatives.forEach(init => addInitiative(init));
+      }
+
+      const { features, addFeature } = useFeatureStore.getState();
+      if (features.length === 0) {
+        console.log('🔧 Loading mock features...');
+        mockFeatures.forEach((feat: any) => addFeature(feat));
+      }
+
+      const { epics, addEpic } = useEpicStore.getState();
+      if (epics.length === 0) {
+        console.log('🔧 Loading mock epics...');
+        mockEpics.forEach((epic: any) => addEpic(epic));
+      }
+
+      const { stories, addStory } = useStoryStore.getState();
+      if (stories.length === 0) {
+        console.log('🔧 Loading mock stories...');
+        mockStories.forEach((story: any) => addStory(story));
+      }
+    }
+  }, [useMockData]);
+
   return (
     <div className="space-y-6">
+      {/* Debug controls (only in development) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h3 className="font-semibold text-yellow-800 mb-2">Debug Controls</h3>
+          <div className="space-x-2 mb-2">
+            <label className="flex items-center space-x-2">
+              <input 
+                type="checkbox" 
+                checked={useMockLLM}
+                onChange={(e) => setUseMockLLM(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm text-yellow-700">Use Mock LLM (no API costs)</span>
+            </label>
+            <label className="flex items-center space-x-2">
+              <input 
+                type="checkbox" 
+                checked={useMockData}
+                onChange={(e) => setUseMockData(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm text-yellow-700">Use Mock Data</span>
+            </label>
+          </div>
+          <div className="space-x-2">
+            <button 
+              onClick={() => {
+                if (window.confirm('Clear all features from store?')) {
+                  (window as any).clearAllFeatures();
+                  window.location.reload();
+                }
+              }}
+              className="px-3 py-1 bg-red-500 text-white rounded text-sm"
+            >
+              Clear All Features
+            </button>
+            <button 
+              onClick={() => (window as any).debugFeatureDisplay()}
+              className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
+            >
+              Debug Feature Display
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Requirements Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Work Items Management</h1>
           <p className="text-gray-600 mt-1">
             Hierarchical breakdown: Initiative → Feature → Epic → Story
           </p>
@@ -835,7 +1405,7 @@ export default function RequirementsPage() {
             </DialogContent>
           </Dialog>
           
-          <Button className="flex items-center space-x-2" disabled={isGenerating}>
+          <Button className="flex items-center space-x-2" disabled={Object.values(generatingItems).some(loading => loading)}>
             <Sparkles size={16} />
             <span>AI Generate</span>
           </Button>
@@ -889,15 +1459,15 @@ export default function RequirementsPage() {
         </CardHeader>
         {summaryCardsVisible && (
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total Initiatives</p>
-                      <p className="text-2xl font-bold text-purple-600">{totalInitiatives}</p>
+                      <p className="text-2xl font-bold" style={{color: '#D4A843'}}>{totalInitiatives}</p>
                     </div>
-                    <Target className="h-8 w-8 text-purple-600" />
+                    <Target className="h-8 w-8" style={{color: '#D4A843'}} />
                   </div>
                 </CardContent>
               </Card>
@@ -931,9 +1501,9 @@ export default function RequirementsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Features</p>
-                      <p className="text-2xl font-bold text-blue-600">{totalFeatures}</p>
+                      <p className="text-2xl font-bold" style={{color: '#5B8DB8'}}>{totalFeatures}</p>
                     </div>
-                    <Layers className="h-8 w-8 text-blue-600" />
+                    <Layers className="h-8 w-8" style={{color: '#5B8DB8'}} />
                   </div>
                 </CardContent>
               </Card>
@@ -943,9 +1513,21 @@ export default function RequirementsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Epics</p>
-                      <p className="text-2xl font-bold text-green-600">{totalEpics}</p>
+                      <p className="text-2xl font-bold" style={{color: '#8B7A9B'}}>{totalEpics}</p>
                     </div>
-                    <BookOpen className="h-8 w-8 text-green-600" />
+                    <BookOpen className="h-8 w-8" style={{color: '#8B7A9B'}} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Stories</p>
+                      <p className="text-2xl font-bold" style={{color: '#7FB37C'}}>{totalStories}</p>
+                    </div>
+                    <FileText className="h-8 w-8" style={{color: '#7FB37C'}} />
                   </div>
                 </CardContent>
               </Card>
@@ -973,9 +1555,36 @@ export default function RequirementsPage() {
               businessBriefGroups.map((group) => (
                 <div key={group.businessBriefId} className="space-y-2">
                   {/* Business Brief Header */}
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                  <div 
+                    className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-all"
+                    style={{backgroundColor: '#FFD0C2'}}
+                    onClick={() => {
+                      setCollapsedLevels(prev => {
+                        const newSet = new Set(prev);
+                        const briefKey = `brief-${group.businessBriefId}`;
+                        if (newSet.has(briefKey)) {
+                          newSet.delete(briefKey);
+                        } else {
+                          newSet.add(briefKey);
+                        }
+                        return newSet;
+                      });
+                    }}
+                  >
                     <div className="flex items-center space-x-3">
-                      <Target className="h-5 w-5 text-blue-600" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 h-6 w-6"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {collapsedLevels.has(`brief-${group.businessBriefId}`) ? (
+                          <ChevronRight size={12} className="text-gray-500" />
+                        ) : (
+                          <ChevronDown size={12} className="text-gray-500" />
+                        )}
+                      </Button>
+                      <Target className="h-5 w-5" style={{color: '#B8957A'}} />
                       <div>
                         <h3 className="font-medium text-gray-900">{group.businessBriefTitle}</h3>
                         <p className="text-sm text-gray-600">{group.initiatives.length} initiatives</p>
@@ -987,9 +1596,11 @@ export default function RequirementsPage() {
                   </div>
                   
                   {/* Initiatives */}
-                  <div className="ml-4 space-y-2">
-                    {group.initiatives.map((initiative) => renderWorkItem(initiative))}
-                  </div>
+                  {!collapsedLevels.has(`brief-${group.businessBriefId}`) && (
+                    <div className="ml-4 space-y-2">
+                      {group.initiatives.map((initiative) => renderWorkItem(initiative, 0, 'initiative'))}
+                    </div>
+                  )}
                 </div>
               ))
             ) : (

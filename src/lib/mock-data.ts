@@ -394,6 +394,74 @@ export const mockInitiatives: Initiative[] = [
   }
 ];
 
+export const mockFeatures = [
+  {
+    id: 'FEA-001',
+    initiativeId: 'INIT-001',
+    businessBriefId: 'uc-001',
+    title: 'Rework the current user interface',
+    description: 'An intuitive UI is key to ensuring customers can easily navigate.',
+    category: 'user-experience',
+    priority: 'high',
+    rationale: 'A better UI will improve adoption.',
+    acceptanceCriteria: ['Responsive design'],
+    businessValue: 'Higher user satisfaction.',
+    workflowLevel: 'feature',
+    status: 'draft',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'System'
+  }
+];
+
+export const mockEpics = [
+  {
+    id: 'EPIC-001',
+    featureId: 'FEA-001',
+    initiativeId: 'INIT-001',
+    businessBriefId: 'uc-001',
+    title: 'User Authentication and Authorization',
+    description: 'Implement a secure and robust user authentication system.',
+    category: 'technical',
+    priority: 'high',
+    rationale: 'Security is paramount for protecting user data.',
+    acceptanceCriteria: ['Secure login', 'Role-based access'],
+    businessValue: 'Protects user data and builds trust.',
+    workflowLevel: 'epic',
+    sprintEstimate: 2,
+    estimatedEffort: 'High',
+    status: 'draft',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'System'
+  }
+];
+
+export const mockStories = [
+  {
+    id: 'STORY-001',
+    epicId: 'EPIC-001',
+    featureId: 'FEA-001',
+    initiativeId: 'INIT-001',
+    businessBriefId: 'uc-001',
+    title: 'As a user, I want to log in with my email and password',
+    description: 'Develop the user interface and logic for the login page.',
+    category: 'functional',
+    priority: 'high',
+    rationale: 'This is the entry point for all users.',
+    acceptanceCriteria: ['Valid credentials grant access', 'Invalid credentials show an error'],
+    businessValue: 'Enables user access to the platform.',
+    workflowLevel: 'story',
+    storyPoints: 5,
+    labels: ['auth', 'ui'],
+    testingNotes: 'Test with valid and invalid credentials.',
+    status: 'draft',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'System'
+  }
+];
+
 export const mockWorkItems: WorkItem[] = [
   // Initiative: Customer Portal Enhancement (maps to Business Brief BB-001)
   {
@@ -993,3 +1061,99 @@ export const getRelatedItems = (itemId: string, itemType: 'useCase' | 'requireme
       return null;
   }
 }; 
+
+// Add mock LLM service for testing
+export class MockLLMService {
+  static async generateFeatures(initiativeId: string) {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Generate unique timestamp to ensure uniqueness
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    
+    const mockFeatures = [
+      {
+        id: `FEA-${timestamp}-${randomSuffix}-1`,
+        text: `Unique UI Feature for ${initiativeId}`,
+        category: 'functional',
+        priority: 'high',
+        rationale: `This UI feature is specifically for initiative ${initiativeId}, focusing on a unique user experience.`,
+        acceptanceCriteria: [`Custom UI redesign for ${initiativeId}`],
+        businessValue: `Improved user engagement for ${initiativeId}`,
+        workflowLevel: 'feature'
+      },
+      {
+        id: `FEA-${timestamp}-${randomSuffix}-2`,
+        text: `Custom Backend Service for ${initiativeId}`,
+        category: 'technical',
+        priority: 'medium',
+        rationale: `This backend service is tailored to the specific data processing needs of initiative ${initiativeId}.`,
+        acceptanceCriteria: [`Custom API for ${initiativeId}`],
+        businessValue: `Efficient data handling for ${initiativeId}`,
+        workflowLevel: 'feature'
+      }
+    ];
+    
+    console.log(`🔧 MockLLMService generated ${mockFeatures.length} unique features for initiative ${initiativeId}`);
+    
+    return {
+      success: true,
+      data: {
+        initiativeId,
+        features: mockFeatures,
+        metadata: {
+          iterationCount: 1,
+          totalTokensUsed: 0,
+          processingTime: 1000,
+          llmProvider: 'mock',
+          llmModel: 'mock-model'
+        }
+      }
+    };
+  }
+
+  static async generateEpics(featureId: string) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const mockEpics = [
+      {
+        id: `EPIC-${timestamp}-${randomSuffix}-1`,
+        text: `Unique Authentication Epic for ${featureId}`,
+        category: 'technical',
+        priority: 'high',
+        rationale: `This epic handles all security aspects for feature ${featureId}.`,
+        acceptanceCriteria: [`Secure login for ${featureId}`],
+        businessValue: `Enhanced security for ${featureId}`,
+        workflowLevel: 'epic',
+        sprintEstimate: 2,
+        estimatedEffort: 'High'
+      }
+    ];
+    console.log(`🔧 MockLLMService generated ${mockEpics.length} unique epics for feature ${featureId}`);
+    return { success: true, data: { featureId, epics: mockEpics, metadata: {} } };
+  }
+
+  static async generateStories(epicId: string) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const mockStories = [
+      {
+        id: `STORY-${timestamp}-${randomSuffix}-1`,
+        text: `Unique Login Story for ${epicId}`,
+        category: 'functional',
+        priority: 'high',
+        rationale: `This story is the primary user entry point for epic ${epicId}.`,
+        acceptanceCriteria: [`Successful login for ${epicId}`],
+        businessValue: `User access for ${epicId}`,
+        workflowLevel: 'story',
+        storyPoints: 5,
+        labels: ['auth', 'ui']
+      }
+    ];
+    console.log(`🔧 MockLLMService generated ${mockStories.length} unique stories for epic ${epicId}`);
+    return { success: true, data: { epicId, stories: mockStories, metadata: {} } };
+  }
+} 

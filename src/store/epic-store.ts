@@ -102,7 +102,8 @@ export const useEpicStore = create<EpicState>()(
         }
 
         const newEpics: Epic[] = parsedEpics.map((gen, index) => ({
-          id: gen.id || `epic-gen-${Date.now().toString(36)}-${index}`,
+          // CRITICAL FIX: Always generate a new unique ID, ignore gen.id
+          id: `epic-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}-${index}`,
           featureId,
           initiativeId,
           businessBriefId,
@@ -114,21 +115,15 @@ export const useEpicStore = create<EpicState>()(
           acceptanceCriteria: gen.acceptanceCriteria || ['To be defined'],
           businessValue: gen.businessValue || 'Business value to be determined',
           workflowLevel: gen.workflowLevel || 'epic',
-          estimatedEffort: gen.estimatedEffort || 'Medium',
-          sprintEstimate: gen.sprintEstimate || 2,
+          estimatedEffort: gen.estimatedEffort || 'TBD', // Add missing property
+          sprintEstimate: gen.sprintEstimate || 1,
           status: 'draft' as const,
           createdAt: new Date(),
           updatedAt: new Date(),
           createdBy: 'AI System',
         }));
-
-        console.log('🔍 Generated epics preview:', newEpics.map(epic => ({ 
-          id: epic.id, 
-          title: epic.title, 
-          featureId: epic.featureId,
-          sprintEstimate: epic.sprintEstimate
-        })));
-
+        
+        console.log('✅ Generated new unique IDs for epics:', newEpics.map(epic => epic.id));
         set((state) => ({
           epics: [...state.epics, ...newEpics],
         }));

@@ -16,6 +16,17 @@ const generateFeaturesSchema = z.object({
     businessValue: z.string(),
     workflowLevel: z.string(),
   }),
+  businessBriefData: z.object({
+    title: z.string(),
+    businessObjective: z.string(),
+    quantifiableBusinessOutcomes: z.string(),
+    inScope: z.string().optional(),
+    impactOfDoNothing: z.string().optional(),
+    happyPath: z.string().optional(),
+    exceptions: z.string().optional(),
+    impactedEndUsers: z.string().optional(),
+    changeImpactExpected: z.string().optional(),
+  }).optional(),
   llmSettings: z.object({
     provider: z.string(),
     model: z.string(),
@@ -31,13 +42,13 @@ export async function POST(request: NextRequest) {
     
     // Validate request
     const validatedData = generateFeaturesSchema.parse(body);
-    const { initiativeId, businessBriefId, initiativeData, llmSettings } = validatedData;
+    const { initiativeId, businessBriefId, initiativeData, businessBriefData, llmSettings } = validatedData;
 
     // Initialize LLM service
     const llmService = new LLMService(llmSettings);
 
-    // Generate features through iterative process
-    const result = await llmService.generateFeatures(initiativeData);
+    // Generate features through iterative process with full context
+    const result = await llmService.generateFeatures(initiativeData, businessBriefData);
 
     return NextResponse.json({
       success: true,

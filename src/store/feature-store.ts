@@ -29,6 +29,7 @@ interface FeatureState {
   getFeaturesByInitiative: (initiativeId: string) => Feature[];
   getFeaturesByBusinessBrief: (businessBriefId: string) => Feature[];
   getFeatureById: (id: string) => Feature | undefined;
+  clearFeaturesByInitiative: (initiativeId: string) => void;
 }
 
 export const useFeatureStore = create<FeatureState>()(
@@ -44,6 +45,8 @@ export const useFeatureStore = create<FeatureState>()(
       addGeneratedFeatures: (initiativeId, businessBriefId, generatedFeatures) => {
         console.log('🔄 Adding generated features to store...', { initiativeId, businessBriefId, count: generatedFeatures.length });
         console.log('🔍 Raw feature data:', generatedFeatures);
+        console.log('🔍 Current features in store before adding:', get().features.length);
+        console.log('🔍 Existing features for this initiative:', get().features.filter(f => f.initiativeId === initiativeId).length);
         
         // Parse JSON from text field if needed (similar to initiative store)
         let parsedFeatures = generatedFeatures;
@@ -98,7 +101,8 @@ export const useFeatureStore = create<FeatureState>()(
         }
 
         const newFeatures: Feature[] = parsedFeatures.map((gen, index) => ({
-          id: gen.id || `fea-gen-${Date.now().toString(36)}-${index}`,
+          // CRITICAL FIX: Always generate a new unique ID, ignore gen.id
+          id: `feat-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}-${index}`,
           initiativeId,
           businessBriefId,
           title: gen.text || gen.title || `Feature ${index + 1}`,
@@ -115,13 +119,17 @@ export const useFeatureStore = create<FeatureState>()(
           createdBy: 'AI System',
         }));
 
+        console.log('✅ Generated new unique IDs for features:', newFeatures.map(feat => feat.id));
         console.log('🔍 Generated features preview:', newFeatures.map(feat => ({ id: feat.id, title: feat.title, initiativeId: feat.initiativeId })));
+        console.log('🔍 About to add features with initiativeId:', initiativeId);
 
         set((state) => ({
           features: [...state.features, ...newFeatures],
         }));
 
         console.log('✅ Features added to store successfully');
+        console.log('🔍 Total features in store after adding:', get().features.length);
+        console.log('🔍 Features for this initiative after adding:', get().features.filter(f => f.initiativeId === initiativeId).length);
         return newFeatures;
       },
 
@@ -141,7 +149,9 @@ export const useFeatureStore = create<FeatureState>()(
 
       getFeaturesByInitiative: (initiativeId) => {
         const state = get();
-        return state.features.filter((feature) => feature.initiativeId === initiativeId);
+        const filteredFeatures = state.features.filter((feature) => feature.initiativeId === initiativeId);
+        console.log(`🔍 getFeaturesByInitiative(${initiativeId}): Found ${filteredFeatures.length} features`);
+        return filteredFeatures;
       },
 
       getFeaturesByBusinessBrief: (businessBriefId) => {
@@ -152,6 +162,14 @@ export const useFeatureStore = create<FeatureState>()(
       getFeatureById: (id) => {
         const state = get();
         return state.features.find((feature) => feature.id === id);
+      },
+
+      // Debug helper to clear features by initiative
+      clearFeaturesByInitiative: (initiativeId: string) => {
+        console.log(`🧹 Clearing features for initiative ${initiativeId}`);
+        set((state) => ({
+          features: state.features.filter((feature) => feature.initiativeId !== initiativeId),
+        }));
       },
     }),
     {

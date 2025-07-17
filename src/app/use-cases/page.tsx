@@ -349,8 +349,8 @@ export default function UseCasesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Business Brief</h1>
-          <p className="text-gray-600 mt-1">Submit and manage business brief use cases</p>
+          <h1 className="text-3xl font-bold text-gray-900">Idea</h1>
+          <p className="text-gray-600 mt-1">Submit and manage business idea use cases</p>
         </div>
         
         <div className="flex space-x-3">
