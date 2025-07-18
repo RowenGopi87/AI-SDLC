@@ -1,0 +1,28 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "headless": false,
+      "channel": "chrome",
+      "devtools": false,
+      "slowMo": 0
+    },
+    "contextOptions": {
+      "viewport": { "width": 1280, "height": 720 },
+      "ignoreHTTPSErrors": true
+    }
+  },
+  "server": {
+    "port": 8931
+  },
+  "outputDir": "./screenshots",
+  "capabilities": [
+    "core",
+    "tabs",
+    "pdf",
+    "history",
+    "wait",
+    "files"
+  ],
+  "vision": false
+}

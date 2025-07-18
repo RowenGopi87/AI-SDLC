@@ -56,6 +56,7 @@ import { useStoryStore } from '@/store/story-store';
 import { useUseCaseStore } from '@/store/use-case-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useTestCaseStore, TestCase } from '@/store/test-case-store';
+import { formatDateForDisplay } from '@/lib/date-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -132,6 +133,8 @@ export default function TestCasesPage() {
   const [generatingItems, setGeneratingItems] = useState<Record<string, boolean>>({});
   const [panelWidth, setPanelWidth] = useState(50); // Percentage width for left panel
   const [isResizing, setIsResizing] = useState(false);
+  const [executingTestCases, setExecutingTestCases] = useState<Record<string, boolean>>({});
+  const [testExecutionResults, setTestExecutionResults] = useState<Record<string, any>>({});
 
   // Development mode toggle for testing without LLM costs
   const [useMockLLM, setUseMockLLM] = useState(process.env.NODE_ENV === 'development');
@@ -163,22 +166,88 @@ export default function TestCasesPage() {
             tags: ['authentication', 'login']
           },
           {
-            workItemId: 'init-123',
-            workItemType: 'initiative' as const,
-            title: 'Real-time Inventory Analytics Dashboard',
-            summary: 'Verify Real-time Inventory Analytics Dashboard functionality works correctly',
-            description: 'Test the core functionality of Real-time Inventory Analytics Dashboard to ensure it meets the specified requirements and behaves as expected',
+            workItemId: 'STORY-004',
+            workItemType: 'story' as const,
+            title: 'Navigate to Manage Bookings from Emirates Website',
+            summary: 'Verify navigation to Manage Bookings from emrets.com works correctly',
+            description: 'Test that users can successfully navigate from the Emirates website to the Manage Bookings interface using Chrome browser',
             type: 'positive' as const,
             testPyramidType: 'system' as const,
             status: 'not_run' as const,
             priority: 'high' as const,
-            preconditions: ['System is running and accessible', 'User has appropriate permissions', 'Test data is available'],
-            steps: ['Navigate to the relevant section', 'Perform the primary action', 'Verify the response', 'Check for side effects'],
-            expectedResult: 'The Real-time Inventory Analytics Dashboard should function correctly and produce the expected outcome',
-            assignee: 'Unassigned',
-            createdBy: 'AI Generator',
-            estimatedTime: 10,
-            tags: ['system', 'automated', 'core-functionality']
+            preconditions: [
+              'Windows Chrome browser is installed and updated',
+              'Internet connection is available',
+              'emrets.com website is accessible'
+            ],
+            steps: [
+              'Open Windows Chrome browser',
+              'Navigate to emrets.com',
+              'Locate and click on "Manage Bookings" link',
+              'Verify the Manage Bookings page loads successfully'
+            ],
+            expectedResult: 'The Manage Bookings interface should open successfully and display the booking management page',
+            assignee: 'QA Team',
+            createdBy: 'Test Team',
+            estimatedTime: 3,
+            tags: ['navigation', 'booking', 'web-interface', 'chrome']
+          },
+          {
+            workItemId: 'STORY-004',
+            workItemType: 'story' as const,
+            title: 'Manage Bookings Link Visibility Test',
+            summary: 'Verify Manage Bookings link is visible and accessible on emrets.com',
+            description: 'Test that the Manage Bookings link is prominently displayed and easily accessible on the Emirates website homepage',
+            type: 'positive' as const,
+            testPyramidType: 'acceptance' as const,
+            status: 'not_run' as const,
+            priority: 'high' as const,
+            preconditions: [
+              'Windows Chrome browser is installed',
+              'emrets.com website is accessible',
+              'No browser cache issues'
+            ],
+            steps: [
+              'Open Windows Chrome browser',
+              'Navigate to emrets.com',
+              'Scan the homepage for Manage Bookings link',
+              'Verify link is visible without scrolling',
+              'Verify link text is clear and readable'
+            ],
+            expectedResult: 'The Manage Bookings link should be clearly visible, properly labeled, and accessible on the homepage',
+            assignee: 'QA Team',
+            createdBy: 'Test Team',
+            estimatedTime: 2,
+            tags: ['visibility', 'accessibility', 'homepage', 'chrome']
+          },
+          {
+            workItemId: 'STORY-004',
+            workItemType: 'story' as const,
+            title: 'Manage Bookings Page Load Performance Test',
+            summary: 'Verify Manage Bookings page loads within acceptable time limits',
+            description: 'Test that the Manage Bookings page loads within 3 seconds when accessed from emrets.com',
+            type: 'positive' as const,
+            testPyramidType: 'performance' as const,
+            status: 'not_run' as const,
+            priority: 'medium' as const,
+            preconditions: [
+              'Windows Chrome browser is installed',
+              'Standard internet connection (minimum 10 Mbps)',
+              'emrets.com website is accessible'
+            ],
+            steps: [
+              'Open Windows Chrome browser',
+              'Open Chrome Developer Tools (F12)',
+              'Navigate to emrets.com',
+              'Click on "Manage Bookings" link',
+              'Measure page load time using Network tab',
+              'Verify total load time is under 3 seconds'
+            ],
+            expectedResult: 'The Manage Bookings page should load completely within 3 seconds of clicking the link',
+            assignee: 'Performance Team',
+            createdBy: 'Test Team',
+            estimatedTime: 5,
+            tags: ['performance', 'loading', 'timing', 'chrome']
           }
         ];
 
@@ -402,15 +471,15 @@ export default function TestCasesPage() {
               };
               
               const useCase = useCases.find(uc => uc.id === initiative.businessBriefId);
-              if (useCase) {
+        if (useCase) {
                 context.businessBrief = {
                   id: useCase.id,
-                  title: useCase.title,
+            title: useCase.title,
                   description: useCase.description
-                };
-              }
-            }
-          }
+          };
+        }
+      }
+    }
         }
         break;
         
@@ -599,7 +668,7 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                 title: selectedWorkItemForGeneration.title,
                 summary: `Verify ${selectedWorkItemForGeneration.title} functionality works correctly`,
                 description: `Test the core functionality of ${selectedWorkItemForGeneration.title} to ensure it meets the specified requirements and behaves as expected`,
-                type: 'positive' as const,
+    type: 'positive' as const,
                 priority: 'high' as const,
                 preconditions: [
                   'System is running and accessible',
@@ -881,6 +950,107 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
 
 
 
+  // Execute test case with MCP
+  const executeTestCase = async (testCase: TestCase) => {
+    const testCaseId = testCase.id;
+    
+    // Set executing state
+    setExecutingTestCases(prev => ({ ...prev, [testCaseId]: true }));
+    
+    try {
+      console.log('🎭 Executing test case:', testCase.title);
+      
+      // Call API to execute test case
+      const response = await fetch('/api/execute-test-case', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          testCase: {
+            id: testCase.id,
+            title: testCase.title,
+            description: testCase.description,
+            preconditions: testCase.preconditions,
+            steps: testCase.steps,
+            expectedResult: testCase.expectedResult,
+            type: testCase.type,
+            priority: testCase.priority,
+            tags: testCase.tags
+          },
+          llmProvider: 'google',
+          model: 'gemini-2.5-pro'
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update test case status based on result
+        const resultLower = result.result.toLowerCase();
+        let newStatus: 'passed' | 'failed' | 'blocked' = 'passed';
+        
+        if (resultLower.includes('fail') || resultLower.includes('error')) {
+          newStatus = 'failed';
+        } else if (resultLower.includes('block') || resultLower.includes('unable')) {
+          newStatus = 'blocked';
+        }
+        
+        // Update test case status
+        updateTestCaseStatus(testCaseId, newStatus);
+        
+        // Store execution result
+        setTestExecutionResults(prev => ({
+          ...prev,
+          [testCaseId]: {
+            result: result.result,
+            success: result.success,
+            screenshots: result.screenshots,
+            executionTime: result.execution_time,
+            timestamp: new Date()
+          }
+        }));
+        
+        // Show success notification
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        notification.textContent = `✅ Test case executed successfully (${newStatus})`;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 5000);
+        
+        console.log('✅ Test case execution completed:', {
+          testCase: testCase.title,
+          status: newStatus,
+          screenshots: result.screenshots,
+          executionTime: result.execution_time
+        });
+      } else {
+        // Show error notification
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        notification.textContent = `❌ Test execution failed: ${result.error}`;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 5000);
+        
+        console.error('❌ Test case execution failed:', result.error);
+      }
+      
+    } catch (error) {
+      console.error('Error executing test case:', error);
+      
+      // Show error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `❌ Test execution error: ${error}`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 5000);
+      
+    } finally {
+      // Clear executing state
+      setExecutingTestCases(prev => ({ ...prev, [testCaseId]: false }));
+    }
+  };
+
   // Enhance test case with AI
   const enhanceTestCaseWithAI = async (testCase: TestCase) => {
     // TODO: Implement AI enhancement logic
@@ -898,7 +1068,7 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
     
     // Get children based on type
     const children = (() => {
-      switch (type) {
+    switch (type) {
         case 'initiative': return getFeaturesByInitiative(item.id);
         case 'feature': return getEpicsByFeature(item.id);
         case 'epic': return getStoriesByEpic(item.id);
@@ -1092,8 +1262,8 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
     const matchesStatus = filterStatus === 'all' || testCase.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
-
-  return (
+    
+    return (
     <div className="space-y-6">
       {/* Debug controls (only in development) */}
       {process.env.NODE_ENV === 'development' && (
@@ -1133,8 +1303,8 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
             >
               Clear Test Cases
             </button>
-          </div>
-        </div>
+            </div>
+            </div>
       )}
 
       <div className="flex h-screen bg-gray-50">
@@ -1149,7 +1319,7 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Test Cases</h1>
               <p className="text-gray-600 mt-1">Hierarchical test case management</p>
-            </div>
+          </div>
           </div>
         </div>
 
@@ -1222,16 +1392,16 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                     </div>
                     <Badge variant="outline" className="text-xs">
                       {group.businessBriefId}
-                    </Badge>
-                  </div>
+                  </Badge>
+                </div>
                   
                   {/* Initiatives */}
                   {isBusinessBriefExpanded && (
                     <div className="space-y-1 ml-4">
                       {group.initiatives.map((initiative) => renderWorkItemFolder(initiative, 0, 'initiative'))}
-                    </div>
+            </div>
                   )}
-                </div>
+            </div>
               );
             })}
           </div>
@@ -1243,18 +1413,18 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
               <p className="text-gray-600">
                 {searchTerm ? 'Try adjusting your search terms' : 'Start by creating initiatives in the Work Items page'}
               </p>
-            </div>
-          )}
+              </div>
+            )}
         </div>
-      </div>
-
+          </div>
+          
       {/* Resizer */}
       <div
         className="w-1 bg-gray-300 cursor-col-resize hover:bg-gray-400 transition-colors flex items-center justify-center"
         onMouseDown={handleMouseDown}
       >
         <GripVertical size={16} className="text-gray-500" />
-      </div>
+          </div>
 
       {/* Right Panel - Test Cases List */}
       <div 
@@ -1386,9 +1556,26 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                       </TableCell>
                       <TableCell>{testCase.assignee || 'Unassigned'}</TableCell>
                       <TableCell>
-                        <div className="flex space-x-1">
-                          <Button
-                            size="sm"
+            <div className="flex space-x-1">
+              <Button
+                size="sm"
+                            variant="ghost"
+                            className="p-1 h-6 w-6"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              executeTestCase(testCase);
+                            }}
+                            disabled={executingTestCases[testCase.id]}
+                            title="Execute Test Case"
+                          >
+                            {executingTestCases[testCase.id] ? (
+                              <Loader2 size={12} className="animate-spin text-blue-600" />
+                            ) : (
+                              <Play size={12} className="text-blue-600" />
+                            )}
+              </Button>
+              <Button
+                size="sm"
                             variant="ghost"
                             className="p-1 h-6 w-6"
                             onClick={(e) => {
@@ -1398,9 +1585,9 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                             title="Enhance with AI"
                           >
                             <Wand2 size={12} className="text-purple-600" />
-                          </Button>
-                          <Button
-                            size="sm"
+              </Button>
+              <Button
+                size="sm"
                             variant="ghost"
                             className="p-1 h-6 w-6"
                             onClick={(e) => {
@@ -1410,9 +1597,9 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                             title="Mark as Passed"
                           >
                             <CheckCircle size={12} className="text-green-600" />
-                          </Button>
-                          <Button
-                            size="sm"
+              </Button>
+              <Button
+                size="sm"
                             variant="ghost"
                             className="p-1 h-6 w-6"
                             onClick={(e) => {
@@ -1422,9 +1609,9 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                             title="Mark as Failed"
                           >
                             <XCircle size={12} className="text-red-600" />
-                          </Button>
-                          <Button
-                            size="sm"
+              </Button>
+              <Button
+                size="sm"
                             variant="ghost"
                             className="p-1 h-6 w-6"
                             onClick={(e) => {
@@ -1434,9 +1621,9 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                             title="Mark as Blocked"
                           >
                             <AlertTriangle size={12} className="text-yellow-600" />
-                          </Button>
-                          <Button
-                            size="sm"
+              </Button>
+              <Button
+                size="sm"
                             variant="ghost"
                             className="p-1 h-6 w-6 text-red-600"
                             onClick={(e) => {
@@ -1446,8 +1633,8 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                             title="Delete"
                           >
                             <Trash2 size={12} />
-                          </Button>
-                        </div>
+              </Button>
+            </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1468,7 +1655,7 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                     <Plus size={16} className="mr-2" />
                     Create Test Case
                   </Button>
-                </div>
+          </div>
               </div>
             )
           ) : (
@@ -1483,71 +1670,71 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
             </div>
           )}
         </div>
-      </div>
-
+        </div>
+        
       {/* Create Test Case Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+            <DialogHeader>
             <DialogTitle>Create New Test Case</DialogTitle>
-            <DialogDescription>
+              <DialogDescription>
               Create a test case for {selectedWorkItem?.title}
-            </DialogDescription>
-          </DialogHeader>
+              </DialogDescription>
+            </DialogHeader>
           <form onSubmit={handleTestCaseSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                   Title *
-                </label>
+                  </label>
                 <Input
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="Enter test case title"
                   required
                 />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type *
+                  </label>
+                  <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="positive">Positive</SelectItem>
+                      <SelectItem value="negative">Negative</SelectItem>
+                      <SelectItem value="edge">Edge</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type *
-                </label>
-                <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="positive">Positive</SelectItem>
-                    <SelectItem value="negative">Negative</SelectItem>
-                    <SelectItem value="edge">Edge</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Summary *
-              </label>
-              <Input
+                </label>
+                <Input
                 value={formData.summary}
                 onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
                 placeholder="Brief summary of what this test case verifies"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description *
-              </label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description *
+                </label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Detailed description of the test case"
-                rows={3}
-                required
-              />
-            </div>
+                  rows={3}
+                  required
+                />
+              </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -1589,67 +1776,67 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Preconditions *
-              </label>
-              <Textarea
-                value={formData.preconditions}
-                onChange={(e) => setFormData({ ...formData, preconditions: e.target.value })}
-                placeholder="List preconditions (one per line)"
-                rows={3}
-                required
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Preconditions *
+                </label>
+                <Textarea
+                  value={formData.preconditions}
+                  onChange={(e) => setFormData({ ...formData, preconditions: e.target.value })}
+                  placeholder="List preconditions (one per line)"
+                  rows={3}
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Test Steps *
-              </label>
-              <Textarea
-                value={formData.steps}
-                onChange={(e) => setFormData({ ...formData, steps: e.target.value })}
-                placeholder="List test steps (one per line)"
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Test Steps *
+                </label>
+                <Textarea
+                  value={formData.steps}
+                  onChange={(e) => setFormData({ ...formData, steps: e.target.value })}
+                  placeholder="List test steps (one per line)"
                 rows={5}
-                required
-              />
-            </div>
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Expected Result *
-              </label>
-              <Textarea
-                value={formData.expectedResult}
-                onChange={(e) => setFormData({ ...formData, expectedResult: e.target.value })}
-                placeholder="Describe the expected result"
-                rows={3}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Expected Result *
+                </label>
+                <Textarea
+                  value={formData.expectedResult}
+                  onChange={(e) => setFormData({ ...formData, expectedResult: e.target.value })}
+                  placeholder="Describe the expected result"
+                  rows={3}
+                  required
+                />
+              </div>
+              
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tags
-              </label>
-              <Input
+                  </label>
+                  <Input
                 value={formData.tags}
                 onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                 placeholder="Comma-separated tags (e.g., authentication, ui, api)"
               />
-            </div>
-            
-            <div className="flex justify-end space-x-2 pt-4">
+              </div>
+              
+              <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
-                Cancel
-              </Button>
-              <Button type="submit">
+                  Cancel
+                </Button>
+                <Button type="submit">
                 Create Test Case
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
       {/* Test Case Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
@@ -1684,27 +1871,27 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Title *
                   </label>
-                  <Input
+          <Input
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="Enter test case title"
                     required
-                  />
-                </div>
+          />
+        </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Type *
                   </label>
                   <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
                     <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="positive">Positive</SelectItem>
-                      <SelectItem value="negative">Negative</SelectItem>
-                      <SelectItem value="edge">Edge</SelectItem>
-                    </SelectContent>
-                  </Select>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="positive">Positive</SelectItem>
+            <SelectItem value="negative">Negative</SelectItem>
+            <SelectItem value="edge">Edge</SelectItem>
+          </SelectContent>
+        </Select>
                 </div>
               </div>
 
@@ -1740,17 +1927,17 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                   </label>
                   <Select value={formData.priority} onValueChange={(value: any) => setFormData({ ...formData, priority: value })}>
                     <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="high">High</SelectItem>
                       <SelectItem value="critical">Critical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
+          </SelectContent>
+        </Select>
+      </div>
+            <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Assignee
                   </label>
@@ -1759,8 +1946,8 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                     onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
                     placeholder="Assigned tester"
                   />
-                </div>
-                <div>
+            </div>
+                    <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Estimated Time (minutes)
                   </label>
@@ -1770,10 +1957,10 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                     onChange={(e) => setFormData({ ...formData, estimatedTime: parseInt(e.target.value) || 5 })}
                     min="1"
                   />
-                </div>
-              </div>
+                    </div>
+                  </div>
 
-              <div>
+                    <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Preconditions *
                 </label>
@@ -1784,7 +1971,7 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                   rows={3}
                   required
                 />
-              </div>
+                    </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1797,9 +1984,9 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                   rows={5}
                   required
                 />
-              </div>
+                  </div>
 
-              <div>
+                    <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Expected Result *
                 </label>
@@ -1810,7 +1997,7 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                   rows={3}
                   required
                 />
-              </div>
+                    </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1821,15 +2008,15 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                   placeholder="Comma-separated tags (e.g., authentication, ui, api)"
                 />
-              </div>
+                  </div>
 
               {/* Test Case Metadata */}
               <div className="border-t pt-4">
                 <h4 className="font-medium text-gray-900 mb-2">Test Case Information</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Created:</span> {selectedTestCase.createdAt.toLocaleDateString()}
-                  </div>
+                    <div>
+                    <span className="text-gray-600">Created:</span> {formatDateForDisplay(selectedTestCase.createdAt)}
+                    </div>
                   <div>
                     <span className="text-gray-600">Created by:</span> {selectedTestCase.createdBy}
                   </div>
@@ -1838,14 +2025,14 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                     <Badge className={getStatusColor(selectedTestCase.status)} variant="secondary">
                       {selectedTestCase.status.replace('_', ' ')}
                     </Badge>
-                  </div>
+            </div>
                   {selectedTestCase.lastExecuted && (
-                    <div>
-                      <span className="text-gray-600">Last executed:</span> {selectedTestCase.lastExecuted.toLocaleDateString()}
-                    </div>
+            <div>
+                      <span className="text-gray-600">Last executed:</span> {formatDateForDisplay(selectedTestCase.lastExecuted)}
+            </div>
                   )}
-                </div>
-              </div>
+          </div>
+                    </div>
               
               <div className="flex justify-between pt-4">
                 <Button 
@@ -1865,8 +2052,8 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                     <Save size={16} className="mr-2" />
                     Save Changes
                   </Button>
-                </div>
-              </div>
+                    </div>
+                  </div>
             </form>
           )}
                  </DialogContent>
@@ -1883,7 +2070,7 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
            </DialogHeader>
            <div className="space-y-6">
              {/* Test Type Selection */}
-             <div>
+                    <div>
                <label className="block text-sm font-medium text-gray-700 mb-3">
                  Test Type *
                </label>
@@ -1907,10 +2094,10 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                    >
                      <div className="font-medium text-sm">{type.label}</div>
                      <div className="text-xs text-gray-600 mt-1">{type.desc}</div>
-                   </div>
+                    </div>
                  ))}
-               </div>
-             </div>
+                  </div>
+            </div>
 
              {/* Additional Options */}
              <div className="space-y-4">
@@ -1925,7 +2112,7 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                  <label htmlFor="includeNegative" className="text-sm font-medium text-gray-700">
                    Include negative test cases (error handling)
                  </label>
-               </div>
+          </div>
 
                <div className="flex items-center space-x-3">
                  <input
@@ -1938,8 +2125,8 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                  <label htmlFor="includeEdge" className="text-sm font-medium text-gray-700">
                    Include edge cases (boundary conditions)
                  </label>
-               </div>
-             </div>
+          </div>
+          </div>
 
              {/* Hierarchy Preview */}
              {selectedWorkItemForGeneration && (
@@ -1966,8 +2153,8 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
                      ));
                    })()}
                  </div>
-               </div>
-             )}
+        </div>
+      )}
 
              <div className="flex justify-end space-x-2 pt-4">
                <Button 
@@ -1989,6 +2176,6 @@ Generate comprehensive test cases that thoroughly validate the ${currentLevel} w
          </DialogContent>
               </Dialog>
        </div>
-     </div>
-   );
+    </div>
+  );
 } 

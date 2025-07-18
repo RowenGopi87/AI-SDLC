@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTestCaseStore } from '@/store/test-case-store';
 import { useWorkItemStore } from '@/store/work-item-store';
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -319,7 +320,7 @@ export default function ExecutionPage() {
                         <TableCell>
                           <div className="text-sm text-gray-500">
                             {testCase.lastExecuted
-                              ? testCase.lastExecuted.toLocaleString()
+                              ? formatDateTimeForDisplay(testCase.lastExecuted)
                               : 'Never'
                             }
                           </div>

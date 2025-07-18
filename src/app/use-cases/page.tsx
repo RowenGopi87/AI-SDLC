@@ -8,6 +8,7 @@ import { useInitiativeStore } from '@/store/initiative-store';
 import { setSelectedItem } from '@/components/layout/sidebar';
 import { notify } from '@/lib/notification-helper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDateForDisplay } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -961,11 +962,7 @@ export default function UseCasesPage() {
                 )}
                 <div className="flex items-center text-sm text-gray-500">
                   <Calendar size={14} className="mr-2" />
-                  {new Intl.DateTimeFormat('en-US', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                  }).format(useCase.submittedAt)}
+                  {formatDateForDisplay(useCase.submittedAt)}
                 </div>
               </div>
               

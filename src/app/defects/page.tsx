@@ -6,6 +6,7 @@ import { useTestCaseStore } from '@/store/test-case-store';
 import { useWorkItemStore } from '@/store/work-item-store';
 import { useRequirementStore } from '@/store/requirement-store';
 import { useUseCaseStore } from '@/store/use-case-store';
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -604,14 +605,14 @@ export default function DefectsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-700">Created</p>
-                  <p className="text-sm text-gray-600">{selectedDefect.createdAt.toLocaleString()}</p>
+                  <p className="text-sm text-gray-600">{formatDateTimeForDisplay(selectedDefect.createdAt)}</p>
                 </div>
               </div>
 
               {selectedDefect.resolvedAt && (
                 <div>
                   <p className="text-sm font-medium text-gray-700">Resolved</p>
-                  <p className="text-sm text-gray-600">{selectedDefect.resolvedAt.toLocaleString()}</p>
+                  <p className="text-sm text-gray-600">{formatDateTimeForDisplay(selectedDefect.resolvedAt)}</p>
                 </div>
               )}
 
