@@ -49,6 +49,40 @@ An AI-powered SDLC orchestration platform designed to streamline software develo
    npm install
    ```
 
+3. **Quick Start with MCP Integration**
+   ```bash
+   # Run the setup script
+   .\scripts\setup-mcp.bat
+   
+   # Start Aura with MCP integration
+   .\start-aura-with-mcp.bat
+   ```
+
+## 📁 Repository Structure
+
+```
+Aura/
+├── src/                      # Source code
+│   ├── app/                  # Next.js app directory
+│   ├── components/           # React components
+│   ├── hooks/               # Custom React hooks
+│   ├── lib/                 # Utility libraries
+│   └── store/               # State management
+├── docs/                     # Documentation
+│   ├── guides/              # User guides and setup instructions
+│   ├── fixes/               # Technical fix documentation
+│   └── troubleshooting/     # Troubleshooting guides
+├── scripts/                  # Utility scripts
+│   ├── setup-mcp.bat        # MCP setup script
+│   ├── diagnose-mcp-connection.bat  # Connection diagnostics
+│   └── ... (other utilities)
+├── mcp/                      # MCP server files
+├── public/                   # Static assets
+├── fresh-start.bat          # Fresh project start script
+├── start-aura-with-mcp.bat  # Main startup script
+└── README.md                # This file
+```
+
 3. **Run the development server**
    ```bash
    npm run dev

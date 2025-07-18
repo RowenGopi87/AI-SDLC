@@ -8,7 +8,7 @@ echo 🔍 Checking setup...
 if not exist mcp\.env (
     echo ❌ MCP environment not configured!
     echo.
-    echo Please run setup-mcp.bat first to configure the environment.
+    echo Please run scripts/setup-mcp.bat first to configure the environment.
     echo.
     pause
     exit /b 1
