@@ -212,6 +212,44 @@ export const mockUseCases: UseCase[] = [
     impactsExistingTechnology: false,
     workflowStage: "idea",
     completionPercentage: 10
+  },
+  {
+    id: "uc-004",
+    businessBriefId: "BB-004",
+    title: "Emirates Booking Management System Enhancement",
+    description: "Enhance the Emirates booking management system with improved user experience and streamlined booking operations",
+    businessValue: "Improve customer satisfaction and operational efficiency for booking management",
+    acceptanceCriteria: [
+      "Intuitive manage bookings interface",
+      "Real-time booking status updates",
+      "Seamless booking modification capabilities",
+      "Mobile-responsive design for all devices"
+    ],
+    submittedBy: "Sarah Abdullah",
+    submittedAt: new Date("2024-02-01"),
+    status: "approved",
+    priority: "high",
+    businessOwner: "sarah-abdullah",
+    leadBusinessUnit: "customer-operations",
+    additionalBusinessUnits: ["technology", "customer-service"],
+    primaryStrategicTheme: "customer-experience",
+    businessObjective: "Modernize the Emirates booking management experience by providing customers with intuitive, self-service capabilities for managing their flight bookings, reducing operational overhead while enhancing customer satisfaction.",
+    quantifiableBusinessOutcomes: "Reduce customer service calls related to booking management by 45%, improve booking modification completion rate by 35%, and decrease average booking management time from 15 minutes to 5 minutes.",
+    inScope: "Booking management interface, flight modification capabilities, booking status tracking, customer notification system",
+    impactOfDoNothing: "Continued high customer service load, poor customer experience, competitive disadvantage in digital services",
+    happyPath: "Customer navigates to Emirates.com, clicks on 'Manage Bookings', enters booking reference, views booking details, makes modifications, and receives confirmation",
+    exceptions: "Complex booking changes requiring agent assistance, group bookings, special service requests",
+    impactedEndUsers: "Emirates customers, customer service representatives, booking operations team",
+    changeImpactExpected: "Customers will have enhanced self-service capabilities. Staff training required for new system features and processes.",
+    impactToOtherDepartments: "Customer Service: Reduced booking-related calls. Operations: Updated booking management processes. IT: Infrastructure updates and security enhancements required.",
+    otherDepartmentsImpacted: ["Customer Service", "Flight Operations", "IT Security", "Revenue Management"],
+    impactsExistingTechnology: true,
+    technologySolutions: "Current Emirates booking system, customer portal (React), reservation system (Amadeus), notification service",
+    relevantBusinessOwners: "Customer Experience Director, Operations Manager, IT Director",
+    otherTechnologyInfo: "Integration with Amadeus GDS, compliance with airline industry standards, GDPR compliance for customer data",
+    supportingDocuments: ["customer_feedback_analysis.pdf", "booking_system_requirements.docx", "technical_integration_specs.pptx"],
+    workflowStage: "execution",
+    completionPercentage: 80
   }
 ];
 
@@ -391,6 +429,31 @@ export const mockInitiatives: Initiative[] = [
     updatedAt: new Date("2024-01-25"),
     createdBy: "Mike Johnson",
     assignedTo: "Operations Team"
+  },
+
+  // Emirates Booking Management Initiative (from BB-004)
+  {
+    id: "init-004",
+    businessBriefId: "uc-004",
+    title: "Emirates Booking Management Enhancement Initiative",
+    description: "Modernize the Emirates booking management system to provide customers with seamless self-service capabilities for managing their flight bookings",
+    category: "strategic",
+    priority: "high",
+    rationale: "Current booking management process requires significant customer service support and lacks modern user experience standards expected by Emirates customers",
+    acceptanceCriteria: [
+      "Manage Bookings interface is fully functional and intuitive",
+      "Booking modifications can be completed without agent assistance",
+      "System integrates seamlessly with existing Emirates reservation system",
+      "Mobile-responsive design works across all devices",
+      "Customer satisfaction scores improve by 35%"
+    ],
+    businessValue: "Reduce customer service calls by 45%, improve booking modification completion rate by 35%, and enhance Emirates brand reputation for digital excellence",
+    workflowLevel: "initiative",
+    status: "active",
+    createdAt: new Date("2024-02-01"),
+    updatedAt: new Date("2024-02-15"),
+    createdBy: "Sarah Abdullah",
+    assignedTo: "Customer Experience Team"
   }
 ];
 
@@ -411,6 +474,28 @@ export const mockFeatures = [
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: 'System'
+  },
+  {
+    id: 'FEA-004',
+    initiativeId: 'init-004',
+    businessBriefId: 'uc-004',
+    title: 'Manage Bookings Interface',
+    description: 'Create an intuitive and user-friendly interface for customers to manage their Emirates flight bookings online',
+    category: 'user-experience',
+    priority: 'high',
+    rationale: 'A streamlined booking management interface will reduce customer service calls and improve customer satisfaction',
+    acceptanceCriteria: [
+      'Booking search functionality by reference number',
+      'Clear display of booking details and flight information',
+      'Intuitive navigation and responsive design',
+      'Accessible on both desktop and mobile devices'
+    ],
+    businessValue: 'Enable customers to self-serve booking management needs, reducing operational costs and improving customer experience',
+    workflowLevel: 'feature',
+    status: 'active',
+    createdAt: new Date('2024-02-02'),
+    updatedAt: new Date('2024-02-15'),
+    createdBy: 'Sarah Abdullah'
   }
 ];
 
@@ -434,6 +519,31 @@ export const mockEpics = [
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: 'System'
+  },
+  {
+    id: 'EPIC-004',
+    featureId: 'FEA-004',
+    initiativeId: 'init-004',
+    businessBriefId: 'uc-004',
+    title: 'Booking Access and Navigation',
+    description: 'Implement the core navigation and access functionality for customers to reach and interact with their booking management interface',
+    category: 'functional',
+    priority: 'high',
+    rationale: 'Customers need a clear and reliable way to access their booking information through the Emirates website',
+    acceptanceCriteria: [
+      'Manage Bookings link is prominently displayed on Emirates.com',
+      'Navigation to manage bookings is intuitive and accessible',
+      'System handles booking reference validation correctly',
+      'Error handling for invalid booking references'
+    ],
+    businessValue: 'Provides the foundational access point for all booking management activities, enabling customer self-service',
+    workflowLevel: 'epic',
+    sprintEstimate: 3,
+    estimatedEffort: 'Medium',
+    status: 'active',
+    createdAt: new Date('2024-02-03'),
+    updatedAt: new Date('2024-02-15'),
+    createdBy: 'Sarah Abdullah'
   }
 ];
 
@@ -459,6 +569,33 @@ export const mockStories = [
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: 'System'
+  },
+  {
+    id: 'STORY-004',
+    epicId: 'EPIC-004',
+    featureId: 'FEA-004',
+    initiativeId: 'init-004',
+    businessBriefId: 'uc-004',
+    title: 'As an Emirates customer, I want to access Manage Bookings from the website so that I can view and modify my flight reservations',
+    description: 'Implement the Manage Bookings navigation and access functionality on Emirates.com that allows customers to easily find and access their booking management interface',
+    category: 'functional',
+    priority: 'high',
+    rationale: 'Customers need a clear, prominent way to access their booking management functionality from the main Emirates website',
+    acceptanceCriteria: [
+      'Manage Bookings link is visible and accessible on Emirates.com homepage',
+      'Clicking Manage Bookings opens the booking management interface',
+      'Interface is responsive and works on desktop and mobile browsers',
+      'Page loads within 3 seconds on standard internet connections'
+    ],
+    businessValue: 'Provides customers with easy access to self-service booking management, reducing customer service calls and improving customer satisfaction',
+    workflowLevel: 'story',
+    storyPoints: 8,
+    labels: ['booking', 'navigation', 'web-interface'],
+    testingNotes: 'Test navigation from Emirates.com homepage, verify responsive design on multiple devices, test loading performance',
+    status: 'active',
+    createdAt: new Date('2024-02-04'),
+    updatedAt: new Date('2024-02-15'),
+    createdBy: 'Sarah Abdullah'
   }
 ];
 
