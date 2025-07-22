@@ -1,0 +1,19 @@
+{
+  "server": {
+    "command": "npx",
+    "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/sse"],
+    "port": 8932
+  },
+  "authentication": {
+    "type": "oauth",
+    "flow": "browser"
+  },
+  "capabilities": [
+    "jira_issues",
+    "jira_projects", 
+    "jira_transitions",
+    "confluence_pages"
+  ],
+  "timeout": 30000,
+  "retries": 3
+} 

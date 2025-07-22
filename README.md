@@ -1,231 +1,179 @@
-# AURA - Automated Unified Requirement & Assurance
+# Aura - AI-Powered Requirements Management System
 
-An AI-powered SDLC orchestration platform designed to streamline software development workflows. This is the UI-first MVP focusing on visual design and user experience.
+A comprehensive requirements management system with AI-powered generation and automated test execution capabilities, now featuring **Jira Cloud integration via MCP**.
 
-## 🚀 Features
+## 🚀 Quick Start
 
-### 8 Core Modules
+### Prerequisites
+- Node.js 18+ and npm
+- Python 3.8+
+- Google AI API key (for LLM features)
+- Jira Cloud account (for Jira integration)
 
-1. **Use Case Intake** - Capture and manage use cases with AI enhancement
-2. **Requirement Review Enhancement** - Side-by-side comparison of original vs AI-enhanced requirements
-3. **Decomposition Work Items** - Hierarchical breakdown of work items (Initiative → Feature → Epic → Story)
-4. **Test Case Generation** - Automated test case creation with categorization
-5. **Execution Layer** - Test execution tracking and management
-6. **Defect Management** - Bug tracking with AI-powered analysis
-7. **Traceability Matrix** - End-to-end requirement traceability
-8. **Dashboard & Reporting** - Comprehensive project overview and metrics
+### Setup
 
-### Key Features
-
-- **Modern UI/UX** - Clean, minimal design inspired by Linear, Notion, and Vercel
-- **Responsive Design** - Fully mobile-friendly interface
-- **State Management** - Powered by Zustand for efficient state handling
-- **Mock Data** - Comprehensive mock data for all modules
-- **Human-in-the-loop** - Approval workflows for AI-generated content
-- **Real-time Updates** - Live status tracking and notifications
-- **Search & Filter** - Advanced filtering across all modules
-- **Export Capabilities** - Data export functionality (placeholder)
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React 18 with Next.js 14
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Components**: ShadCN UI
-- **State Management**: Zustand
-- **Icons**: Lucide React
-- **Development**: ESLint, Prettier
-
-## 📦 Installation
-
-1. **Clone the repository**
+1. **Clone and install dependencies:**
    ```bash
-   git clone https://github.com/RowenGopi87/AI-SDLC.git
-   cd AI-SDLC
-   ```
-
-2. **Install dependencies**
-   ```bash
+git clone <repository>
+cd Aura
    npm install
    ```
 
-3. **Quick Start with MCP Integration**
+2. **Set up MCP servers:**
    ```bash
-   # Run the setup script
-   .\scripts\setup-mcp.bat
-   
-   # Start Aura with MCP integration
-   .\start-aura-with-mcp.bat
-   ```
-
-## 📁 Repository Structure
-
-```
-Aura/
-├── src/                      # Source code
-│   ├── app/                  # Next.js app directory
-│   ├── components/           # React components
-│   ├── hooks/               # Custom React hooks
-│   ├── lib/                 # Utility libraries
-│   └── store/               # State management
-├── docs/                     # Documentation
-│   ├── guides/              # User guides and setup instructions
-│   ├── fixes/               # Technical fix documentation
-│   └── troubleshooting/     # Troubleshooting guides
-├── scripts/                  # Utility scripts
-│   ├── setup-mcp.bat        # MCP setup script
-│   ├── diagnose-mcp-connection.bat  # Connection diagnostics
-│   └── ... (other utilities)
-├── mcp/                      # MCP server files
-├── public/                   # Static assets
-├── fresh-start.bat          # Fresh project start script
-├── start-aura-with-mcp.bat  # Main startup script
-└── README.md                # This file
+cd mcp
+# Run the comprehensive startup script
+./start_all_mcp_servers.bat
 ```
 
-3. **Run the development server**
+This will start:
+- 🎭 **Playwright MCP Server** (Port 8931) - For automated testing
+- 🔗 **Jira MCP Server** (Browser auth) - For Jira integration  
+- 🐍 **Aura MCP Bridge** (Port 8000) - Connects everything together
+
+3. **Configure environment:**
+   - Update `.env` file with your API keys and Jira settings
+   - Get your Jira Cloud ID from: `https://your-domain.atlassian.net/_edge/tenant_info`
+
+4. **Start the development server:**
    ```bash
    npm run dev
    ```
 
-4. **Open in browser**
-   ```
-   http://localhost:3000
-   ```
+## ✨ New Feature: Jira Cloud Integration
 
-## 🔧 Available Scripts
+### 🎯 Create Jira Issues from Initiatives
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Fix ESLint issues
+1. **Navigate to Requirements page** (`/requirements`)
+2. **Find any Initiative work item** 
+3. **Click the blue Jira icon** (🔗) next to the "Generate Features" button
+4. **Initiative automatically created as Jira Epic** with:
+   - Formatted description with business value
+   - Proper priority mapping
+   - Acceptance criteria
+   - Source traceability tags
 
-## 📱 Module Overview
+### 🔧 Configuration
 
-### Use Case Intake
-- **Purpose**: Capture and manage use cases
-- **Features**: Form submission, AI enhancement, approval workflow
-- **Navigation**: `/use-cases`
+Update your `mcp/.env` file:
+```bash
+# Jira MCP Configuration  
+JIRA_MCP_URL=http://localhost:8932
+JIRA_CLOUD_ID=your-cloud-id-here
+JIRA_DEFAULT_PROJECT_KEY=AURA
 
-### Requirement Review Enhancement
-- **Purpose**: Review and enhance requirements with AI
-- **Features**: Side-by-side comparison, human approval, version tracking
-- **Navigation**: `/requirements`
-
-### Decomposition Work Items
-- **Purpose**: Break down requirements into hierarchical work items
-- **Features**: Tree view, drag-and-drop, status tracking
-- **Navigation**: `/decomposition`
-
-### Test Case Generation
-- **Purpose**: Generate comprehensive test cases
-- **Features**: Positive/Negative/Edge case tabs, AI generation
-- **Navigation**: `/test-cases`
-
-### Execution Layer
-- **Purpose**: Execute and track test cases
-- **Features**: Test execution, logs, status updates
-- **Navigation**: `/execution`
-
-### Defect Management
-- **Purpose**: Track and manage software defects
-- **Features**: Bug reporting, AI analysis, assignment
-- **Navigation**: `/defects`
-
-### Traceability Matrix
-- **Purpose**: Maintain end-to-end requirement traceability
-- **Features**: Drill-down navigation, breadcrumbs, relationship mapping
-- **Navigation**: `/traceability`
-
-### Dashboard & Reporting
-- **Purpose**: Project overview and metrics
-- **Features**: KPI cards, charts, quick actions
-- **Navigation**: `/dashboard`
-
-## 🎯 Project Structure
-
-```
-src/
-├── app/                    # Next.js app router pages
-│   ├── use-cases/         # Use Case Intake module
-│   ├── requirements/      # Requirement Review module
-│   ├── decomposition/     # Work Item Decomposition
-│   ├── test-cases/        # Test Case Generation
-│   ├── execution/         # Test Execution Layer
-│   ├── defects/           # Defect Management
-│   ├── traceability/      # Traceability Matrix
-│   └── dashboard/         # Dashboard & Reporting
-├── components/
-│   ├── ui/                # ShadCN UI components
-│   └── layout/            # Layout components
-├── lib/                   # Utility functions
-├── store/                 # Zustand stores
-│   ├── use-case-store.ts
-│   ├── requirement-store.ts
-│   ├── work-item-store.ts
-│   ├── test-case-store.ts
-│   ├── execution-store.ts
-│   ├── defect-store.ts
-│   ├── traceability-store.ts
-│   └── dashboard-store.ts
-└── types/                 # TypeScript type definitions
+# LLM Configuration (required)
+GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-## 🎨 Design System
+### 🔍 How It Works
 
-### Color Palette
-- **Primary**: Blue (#3B82F6)
-- **Success**: Green (#10B981)
-- **Warning**: Orange (#F59E0B)
-- **Danger**: Red (#EF4444)
-- **Info**: Purple (#8B5CF6)
+1. **Button Click** → Initiative data sent to API endpoint
+2. **API Processing** → Formats initiative for Jira (title, description, acceptance criteria)
+3. **MCP Bridge** → Connects to Atlassian Remote MCP Server  
+4. **Jira Creation** → Epic created with proper mapping and labels
+5. **Success Notification** → Shows Jira issue link and key
 
-### Typography
-- **Primary Font**: Inter (system font fallback)
-- **Headings**: Font weight 600-700
-- **Body**: Font weight 400-500
+## 🏗️ Architecture
 
-### Components
-- **Cards**: Clean, minimal with subtle shadows
-- **Buttons**: Consistent sizing and states
-- **Forms**: Proper validation and error handling
-- **Tables**: Responsive with sorting and filtering
-- **Modals**: Centered with backdrop blur
+```
+Aura Frontend (Next.js)
+    ↓
+API Routes (/api/create-jira-issue)
+    ↓  
+Python MCP Bridge Server (Port 8000)
+    ↓
+Atlassian Remote MCP Server
+    ↓
+Jira Cloud API
+```
 
-## 🔮 Future Enhancements
+## 🎭 Existing Features
 
-### Phase 2 - Backend Integration
-- Real AI/ML model integration
-- Database connectivity
-- API development
-- Authentication system
+### Test Automation
+- **Browser automation** via Playwright MCP
+- **Visual test execution** with screenshots
+- **AI-powered test case generation**
 
-### Phase 3 - Advanced Features
-- Real-time collaboration
-- Advanced analytics
-- Custom workflows
-- Integration with external tools
+### Requirements Management
+- **Hierarchical work items** (Initiative → Feature → Epic → Story)
+- **AI-powered decomposition** 
+- **Traceability matrix**
+- **Acceptance criteria management**
 
-## 🤝 Contributing
+### Workflow Support
+- **Business brief → Requirements → Work items → Test cases**
+- **Multiple LLM providers** (OpenAI, Anthropic, Google)
+- **Mock data for development**
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## 🔧 MCP Server Management
 
-## 📄 License
+### Individual Server Control
+```bash
+# Start only Playwright MCP
+./start_mcp_servers.bat
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+# Start only Jira MCP  
+./start_jira_mcp_server.bat
 
-## 🙏 Acknowledgments
+# Start all servers
+./start_all_mcp_servers.bat
+```
 
-- **Design Inspiration**: Linear, Notion, Vercel
-- **UI Components**: ShadCN UI
-- **Icons**: Lucide React
-- **Styling**: Tailwind CSS
+### Troubleshooting
+
+**Jira Authentication Issues:**
+1. Ensure you're logged into Jira Cloud
+2. Check your Cloud ID is correct
+3. Verify project permissions
+
+**MCP Connection Issues:**
+1. Check server logs in command windows
+2. Verify ports 8931, 8932, 8000 are available
+3. Restart servers if authentication expires
+
+## 📋 API Endpoints
+
+### Jira Integration
+- `POST /api/create-jira-issue` - Create Jira issue from initiative
+
+### Test Execution  
+- `POST /execute-test-case` - Execute test via Playwright
+- `GET /health` - Server health check
+- `GET /tools` - Available MCP tools
+
+## 🔗 Important URLs
+
+- **Development Server**: http://localhost:3000
+- **Requirements/Work Items**: http://localhost:3000/requirements
+- **MCP Bridge Server**: http://localhost:8000
+- **Jira Cloud ID**: `https://your-domain.atlassian.net/_edge/tenant_info`
+
+## 📚 Usage Guide
+
+1. **Create Business Briefs** → Use Cases page
+2. **Generate Requirements** → AI-powered from business briefs  
+3. **Create Work Items** → Initiative → Feature → Epic → Story hierarchy
+4. **Generate Test Cases** → AI-powered from work items
+5. **Execute Tests** → Automated browser testing
+6. **Create in Jira** → One-click initiative → Jira Epic creation
+
+## 🔄 Development Workflow
+
+1. Start MCP servers: `./mcp/start_all_mcp_servers.bat`
+2. Start dev server: `npm run dev`  
+3. Authenticate with Jira (browser popup)
+4. Create initiatives in Requirements page
+5. Click Jira icon to create Epic in Jira Cloud
+6. Monitor server logs for debugging
+
+## 🚨 Security Notes
+
+- MCP servers use OAuth authentication
+- API keys stored in environment variables
+- CORS configured for localhost development
+- Production deployment requires HTTPS
 
 ---
 
-**Note**: This is a UI-first MVP without backend integration. All data is mocked and stored in local state. The focus is on demonstrating the user interface and user experience for the AURA platform.
+**🎉 You now have a complete AI-powered requirements management system with seamless Jira Cloud integration!**

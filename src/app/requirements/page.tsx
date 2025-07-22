@@ -41,7 +41,8 @@ import {
   Wand2,
   TrendingUp,
   Clock,
-  TestTube
+  TestTube,
+  ExternalLink
 } from 'lucide-react';
 import { MockLLMService } from '@/lib/mock-data';
 import { mockInitiatives, mockFeatures, mockEpics, mockStories } from '@/lib/mock-data'; // Import mock data
@@ -68,6 +69,7 @@ export default function RequirementsPage() {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [editingItem, setEditingItem] = useState<any>(null);
   const [generatingItems, setGeneratingItems] = useState<Record<string, boolean>>({});
+  const [creatingInJira, setCreatingInJira] = useState<Record<string, boolean>>({});
   
   // Development mode toggle for testing without LLM costs
   const [useMockLLM, setUseMockLLM] = useState(process.env.NODE_ENV === 'development');
@@ -775,6 +777,64 @@ export default function RequirementsPage() {
     }
   };
 
+  // Handle creating initiative in Jira
+  const handleCreateInJira = async (initiativeId: string) => {
+    const initiative = initiatives.find(init => init.id === initiativeId);
+    if (!initiative) {
+      console.error('Initiative not found:', initiativeId);
+      return;
+    }
+
+    console.log('🎯 Creating initiative in Jira:', initiative.title);
+    setCreatingInJira(prev => ({ ...prev, [initiativeId]: true }));
+
+    try {
+      const response = await fetch('/api/create-jira-issue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          initiative,
+          llmSettings,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create Jira issue');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Jira issue creation failed');
+      }
+
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.innerHTML = `✅ Initiative created in Jira: <a href="${result.data.issueUrl}" target="_blank" class="underline">${result.data.issueKey}</a>`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 10000);
+      
+      console.log('✅ Jira issue created successfully:', result.data);
+
+    } catch (error) {
+      console.error('Error creating Jira issue:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      
+      // Create a temporary error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `❌ Jira Creation Failed: ${errorMessage}`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 5000);
+    } finally {
+      setCreatingInJira(prev => ({ ...prev, [initiativeId]: false }));
+    }
+  };
+
   // Manual entry functions
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1010,23 +1070,42 @@ export default function RequirementsPage() {
           {/* Action Buttons */}
           <div className="flex items-center space-x-1">
             {type === 'initiative' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-1 h-6 w-6"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleGenerateFeatures(item.id);
-                }}
-                disabled={generatingItems[item.id]}
-                title="Generate Features"
-              >
-                {generatingItems[item.id] ? (
-                  <Loader2 size={12} className="animate-spin" style={{color: '#5B8DB8'}} />
-                ) : (
-                  <Wand2 size={12} style={{color: '#5B8DB8'}} />
-                )}
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="p-1 h-6 w-6"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleGenerateFeatures(item.id);
+                  }}
+                  disabled={generatingItems[item.id]}
+                  title="Generate Features"
+                >
+                  {generatingItems[item.id] ? (
+                    <Loader2 size={12} className="animate-spin" style={{color: '#5B8DB8'}} />
+                  ) : (
+                    <Wand2 size={12} style={{color: '#5B8DB8'}} />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="p-1 h-6 w-6"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCreateInJira(item.id);
+                  }}
+                  disabled={creatingInJira[item.id]}
+                  title="Create in Jira Cloud"
+                >
+                  {creatingInJira[item.id] ? (
+                    <Loader2 size={12} className="animate-spin" style={{color: '#0052CC'}} />
+                  ) : (
+                    <ExternalLink size={12} style={{color: '#0052CC'}} />
+                  )}
+                </Button>
+              </>
             )}
             {type === 'feature' && (
               <Button

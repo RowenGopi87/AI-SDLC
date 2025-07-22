@@ -1,6 +1,7 @@
 @echo off
 echo ========================================
 echo  Aura MCP Integration - One-Time Setup
+echo  (Playwright + Jira Cloud)
 echo ========================================
 echo.
 
@@ -12,9 +13,10 @@ if not exist .env (
     echo ✅ Environment file created: mcp\.env
     echo.
     echo ⚠️  IMPORTANT: Please update mcp\.env with your API keys!
-    echo    - Add your OpenAI API key
-    echo    - Add your Google API key (optional)
-    echo    - Add your Anthropic API key (optional)
+    echo    - Add your Google API key (required for LLM)
+    echo    - Add your Jira Cloud ID (get from: https://your-domain.atlassian.net/_edge/tenant_info)
+    echo    - Add your Jira Project Key (default: AURA)
+    echo    - Add your OpenAI/Anthropic API keys (optional)
     echo.
     echo Opening the .env file for you to edit...
     start notepad .env
@@ -52,15 +54,16 @@ pip install certifi
 echo ✅ SSL certificate support installed
 
 echo.
-echo 📦 Installing Playwright MCP server...
+echo 📦 Installing MCP servers...
 echo This may take a few minutes...
-npm install -g @playwright/mcp
+npm install -g @playwright/mcp mcp-remote
 if %errorlevel% neq 0 (
-    echo ❌ Error installing Playwright MCP server
+    echo ❌ Error installing MCP servers
     pause
     exit /b 1
 )
 echo ✅ Playwright MCP server installed successfully
+echo ✅ Jira MCP remote client installed successfully
 
 echo.
 echo 📦 Installing Aura dependencies...
@@ -81,11 +84,14 @@ echo.
 echo ✅ MCP environment configured
 echo ✅ Python dependencies installed
 echo ✅ Playwright MCP server installed
+echo ✅ Jira MCP client installed  
 echo ✅ Aura dependencies installed
 echo.
 echo 🚀 Next steps:
-echo 1. Make sure your API keys are configured in mcp\.env
+echo 1. Make sure your API keys and Jira settings are configured in mcp\.env
 echo 2. Run start-aura-with-mcp.bat to start all servers
+echo 3. Complete Jira authentication in browser when prompted
+echo 4. Visit /requirements page and click Jira icons on initiatives
 echo.
 echo Press any key to exit...
 pause 
