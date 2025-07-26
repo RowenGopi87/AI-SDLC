@@ -32,6 +32,7 @@ import {
   Target,
   Link as LinkIcon,
   TrendingUp,
+  Palette,
 } from 'lucide-react';
 
 // Global state for selected item traceability
@@ -67,6 +68,7 @@ export function Sidebar() {
     const icons = {
       'use-cases': FileText,
       'requirements': Settings,
+      'design': Palette,
       'decomposition': GitBranch,
       'test-cases': TestTube,
       'execution': Play,

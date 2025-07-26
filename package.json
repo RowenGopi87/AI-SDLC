@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "start:integrated": "node scripts/start-simple.js",
+    "start:mcp": "node scripts/start-simple.js",
+    "stop:integrated": "node scripts/stop-integrated.js",
+    "stop:mcp": "node scripts/stop-integrated.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
