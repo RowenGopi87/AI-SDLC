@@ -2,8 +2,9 @@ import asyncio
 import os
 import ssl
 import time
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,6 +44,7 @@ fix_ssl_certificates()
 # mcp_client = None
 # current_agent = None
 
+# Pydantic models for request/response validation
 class TestCaseExecutionRequest(BaseModel):
     testCase: Dict[str, Any]
     llm_provider: str = "google"
@@ -55,23 +57,35 @@ class TestCaseExecutionResponse(BaseModel):
     screenshots: list = []
     execution_time: float = None
 
-class JiraIssueCreationRequest(BaseModel):
+class JiraIssueRequest(BaseModel):
     summary: str
     description: str
-    issueType: str = "Epic"
+    project: str = "AURA"
+    issueType: str = "Task"
     priority: str = "Medium"
-    projectKey: str = "AURA"
-    labels: list = []
-    cloudId: str = None
     llm_provider: str = "google"
     model: str = "gemini-2.5-pro"
 
-class JiraIssueCreationResponse(BaseModel):
+class JiraIssueResponse(BaseModel):
     success: bool
-    issueKey: str = None
-    issueUrl: str = None
-    issueId: str = None
-    error: str = None
+    issue_key: str
+    issue_url: str
+    message: str
+
+class DesignCodeGenerationRequest(BaseModel):
+    systemPrompt: str
+    userPrompt: str
+    framework: str = "react"
+    imageData: Optional[str] = None
+    imageType: Optional[str] = None
+    llm_provider: str = "google"
+    model: str = "gemini-2.5-pro"
+
+class DesignCodeGenerationResponse(BaseModel):
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    message: str
+    error: Optional[str] = None
 
 async def create_mcp_client(server_type: str = "playwright"):
     """Create a new MCP client for the specified server type"""
@@ -462,6 +476,146 @@ async def create_jira_issue(request: JiraIssueCreationRequest):
                 success=False,
                 error=error_msg
             )
+
+@app.post("/generate-design-code", response_model=DesignCodeGenerationResponse)
+async def generate_design_code(request: DesignCodeGenerationRequest):
+    try:
+        print(f"[DESIGN] Generating code from design input")
+        print(f"[LLM] Using {request.llm_provider} model: {request.model}")
+        print(f"[FRAMEWORK] Target framework: {request.framework}")
+        print(f"[IMAGE] Has image data: {bool(request.imageData)}")
+        
+        # For design code generation, we don't need MCP tools - just direct LLM call
+        # This is different from test execution (needs Playwright) or Jira (needs Jira MCP)
+        
+        # Combine system and user prompts
+        full_prompt = f"""
+{request.systemPrompt}
+
+{request.userPrompt}
+"""
+
+        # Create agent for LLM call (without MCP tools for this use case)
+        try:
+            from mcp_use import MCPTool, create_agent
+            
+            # For design generation, we use the LLM directly without MCP tools
+            if request.llm_provider == "google":
+                agent = create_agent(
+                    llm_provider="google",
+                    model=request.model,
+                    tools=[]  # No MCP tools needed for code generation
+                )
+            else:
+                agent = create_agent(
+                    llm_provider="openai", 
+                    model="gpt-4",
+                    tools=[]  # No MCP tools needed for code generation
+                )
+            
+            print(f"[AGENT] Agent created successfully for {request.llm_provider}")
+            
+        except Exception as agent_error:
+            print(f"[ERROR] Failed to create agent: {agent_error}")
+            return DesignCodeGenerationResponse(
+                success=False,
+                message="Failed to initialize AI agent",
+                error=str(agent_error)
+            )
+        
+        # Execute the design generation
+        start_time = time.time()
+        try:
+            print(f"[GENERATE] Starting AI code generation...")
+            result = await agent.run(full_prompt)
+            execution_time = time.time() - start_time
+            
+            print(f"[OK] Code generation completed in {execution_time:.2f}s")
+            
+            # Parse the result to extract HTML, CSS, JavaScript
+            generated_code = parse_generated_code(result, request.framework)
+            
+            return DesignCodeGenerationResponse(
+                success=True,
+                data=generated_code,
+                message=f"Code generated successfully in {execution_time:.2f}s"
+            )
+            
+        except Exception as generation_error:
+            print(f"[ERROR] Code generation failed: {generation_error}")
+            execution_time = time.time() - start_time
+            
+            return DesignCodeGenerationResponse(
+                success=False,
+                message=f"Code generation failed after {execution_time:.2f}s",
+                error=str(generation_error)
+            )
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[ERROR] Design code generation error: {error_msg}")
+        
+        return DesignCodeGenerationResponse(
+            success=False,
+            message="Design code generation failed",
+            error=error_msg
+        )
+
+def parse_generated_code(llm_result: str, framework: str) -> Dict[str, Any]:
+    """
+    Parse the LLM result to extract HTML, CSS, and JavaScript code
+    """
+    try:
+        # The LLM should return a complete HTML file
+        # We need to extract the different parts for the frontend
+        
+        result_str = str(llm_result)
+        
+        # Look for HTML code blocks or complete HTML
+        if '```html' in result_str:
+            # Extract HTML from code block
+            html_start = result_str.find('```html') + 7
+            html_end = result_str.find('```', html_start)
+            html_content = result_str[html_start:html_end].strip()
+        elif '<!DOCTYPE html>' in result_str:
+            # Full HTML document
+            html_content = result_str.strip()
+        else:
+            # Fallback - treat entire result as HTML
+            html_content = result_str.strip()
+        
+        # Extract CSS from the HTML (between <style> tags)
+        css_content = ""
+        if '<style>' in html_content and '</style>' in html_content:
+            css_start = html_content.find('<style>') + 7
+            css_end = html_content.find('</style>')
+            css_content = html_content[css_start:css_end].strip()
+        
+        # Extract JavaScript from the HTML (between <script> tags)
+        js_content = ""
+        if '<script>' in html_content and '</script>' in html_content:
+            js_start = html_content.find('<script>') + 8
+            js_end = html_content.find('</script>')
+            js_content = html_content[js_start:js_end].strip()
+        
+        return {
+            "html": html_content,
+            "css": css_content,
+            "javascript": js_content,
+            "framework": framework,
+            "generatedAt": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to parse generated code: {e}")
+        # Return the raw result if parsing fails
+        return {
+            "html": str(llm_result),
+            "css": "/* CSS extraction failed */",
+            "javascript": "// JavaScript extraction failed",
+            "framework": framework,
+            "generatedAt": datetime.now().isoformat()
+        }
 
 @app.get("/health")
 async def health_check():

@@ -157,21 +157,50 @@ async function generateCodeWithLLM(
 ): Promise<any> {
   console.log('🤖 Calling LLM service for code generation...');
   
-  // In a real implementation, this would call your LLM service with vision capabilities
-  // For services like OpenAI GPT-4 Vision, Google Gemini Pro Vision, or Claude 3
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Mock response - in production, this would be the actual LLM response with image analysis
-  const mockResponse = {
-    html: generateEnhancedMockHTML(framework, imageData ? 'image-based' : 'text-based'),
-    css: generateEnhancedMockCSS(),
-    javascript: generateEnhancedMockJavaScript(framework),
-    framework,
-  };
+  try {
+    // Call the MCP Bridge Server for actual LLM processing
+    const response = await fetch('http://localhost:8000/generate-design-code', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        systemPrompt,
+        userPrompt,
+        framework,
+        imageData,
+        imageType,
+        llm_provider: 'google', // Default to Google Gemini
+        model: 'gemini-2.5-pro'
+      }),
+    });
 
-  return mockResponse;
+    if (!response.ok) {
+      throw new Error(`MCP Bridge server responded with ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.success) {
+      return result.data;
+    } else {
+      throw new Error(result.error || 'Failed to generate code via MCP Bridge');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error calling MCP Bridge server:', error);
+    
+    // Fallback to mock response if MCP Bridge is unavailable
+    console.log('🔄 Falling back to mock response for development...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    return {
+      html: generateEnhancedMockHTML(framework, imageData ? 'image-based' : 'text-based'),
+      css: generateEnhancedMockCSS(),
+      javascript: generateEnhancedMockJavaScript(framework),
+      framework,
+    };
+  }
 }
 
 function generateEnhancedMockHTML(framework: string, inputType: string): string {

@@ -27,10 +27,11 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-async function startPlaywright() {
+async function startPlaywrightMCP() {
   log('playwright', '🎭 Starting Playwright MCP Server...', 'info');
   
-  const proc = spawn('npx', ['@playwright/mcp@latest', '--port', '8931', '--browser', 'chrome'], {
+  // Start in separate CMD window for better visibility
+  const proc = spawn('cmd', ['/c', 'start "Playwright MCP Server" cmd /k "npx @playwright/mcp@latest --port 8931 --browser chrome --output-dir screenshots"'], {
     cwd: path.join(__dirname, '../mcp'),
     stdio: 'pipe',
     shell: true
@@ -38,22 +39,18 @@ async function startPlaywright() {
   
   processes.push(proc);
   
-  proc.stdout.on('data', (data) => {
-    log('playwright', data.toString().trim(), 'info');
-  });
+  // Log the startup
+  log('playwright', 'Started in separate CMD window on port 8931', 'success');
   
-  proc.stderr.on('data', (data) => {
-    log('playwright', data.toString().trim(), 'error');
-  });
-  
-  return new Promise(resolve => setTimeout(resolve, 5000));
+  return new Promise(resolve => setTimeout(resolve, 3000));
 }
 
-async function startJira() {
+async function startJiraMCP() {
   log('jira', '🔗 Starting Jira MCP Server...', 'info');
-  log('jira', 'Browser will open for authentication', 'warn');
+  log('jira', 'Browser will open for authentication', 'info');
   
-  const proc = spawn('npx', ['-y', 'mcp-remote', 'https://mcp.atlassian.com/v1/sse'], {
+  // Start in separate CMD window for better visibility
+  const proc = spawn('cmd', ['/c', 'start "Jira MCP Server" cmd /k "npx -y mcp-remote https://mcp.atlassian.com/v1/sse"'], {
     cwd: path.join(__dirname, '../mcp'),
     stdio: 'pipe',
     shell: true
@@ -61,25 +58,18 @@ async function startJira() {
   
   processes.push(proc);
   
-  proc.stdout.on('data', (data) => {
-    const message = data.toString().trim();
-    log('jira', message, 'info');
-    if (message.includes('Connected to remote server')) {
-      log('jira', '✅ Jira connected successfully!', 'success');
-    }
-  });
+  // Log the startup
+  log('jira', 'Started in separate CMD window', 'success');
+  log('jira', 'Complete authentication in the browser window', 'info');
   
-  proc.stderr.on('data', (data) => {
-    log('jira', data.toString().trim(), 'error');
-  });
-  
-  return new Promise(resolve => setTimeout(resolve, 5000));
+  return new Promise(resolve => setTimeout(resolve, 3000));
 }
 
-async function startBridge() {
+async function startBridgeServer() {
   log('bridge', '🐍 Starting Bridge Server...', 'info');
   
-  const proc = spawn('python', ['mcp_server.py'], {
+  // Start in separate CMD window for better visibility and debugging
+  const proc = spawn('cmd', ['/c', 'start "Aura MCP Bridge" cmd /k "python mcp_server.py"'], {
     cwd: path.join(__dirname, '../mcp'),
     stdio: 'pipe',
     shell: true
@@ -87,17 +77,8 @@ async function startBridge() {
   
   processes.push(proc);
   
-  proc.stdout.on('data', (data) => {
-    const message = data.toString().trim();
-    log('bridge', message, 'info');
-    if (message.includes('Uvicorn running')) {
-      log('bridge', '✅ Bridge server ready!', 'success');
-    }
-  });
-  
-  proc.stderr.on('data', (data) => {
-    log('bridge', data.toString().trim(), 'error');
-  });
+  // Log the startup
+  log('bridge', 'Started in separate CMD window on port 8000', 'success');
   
   return new Promise(resolve => setTimeout(resolve, 3000));
 }
@@ -132,9 +113,9 @@ async function main() {
   try {
     log('system', '🚀 Starting all servers...', 'info');
     
-    await startPlaywright();
-    await startJira();
-    await startBridge();
+    await startPlaywrightMCP();
+    await startJiraMCP();
+    await startBridgeServer();
     await startAura();
     
     console.log('\n' + '='.repeat(50));
