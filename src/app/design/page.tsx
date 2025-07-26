@@ -75,12 +75,15 @@ export default function DesignPage() {
     setIsGenerating(true);
     setGenerationProgress(0);
 
+    // Declare progressInterval outside try-catch so it's accessible in both blocks
+    let progressInterval: NodeJS.Timeout | null = null;
+
     try {
       // Simulate progress
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setGenerationProgress((prev) => {
           if (prev >= 90) {
-            clearInterval(progressInterval);
+            clearInterval(progressInterval!);
             return 90;
           }
           return prev + 10;
@@ -132,7 +135,7 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
 
       const result = await response.json();
       
-      clearInterval(progressInterval);
+      clearInterval(progressInterval!);
       setGenerationProgress(100);
       
       // Mock generated code for demo
@@ -349,7 +352,9 @@ export default DesignComponent;`
       
     } catch (error) {
       console.error('Error generating code:', error);
-      clearInterval(progressInterval);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
     } finally {
       setTimeout(() => {
         setIsGenerating(false);
@@ -593,12 +598,17 @@ ${generatedCode.html}`;
                 {previewMode === 'preview' ? (
                   <div className="border rounded-lg p-4 bg-gray-50 min-h-[400px]">
                     <div className="bg-white rounded shadow-sm p-6">
+                      {/* CSS styles injected directly into the preview */}
+                      <style 
+                        dangerouslySetInnerHTML={{ 
+                          __html: generatedCode.css 
+                        }} 
+                      />
                       <div 
                         dangerouslySetInnerHTML={{ 
                           __html: generatedCode.html.replace(/className=/g, 'class=') 
                         }} 
                       />
-                      <style jsx>{generatedCode.css}</style>
                     </div>
                   </div>
                 ) : (

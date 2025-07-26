@@ -27,14 +27,14 @@ def fix_ssl_certificates():
         os.environ['REQUESTS_CA_BUNDLE'] = cert_path
         os.environ['SSL_CERT_FILE'] = cert_path
         os.environ['SSL_CERT_DIR'] = os.path.dirname(cert_path)
-        print(f"✅ SSL certificates configured: {cert_path}")
+        print(f"[OK] SSL certificates configured: {cert_path}")
     except ImportError:
-        print("⚠️  certifi not installed, trying alternative SSL fix...")
+        print("[WARNING] certifi not installed, trying alternative SSL fix...")
         # Alternative: disable SSL verification (not recommended for production)
         ssl._create_default_https_context = ssl._create_unverified_context
-        print("⚠️  SSL verification disabled (not recommended for production)")
+        print("[WARNING] SSL verification disabled (not recommended for production)")
     except Exception as e:
-        print(f"⚠️  SSL certificate setup warning: {e}")
+        print(f"[WARNING] SSL certificate setup warning: {e}")
 
 # Apply SSL fixes
 fix_ssl_certificates()
@@ -90,8 +90,8 @@ async def create_mcp_client(server_type: str = "playwright"):
                     }
                 }
             })
-            print("✅ Atlassian Remote MCP Client created for this request")
-            print("🔗 Connecting via mcp-remote proxy to https://mcp.atlassian.com/v1/sse")
+            print("[OK] Atlassian Remote MCP Client created for this request")
+            print("[CONNECT] Connecting via mcp-remote proxy to https://mcp.atlassian.com/v1/sse")
         else:
             # Create Playwright MCP client (default)
             client = MCPClient({
@@ -101,11 +101,11 @@ async def create_mcp_client(server_type: str = "playwright"):
                     }
                 }
             })
-            print("✅ Playwright MCP Client created for this request")
+            print("[OK] Playwright MCP Client created for this request")
         
         return client
     except Exception as e:
-        print(f"❌ Error creating {server_type} MCP client: {e}")
+        print(f"[ERROR] Error creating {server_type} MCP client: {e}")
         print(f"Make sure the {server_type.capitalize()} MCP server is running on the appropriate port")
         return None
 
