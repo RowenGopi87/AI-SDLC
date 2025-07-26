@@ -36,7 +36,7 @@ interface GeneratedCode {
 
 export default function DesignPage() {
   const [selectedTab, setSelectedTab] = useState<'figma' | 'work-item'>('figma');
-  const [figmaFile, setFigmaFile] = useState<File | null>(null);
+  const [designImage, setDesignImage] = useState<File | null>(null);
   const [figmaUrl, setFigmaUrl] = useState('');
   const [selectedWorkItem, setSelectedWorkItem] = useState<string>('');
   const [designPrompt, setDesignPrompt] = useState('');
@@ -48,10 +48,28 @@ export default function DesignPage() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Utility function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          // Remove the data:image/jpeg;base64, prefix to get just the base64 data
+          const base64Data = reader.result.split(',')[1];
+          resolve(base64Data);
+        } else {
+          reject(new Error('Failed to convert file to base64'));
+        }
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setFigmaFile(file);
+      setDesignImage(file);
     }
   };
 
@@ -62,13 +80,13 @@ export default function DesignPage() {
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
     const file = event.dataTransfer.files?.[0];
-    if (file && (file.type.startsWith('image/') || file.name.endsWith('.fig'))) {
-      setFigmaFile(file);
+    if (file && file.type.startsWith('image/')) {
+      setDesignImage(file);
     }
   };
 
   const generateCodeFromDesign = async () => {
-    if (!figmaFile && !figmaUrl && !selectedWorkItem && !designPrompt) {
+    if (!designImage && !figmaUrl && !selectedWorkItem && !designPrompt) {
       return;
     }
 
@@ -93,11 +111,17 @@ export default function DesignPage() {
       // Prepare the request payload
       let prompt = '';
       let context = '';
+      let imageData = '';
+      let imageType = '';
       
       if (selectedTab === 'figma') {
-        if (figmaFile) {
-          context = `Design file: ${figmaFile.name}`;
-          prompt = `Generate a modern, responsive web component based on the uploaded design file. ${designPrompt || 'Create a clean, professional implementation with proper styling and interactions.'}`;
+        if (designImage) {
+          context = `Design file: ${designImage.name}`;
+          prompt = `Generate a modern, responsive web component based on the uploaded design image. ${designPrompt || 'Create a clean, professional implementation with proper styling and interactions.'}`;
+          
+          // Convert image to base64
+          imageData = await fileToBase64(designImage);
+          imageType = designImage.type;
         } else if (figmaUrl) {
           context = `Figma URL: ${figmaUrl}`;
           prompt = `Generate a modern, responsive web component based on the Figma design at the provided URL. ${designPrompt || 'Create a clean, professional implementation with proper styling and interactions.'}`;
@@ -126,6 +150,8 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
           framework: 'react',
           includeResponsive: true,
           includeAccessibility: true,
+          imageData: imageData || undefined,
+          imageType: imageType || undefined,
         }),
       });
 
@@ -441,20 +467,20 @@ ${generatedCode.html}`;
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".fig,image/*"
+                      accept="image/*"
                       onChange={handleFileUpload}
                       className="hidden"
                     />
-                    {figmaFile ? (
+                    {designImage ? (
                       <div className="flex items-center justify-center space-x-2">
                         <FileImage className="w-8 h-8 text-green-600" />
-                        <span className="text-sm font-medium">{figmaFile.name}</span>
+                        <span className="text-sm font-medium">{designImage.name}</span>
                       </div>
                     ) : (
                       <div>
                         <FileImage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-sm font-medium">Drop your Figma file here or click to browse</p>
-                        <p className="text-xs text-gray-500 mt-1">Supports .fig files and images</p>
+                        <p className="text-sm font-medium">Drop your design image here or click to browse</p>
+                        <p className="text-xs text-gray-500 mt-1">Supports JPG, PNG, GIF, WebP images</p>
                       </div>
                     )}
                   </div>
@@ -524,7 +550,7 @@ ${generatedCode.html}`;
               
               <Button
                 onClick={generateCodeFromDesign}
-                disabled={isGenerating || (!figmaFile && !figmaUrl && !selectedWorkItem)}
+                disabled={isGenerating || (!designImage && !figmaUrl && !selectedWorkItem)}
                 className="w-full mt-4"
               >
                 {isGenerating ? (
