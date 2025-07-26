@@ -523,45 +523,43 @@ async def generate_design_code(request: DesignCodeGenerationRequest):
 {request.userPrompt}
 """
 
-        # Create agent for LLM call (without MCP tools for this use case)
+        # Create LLM directly (no MCP tools needed for design generation)
         try:
-            from mcp_use import MCPTool, create_agent
-            
-            # For design generation, we use the LLM directly without MCP tools
             if request.llm_provider == "google":
-                agent = create_agent(
-                    llm_provider="google",
+                llm = ChatGoogleGenerativeAI(
                     model=request.model,
-                    tools=[]  # No MCP tools needed for code generation
+                    google_api_key=os.getenv("GOOGLE_API_KEY")
                 )
             else:
-                agent = create_agent(
-                    llm_provider="openai", 
+                llm = ChatOpenAI(
                     model="gpt-4",
-                    tools=[]  # No MCP tools needed for code generation
+                    openai_api_key=os.getenv("OPENAI_API_KEY")
                 )
             
-            print(f"[AGENT] Agent created successfully for {request.llm_provider}")
+            print(f"[LLM] LLM created successfully for {request.llm_provider}")
             
-        except Exception as agent_error:
-            print(f"[ERROR] Failed to create agent: {agent_error}")
+        except Exception as llm_error:
+            print(f"[ERROR] Failed to create LLM: {llm_error}")
             return DesignCodeGenerationResponse(
                 success=False,
-                message="Failed to initialize AI agent",
-                error=str(agent_error)
+                message="Failed to initialize LLM",
+                error=str(llm_error)
             )
         
         # Execute the design generation
         start_time = time.time()
         try:
             print(f"[GENERATE] Starting AI code generation...")
-            result = await agent.run(full_prompt)
+            result = llm.invoke(full_prompt)
             execution_time = time.time() - start_time
             
             print(f"[OK] Code generation completed in {execution_time:.2f}s")
             
+            # Extract the content from the LLM response
+            result_content = result.content if hasattr(result, 'content') else str(result)
+            
             # Parse the result to extract HTML, CSS, JavaScript
-            generated_code = parse_generated_code(result, request.framework)
+            generated_code = parse_generated_code(result_content, request.framework)
             
             return DesignCodeGenerationResponse(
                 success=True,
