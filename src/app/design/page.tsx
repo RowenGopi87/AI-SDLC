@@ -24,7 +24,12 @@ import {
   Copy,
   Check,
   AlertCircle,
-  Loader2
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Monitor,
+  Tablet,
+  Smartphone
 } from 'lucide-react';
 
 interface GeneratedCode {
@@ -33,6 +38,8 @@ interface GeneratedCode {
   javascript: string;
   framework: 'react' | 'vue' | 'vanilla';
 }
+
+type ViewportType = 'desktop' | 'tablet' | 'mobile';
 
 export default function DesignPage() {
   const [selectedTab, setSelectedTab] = useState<'figma' | 'work-item'>('figma');
@@ -45,8 +52,18 @@ export default function DesignPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<'preview' | 'code'>('preview');
+  const [viewportType, setViewportType] = useState<ViewportType>('desktop');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
+
+  // Viewport dimensions
+  const viewportDimensions = {
+    desktop: { width: '100%', height: '600px' },
+    tablet: { width: '768px', height: '600px' },
+    mobile: { width: '375px', height: '600px' }
+  };
 
   // Utility function to convert file to base64
   const fileToBase64 = (file: File): Promise<string> => {
@@ -174,6 +191,9 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
         };
         
         setGeneratedCode(realCode);
+        
+        // Update iframe preview
+        setTimeout(() => updatePreview(realCode), 100);
       } else {
         // Fallback only if API fails
         throw new Error(result.message || 'Failed to generate code');
@@ -189,6 +209,50 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
         setIsGenerating(false);
         setGenerationProgress(0);
       }, 1000);
+    }
+  };
+
+  const updatePreview = (code: GeneratedCode) => {
+    if (!previewRef.current) return;
+    
+    const iframe = previewRef.current;
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    
+    if (iframeDoc) {
+      // If the generated code is a complete HTML document, use it as is
+      if (code.html.includes('<!DOCTYPE html>') || code.html.includes('<html')) {
+        iframeDoc.open();
+        iframeDoc.write(code.html);
+        iframeDoc.close();
+      } else {
+        // If it's just a component, wrap it in a proper HTML structure
+        const wrappedHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #f9fafb;
+      }
+      ${code.css}
+    </style>
+</head>
+<body>
+    ${code.html}
+    ${code.javascript ? `<script>${code.javascript}</script>` : ''}
+</body>
+</html>`;
+        
+        iframeDoc.open();
+        iframeDoc.write(wrappedHtml);
+        iframeDoc.close();
+      }
     }
   };
 
@@ -225,8 +289,12 @@ ${generatedCode.html}`;
     URL.revokeObjectURL(url);
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className={`container mx-auto p-6 space-y-6 ${isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto' : ''}`}>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Design & Prototype</h1>
@@ -240,153 +308,155 @@ ${generatedCode.html}`;
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={`grid gap-6 ${isFullscreen ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
         {/* Input Section */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Upload className="w-5 h-5 mr-2" />
-                Design Input
-              </CardTitle>
-              <CardDescription>
-                Upload a Figma file or select a work item to generate code from
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as any)}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="figma">Figma Design</TabsTrigger>
-                  <TabsTrigger value="work-item">Work Item</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="figma" className="space-y-4">
-                  <div
-                    className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer"
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    {designImage ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <FileImage className="w-8 h-8 text-green-600" />
-                        <span className="text-sm font-medium">{designImage.name}</span>
-                      </div>
-                    ) : (
-                      <div>
-                        <FileImage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-sm font-medium">Drop your design image here or click to browse</p>
-                        <p className="text-xs text-gray-500 mt-1">Supports JPG, PNG, GIF, WebP images</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="text-center text-sm text-gray-500">or</div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Figma URL
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://www.figma.com/file/..."
-                      value={figmaUrl}
-                      onChange={(e) => setFigmaUrl(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="work-item" className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Work Item
-                    </label>
-                    <Select value={selectedWorkItem} onValueChange={setSelectedWorkItem}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a work item to design" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockWorkItems.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{item.title}</span>
-                              <span className="text-xs text-gray-500 truncate">
-                                {item.description.substring(0, 60)}...
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {selectedWorkItem && (
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-blue-900">Selected Work Item</h4>
-                      <p className="text-sm text-blue-700 mt-1">
-                        {mockWorkItems.find(item => item.id === selectedWorkItem)?.description}
-                      </p>
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-              
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Additional Design Requirements (Optional)
-                </label>
-                <Textarea
-                  placeholder="Describe any specific styling, behavior, or requirements for the generated code..."
-                  value={designPrompt}
-                  onChange={(e) => setDesignPrompt(e.target.value)}
-                  className="min-h-[80px]"
-                />
-              </div>
-              
-              <Button
-                onClick={generateCodeFromDesign}
-                disabled={isGenerating || (!designImage && !figmaUrl && !selectedWorkItem)}
-                className="w-full mt-4"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating Code...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Code with AI
-                  </>
-                )}
-              </Button>
-              
-              {isGenerating && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                    <span>Analyzing design and generating code...</span>
-                    <span>{generationProgress}%</span>
-                  </div>
-                  <Progress value={generationProgress} className="h-2" />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Output Section */}
-        <div className="space-y-6">
-          {generatedCode ? (
+        {!isFullscreen && (
+          <div className="space-y-6">
             <Card>
               <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Upload className="w-5 h-5 mr-2" />
+                  Design Input
+                </CardTitle>
+                <CardDescription>
+                  Upload a Figma file or select a work item to generate code from
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as any)}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="figma">Figma Design</TabsTrigger>
+                    <TabsTrigger value="work-item">Work Item</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="figma" className="space-y-4">
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      {designImage ? (
+                        <div className="flex items-center justify-center space-x-2">
+                          <FileImage className="w-8 h-8 text-green-600" />
+                          <span className="text-sm font-medium">{designImage.name}</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <FileImage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-sm font-medium">Drop your design image here or click to browse</p>
+                          <p className="text-xs text-gray-500 mt-1">Supports JPG, PNG, GIF, WebP images</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-center text-sm text-gray-500">or</div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Figma URL
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://www.figma.com/file/..."
+                        value={figmaUrl}
+                        onChange={(e) => setFigmaUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="work-item" className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Work Item
+                      </label>
+                      <Select value={selectedWorkItem} onValueChange={setSelectedWorkItem}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a work item to design" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {mockWorkItems.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{item.title}</span>
+                                <span className="text-xs text-gray-500 truncate">
+                                  {item.description.substring(0, 60)}...
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {selectedWorkItem && (
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h4 className="font-medium text-blue-900">Selected Work Item</h4>
+                        <p className="text-sm text-blue-700 mt-1">
+                          {mockWorkItems.find(item => item.id === selectedWorkItem)?.description}
+                        </p>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+                
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Additional Design Requirements (Optional)
+                  </label>
+                  <Textarea
+                    placeholder="Describe any specific styling, behavior, or requirements for the generated code..."
+                    value={designPrompt}
+                    onChange={(e) => setDesignPrompt(e.target.value)}
+                    className="min-h-[80px]"
+                  />
+                </div>
+                
+                <Button
+                  onClick={generateCodeFromDesign}
+                  disabled={isGenerating || (!designImage && !figmaUrl && !selectedWorkItem)}
+                  className="w-full mt-4"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating Code...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Code with AI
+                    </>
+                  )}
+                </Button>
+                
+                {isGenerating && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                      <span>Analyzing design and generating code...</span>
+                      <span>{generationProgress}%</span>
+                    </div>
+                    <Progress value={generationProgress} className="h-2" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Output Section */}
+        <div className={`space-y-6 ${isFullscreen ? 'h-screen' : ''}`}>
+          {generatedCode ? (
+            <Card className={isFullscreen ? 'h-full flex flex-col' : ''}>
+              <CardHeader className="flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center">
                     <Code2 className="w-5 h-5 mr-2" />
@@ -417,27 +487,81 @@ ${generatedCode.html}`;
                       <Code2 className="w-4 h-4 mr-1" />
                       Code
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleFullscreen}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="w-4 h-4 mr-1" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4 mr-1" />
+                      )}
+                      {isFullscreen ? 'Exit' : 'Fullscreen'}
+                    </Button>
                   </div>
                 </div>
                 <CardDescription>
                   Generated {generatedCode.framework} component ready for implementation
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className={isFullscreen ? 'flex-1 flex flex-col' : ''}>
                 {previewMode === 'preview' ? (
-                  <div className="border rounded-lg p-4 bg-gray-50 min-h-[400px]">
-                    <div className="bg-white rounded shadow-sm p-6">
-                      {/* CSS styles injected directly into the preview */}
-                      <style 
-                        dangerouslySetInnerHTML={{ 
-                          __html: generatedCode.css 
-                        }} 
-                      />
-                      <div 
-                        dangerouslySetInnerHTML={{ 
-                          __html: generatedCode.html.replace(/className=/g, 'class=') 
-                        }} 
-                      />
+                  <div className={`space-y-4 ${isFullscreen ? 'flex-1 flex flex-col' : ''}`}>
+                    {/* Viewport Controls */}
+                    <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-700">Viewport:</span>
+                        <Button
+                          variant={viewportType === 'desktop' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setViewportType('desktop')}
+                        >
+                          <Monitor className="w-4 h-4 mr-1" />
+                          Desktop
+                        </Button>
+                        <Button
+                          variant={viewportType === 'tablet' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setViewportType('tablet')}
+                        >
+                          <Tablet className="w-4 h-4 mr-1" />
+                          Tablet
+                        </Button>
+                        <Button
+                          variant={viewportType === 'mobile' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setViewportType('mobile')}
+                        >
+                          <Smartphone className="w-4 h-4 mr-1" />
+                          Mobile
+                        </Button>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {viewportType === 'desktop' && 'Responsive'}
+                        {viewportType === 'tablet' && '768px'}
+                        {viewportType === 'mobile' && '375px'}
+                      </div>
+                    </div>
+                    
+                    {/* Preview Frame */}
+                    <div className={`border rounded-lg bg-gray-100 p-4 ${isFullscreen ? 'flex-1' : 'min-h-[400px]'} flex justify-center`}>
+                      <div
+                        className="bg-white rounded shadow-lg"
+                        style={{
+                          width: viewportDimensions[viewportType].width,
+                          height: isFullscreen ? '100%' : viewportDimensions[viewportType].height,
+                          maxWidth: '100%',
+                          transition: 'all 0.3s ease'
+                        }}
+                      >
+                        <iframe
+                          ref={previewRef}
+                          className="w-full h-full border-0 rounded"
+                          title="Design Preview"
+                          sandbox="allow-scripts allow-same-origin"
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -526,13 +650,15 @@ ${generatedCode.html}`;
       </div>
 
       {/* Help Section */}
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Pro Tips:</strong> For best results, provide clear design files and specific requirements. 
-          The generated code includes responsive design, accessibility features, and modern React patterns.
-        </AlertDescription>
-      </Alert>
+      {!isFullscreen && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Pro Tips:</strong> For best results, provide clear design files and specific requirements. 
+            The generated code includes responsive design, accessibility features, and modern React patterns.
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 } 
