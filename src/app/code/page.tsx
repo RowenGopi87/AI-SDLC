@@ -298,11 +298,31 @@ Make sure the code is well-structured, follows best practices, and includes prop
       setGenerationProgress(100);
       
       if (result.success && result.data) {
+        console.log('[CODE] ✅ Generation successful, setting generated code:', {
+          language: result.data.language,
+          fileCount: result.data.files?.length,
+          firstFileName: result.data.files?.[0]?.filename,
+          selectedLanguage: selectedLanguage,
+          codeType: codeType
+        });
+        
         setGeneratedCode(result.data);
         setSelectedFile(result.data.files?.[0]?.filename || '');
         
-        // Update preview if frontend code
-        if (codeType === 'frontend' || codeType === 'fullstack') {
+        // Update preview if frontend code OR if it's single HTML
+        const shouldUpdatePreview = (
+          (codeType === 'frontend' || codeType === 'fullstack') ||
+          (selectedLanguage === 'html-single')
+        );
+        
+        console.log('[CODE] Preview check:', {
+          codeType,
+          selectedLanguage,
+          shouldUpdatePreview
+        });
+        
+        if (shouldUpdatePreview) {
+          console.log('[CODE] 🎯 Triggering preview update...');
           setTimeout(() => updatePreview(result.data), 100);
         }
       } else {
@@ -589,8 +609,11 @@ body {
   const updatePreview = (code: GeneratedCode) => {
     console.log('[PREVIEW] updatePreview called with:', {
       codeType,
+      selectedLanguage,
       hasIframe: !!previewRef.current,
-      fileCount: code?.files?.length
+      fileCount: code?.files?.length,
+      codeLanguage: code?.language,
+      files: code?.files?.map(f => ({ name: f.filename, type: f.type, lang: f.language }))
     });
     
     if (!previewRef.current) {
@@ -598,8 +621,15 @@ body {
       return;
     }
     
-    if (codeType !== 'frontend' && codeType !== 'fullstack') {
-      console.log('[PREVIEW] ❌ Not a frontend project, skipping preview');
+    // Allow preview for single HTML files even if codeType is backend
+    const isPreviewable = (
+      codeType === 'frontend' ||
+      codeType === 'fullstack' ||
+      selectedLanguage === 'html-single'
+    );
+    
+    if (!isPreviewable) {
+      console.log('[PREVIEW] ❌ Not a previewable project type, showing backend message');
       // For backend projects, show a message
       const iframe = previewRef.current;
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -660,7 +690,12 @@ body {
         return;
       }
       
-      const htmlFile = code.files.find(f => f.filename.endsWith('.tsx') || f.filename.endsWith('.jsx') || f.filename.endsWith('.html'));
+      const htmlFile = code.files.find(f => 
+        f.filename.endsWith('.tsx') || 
+        f.filename.endsWith('.jsx') || 
+        f.filename.endsWith('.html') ||
+        (selectedLanguage === 'html-single' && f.type === 'main')
+      );
       const cssFile = code.files.find(f => f.filename.endsWith('.css'));
       
       console.log('[PREVIEW] Found files:', { 
@@ -671,8 +706,25 @@ body {
       });
       
       // For single HTML files, use the content directly
-      if (code.language === 'html' && htmlFile?.filename === 'index.html') {
+      // Check multiple conditions to ensure we catch the single HTML file
+      const isSingleHTMLFile = (
+        (code.language === 'html' || selectedLanguage === 'html-single') && 
+        htmlFile?.filename === 'index.html'
+      ) || (
+        selectedLanguage === 'html-single' && htmlFile
+      );
+      
+      console.log('[PREVIEW] Single HTML check:', {
+        codeLanguage: code.language,
+        selectedLanguage: selectedLanguage,
+        htmlFileName: htmlFile?.filename,
+        isSingleHTMLFile,
+        htmlFileContent: htmlFile?.content ? 'Present' : 'Missing'
+      });
+      
+      if (isSingleHTMLFile) {
         console.log('[PREVIEW] Using single HTML file content directly');
+        console.log('[PREVIEW] HTML content preview:', htmlFile?.content?.substring(0, 200) + '...');
         try {
           iframeDoc.open();
           iframeDoc.write(htmlFile.content);
