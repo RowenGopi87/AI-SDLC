@@ -104,6 +104,20 @@ class CodeGenerationResponse(BaseModel):
     message: str
     error: Optional[str] = None
 
+class CodeReviewRequest(BaseModel):
+    systemPrompt: str
+    userPrompt: str
+    codeType: str
+    language: str
+    llm_provider: str = "google"
+    model: str = "gemini-2.5-pro"
+
+class CodeReviewResponse(BaseModel):
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    message: str
+    error: Optional[str] = None
+
 async def create_mcp_client(server_type: str = "playwright"):
     """Create a new MCP client for the specified server type"""
     try:
@@ -680,6 +694,85 @@ async def generate_code(request: CodeGenerationRequest):
         return CodeGenerationResponse(
             success=False,
             message="Code generation failed",
+            error=error_msg
+        )
+
+@app.post("/review-code", response_model=CodeReviewResponse)
+async def review_code(request: CodeReviewRequest):
+    try:
+        print(f"[REVIEW] Starting code review")
+        print(f"[LLM] Using {request.llm_provider} model: {request.model}")
+        print(f"[LANGUAGE] Target language: {request.language}")
+        print(f"[CODE_TYPE] Code type: {request.codeType}")
+        
+        # Create LLM directly (no MCP tools needed for code review)
+        try:
+            if request.llm_provider == "google":
+                llm = ChatGoogleGenerativeAI(
+                    model=request.model,
+                    google_api_key=os.getenv("GOOGLE_API_KEY")
+                )
+            else:
+                llm = ChatOpenAI(
+                    model="gpt-4",
+                    openai_api_key=os.getenv("OPENAI_API_KEY")
+                )
+            
+            print(f"[LLM] LLM created successfully for {request.llm_provider}")
+            
+        except Exception as llm_error:
+            print(f"[ERROR] Failed to create LLM: {llm_error}")
+            return CodeReviewResponse(
+                success=False,
+                message="Failed to initialize LLM",
+                error=str(llm_error)
+            )
+
+        # Combine system and user prompts
+        full_prompt = f"""
+{request.systemPrompt}
+
+{request.userPrompt}
+"""
+
+        # Execute the code review
+        start_time = time.time()
+        try:
+            print(f"[REVIEW] Starting AI code review...")
+            result = llm.invoke(full_prompt)
+            execution_time = time.time() - start_time
+            
+            print(f"[OK] Code review completed in {execution_time:.2f}s")
+            
+            # Extract the content from the LLM response
+            result_content = result.content if hasattr(result, 'content') else str(result)
+            
+            # Parse the result to extract review data
+            review_data = parse_code_review_response(result_content, request.codeType, request.language)
+            
+            return CodeReviewResponse(
+                success=True,
+                data=review_data,
+                message=f"Code review completed successfully in {execution_time:.2f}s"
+            )
+            
+        except Exception as review_error:
+            print(f"[ERROR] Code review failed: {review_error}")
+            execution_time = time.time() - start_time
+            
+            return CodeReviewResponse(
+                success=False,
+                message=f"Code review failed after {execution_time:.2f}s",
+                error=str(review_error)
+            )
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[ERROR] Code review error: {error_msg}")
+        
+        return CodeReviewResponse(
+            success=False,
+            message="Code review failed",
             error=error_msg
         )
 

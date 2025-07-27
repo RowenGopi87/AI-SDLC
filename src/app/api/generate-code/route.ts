@@ -10,6 +10,8 @@ const GenerateCodeSchema = z.object({
   framework: z.string(),
   designReference: z.string().optional(),
   additionalRequirements: z.string().optional(),
+  imageData: z.string().optional(),
+  imageType: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
