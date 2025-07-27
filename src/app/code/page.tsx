@@ -12,9 +12,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { mockWorkItems } from '@/lib/mock-data';
 import {
-  Code2,
+  BrainCircuit,
   GitBranch,
   Play,
+  Code2,
   Download,
   Copy,
   Check,
@@ -40,6 +41,7 @@ import {
   MessageSquare,
   RefreshCw
 } from 'lucide-react';
+import { Code } from 'lucide-react';
 
 interface GeneratedCode {
   language: string;
@@ -197,6 +199,14 @@ export default function CodePage() {
     });
   };
 
+  // Effect to update preview when generated code changes
+  useEffect(() => {
+    if (generatedCode && previewRef.current && (codeType === 'frontend' || codeType === 'fullstack' || selectedLanguage === 'html-single')) {
+      console.log('[EFFECT] Generated code changed, triggering preview update.');
+      updatePreview(generatedCode);
+    }
+  }, [generatedCode, previewRef.current]);
+  
   const generateCode = async () => {
     if (!selectedWorkItem) {
       return;
@@ -359,9 +369,6 @@ Make sure the code is well-structured, follows best practices, and includes prop
         
         setGeneratedCode(mockGeneratedCode);
         setSelectedFile('index.html');
-        
-        // Update preview for single HTML file
-        setTimeout(() => updatePreview(mockGeneratedCode), 100);
         return;
       }
       
@@ -2005,52 +2012,33 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
         <div className={`space-y-6 ${isFullscreen ? 'h-screen' : ''}`}>
           {generatedCode ? (
             <Card className={isFullscreen ? 'h-full flex flex-col' : ''}>
-              <CardHeader className="flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center">
-                    <FileCode2 className="w-5 h-5 mr-2" />
-                    Generated Code
-                  </CardTitle>
-                  <div className="flex items-center space-x-2">
+              <CardHeader>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex-grow">
+                    <CardTitle className="flex items-center">
+                      <FileCode2 className="w-5 h-5 mr-2" />
+                      Generated Code
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {generatedCode.language} {generatedCode.codeType} code ready for implementation
+                    </CardDescription>
+                  </div>
+                  
+                  <div className="flex items-center justify-end flex-wrap gap-2 flex-shrink-0">
                     <Button
-                      variant="outline"
+                      variant={previewMode === 'preview' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={downloadCode}
+                      onClick={() => setPreviewMode('preview')}
                     >
-                      <Download className="w-4 h-4 mr-1" />
-                      Download
+                      <Eye className="w-4 h-4 mr-1" />
+                      Preview
                     </Button>
-                    {generatedCode && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={reviewCodeWithAI}
-                        disabled={isReviewing}
-                      >
-                        {isReviewing ? (
-                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        ) : (
-                          <Eye className="w-4 h-4 mr-1" />
-                        )}
-                        Review with AI
-                      </Button>
-                    )}
-                    {(codeType === 'frontend' || codeType === 'fullstack') && (
-                      <Button
-                        variant={previewMode === 'preview' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setPreviewMode('preview')}
-                      >
-                        <Monitor className="w-4 h-4 mr-1" />
-                        Preview
-                      </Button>
-                    )}
                     <Button
                       variant={previewMode === 'code' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setPreviewMode('code')}
                     >
-                      <Code2 className="w-4 h-4 mr-1" />
+                      <Code className="w-4 h-4 mr-1" />
                       Code
                     </Button>
                     <Button
@@ -2075,9 +2063,6 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                     </Button>
                   </div>
                 </div>
-                <CardDescription>
-                  Generated {generatedCode.language} {generatedCode.codeType} code ready for implementation
-                </CardDescription>
               </CardHeader>
               <CardContent className={isFullscreen ? 'flex-1 flex flex-col' : ''}>
                 {previewMode === 'preview' && (codeType === 'frontend' || codeType === 'fullstack') ? (
@@ -2133,7 +2118,7 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                           ref={previewRef}
                           className="w-full h-full border-0 rounded"
                           title="Code Preview"
-                          sandbox="allow-scripts allow-same-origin"
+                          sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation"
                         />
                       </div>
                     </div>
