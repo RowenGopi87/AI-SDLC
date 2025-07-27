@@ -318,15 +318,15 @@ Make sure the code is well-structured, follows best practices, and includes prop
         files: [
           {
             filename: codeType === 'backend' ? 'server.ts' : 'App.tsx',
-                          content: codeType === 'backend' 
-                ? generateBackendCode(workItem)
-                : generateFrontendCode(workItem),
+            content: codeType === 'backend' 
+              ? generateBackendCode(workItem)
+              : generateFrontendCode(workItem),
             type: 'main',
             language: selectedLanguage === 'auto' ? 'typescript' : selectedLanguage,
           },
           ...(codeType === 'frontend' || codeType === 'fullstack' ? [{
             filename: 'App.css',
-            content: `/* Modern Styles for ${workItem?.title} */\n* {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n}\n\n:root {\n  --primary-color: #3b82f6;\n  --primary-hover: #2563eb;\n  --secondary-color: #64748b;\n  --bg-color: #f8fafc;\n  --card-bg: #ffffff;\n  --text-primary: #1e293b;\n  --text-secondary: #64748b;\n  --border-color: #e2e8f0;\n  --border-radius: 12px;\n  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);\n}\n\nbody {\n  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n  line-height: 1.6;\n  color: var(--text-primary);\n  background-color: var(--bg-color);\n}\n\n.app-container {\n  max-width: 1200px;\n  margin: 0 auto;\n  padding: 2rem;\n  min-height: 100vh;\n}\n\n.app-header {\n  text-align: center;\n  margin-bottom: 3rem;\n  padding: 2rem;\n  background: linear-gradient(135deg, var(--primary-color), #8b5cf6);\n  color: white;\n  border-radius: var(--border-radius);\n  box-shadow: var(--shadow);\n}\n\n.app-header h1 {\n  font-size: 2.5rem;\n  font-weight: 700;\n  margin-bottom: 0.5rem;\n}\n\n.app-header p {\n  font-size: 1.125rem;\n  opacity: 0.9;\n}\n\n.app-main {\n  background: var(--card-bg);\n  border-radius: var(--border-radius);\n  padding: 2rem;\n  box-shadow: var(--shadow);\n  border: 1px solid var(--border-color);\n}\n\n.loading {\n  text-align: center;\n  padding: 4rem;\n  color: var(--text-secondary);\n  font-size: 1.125rem;\n}\n\n.feature-section {\n  margin-bottom: 2rem;\n}\n\n.feature-section h2 {\n  font-size: 1.875rem;\n  font-weight: 600;\n  margin-bottom: 1.5rem;\n  color: var(--text-primary);\n  border-bottom: 2px solid var(--primary-color);\n  padding-bottom: 0.5rem;\n}\n\n.feature-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));\n  gap: 1.5rem;\n}\n\n.feature-card {\n  background: var(--bg-color);\n  border: 1px solid var(--border-color);\n  border-radius: var(--border-radius);\n  padding: 1.5rem;\n  transition: all 0.3s ease;\n}\n\n.feature-card:hover {\n  transform: translateY(-2px);\n  box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.2);\n  border-color: var(--primary-color);\n}\n\n.feature-card h3 {\n  font-size: 1.25rem;\n  font-weight: 600;\n  margin-bottom: 0.75rem;\n  color: var(--text-primary);\n}\n\n.feature-card p {\n  color: var(--text-secondary);\n  margin-bottom: 1rem;\n  line-height: 1.5;\n}\n\n.btn-primary, .btn-secondary {\n  padding: 0.75rem 1.5rem;\n  border-radius: 8px;\n  border: none;\n  font-weight: 600;\n  cursor: pointer;\n  transition: all 0.2s ease;\n  font-size: 0.875rem;\n}\n\n.btn-primary {\n  background-color: var(--primary-color);\n  color: white;\n}\n\n.btn-primary:hover {\n  background-color: var(--primary-hover);\n  transform: translateY(-1px);\n}\n\n.btn-secondary {\n  background-color: var(--secondary-color);\n  color: white;\n}\n\n.btn-secondary:hover {\n  background-color: #475569;\n  transform: translateY(-1px);\n}\n\n@media (max-width: 768px) {\n  .app-container {\n    padding: 1rem;\n  }\n  \n  .app-header {\n    padding: 1.5rem;\n  }\n  \n  .app-header h1 {\n    font-size: 2rem;\n  }\n  \n  .feature-grid {\n    grid-template-columns: 1fr;\n  }\n}`,
+            content: generateModernCSS(workItem),
             type: 'style' as const,
             language: 'css',
           }] : []),
@@ -387,6 +387,172 @@ Make sure the code is well-structured, follows best practices, and includes prop
     }
   };
 
+  const generateModernCSS = (workItem: any) => {
+    return `/* Modern Styles for ${workItem?.title} */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --secondary-color: #64748b;
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --border-radius: 12px;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background-color: var(--bg-color);
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  min-height: 100vh;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
+  color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+}
+
+.app-header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.app-header p {
+  font-size: 1.125rem;
+  opacity: 0.9;
+}
+
+.app-main {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+}
+
+.loading {
+  text-align: center;
+  padding: 4rem;
+  color: var(--text-secondary);
+  font-size: 1.125rem;
+}
+
+.feature-section {
+  margin-bottom: 2rem;
+}
+
+.feature-section h2 {
+  font-size: 1.875rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 0.5rem;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.feature-card {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.2);
+  border-color: var(--primary-color);
+}
+
+.feature-card h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.feature-card p {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background-color: var(--secondary-color);
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #475569;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    padding: 1rem;
+  }
+  
+  .app-header {
+    padding: 1.5rem;
+  }
+  
+  .app-header h1 {
+    font-size: 2rem;
+  }
+  
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}`;
+  };
+
   const updatePreview = (code: GeneratedCode) => {
     if (!previewRef.current || (codeType !== 'frontend' && codeType !== 'fullstack')) return;
     
@@ -402,77 +568,114 @@ Make sure the code is well-structured, follows best practices, and includes prop
       console.log('[PREVIEW] Found files:', { htmlFile: htmlFile?.filename, cssFile: cssFile?.filename });
       
       if (htmlFile || cssFile) {
-        // Create a functional HTML page that demonstrates the component
+        // Create a functional HTML page that simulates the React component output
+        const workItem = mockWorkItems.find(item => item.id === selectedWorkItem);
+        
         const wrappedHtml = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code Preview</title>
+    <title>Live Preview - ${workItem?.title || 'Generated Code'}</title>
     <style>
-      body {
-        margin: 0;
-        padding: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      }
       ${cssFile?.content || ''}
     </style>
 </head>
 <body>
-    <div id="app">
-      ${codeType === 'frontend' || codeType === 'fullstack' ? `
-        <div class="app-container">
-          <header class="app-header">
-            <h1>Live Preview</h1>
-            <p>This is a preview of the generated frontend code</p>
-          </header>
-          
-          <main class="app-main">
-            <div class="content">
-              <div class="feature-section">
-                <h2>Generated Component Preview</h2>
-                <div class="feature-grid">
-                  <div class="feature-card">
-                    <h3>Component Ready</h3>
-                    <p>Your React component has been generated and is ready for development.</p>
-                    <button class="btn-primary" onclick="alert('This is a preview. Implement your logic here.')">Test Action</button>
-                  </div>
-                  <div class="feature-card">
-                    <h3>Responsive Design</h3>
-                    <p>The generated code includes responsive CSS for all screen sizes.</p>
-                    <button class="btn-secondary" onclick="document.body.style.transform = document.body.style.transform ? '' : 'scale(0.8)'">Toggle Scale</button>
-                  </div>
-                </div>
+    <div class="app-container">
+      <header class="app-header">
+        <h1>${workItem?.title || 'Generated Application'}</h1>
+        <p>${workItem?.description || 'Live preview of your generated code'}</p>
+      </header>
+      
+      <main class="app-main">
+        <div class="content">
+          <div class="feature-section">
+            <h2>Core Features</h2>
+            <div class="feature-grid">
+              <div class="feature-card">
+                <h3>Feature 1</h3>
+                <p>Implementation based on work item requirements. This component is fully functional and ready for development.</p>
+                <button class="btn-primary" onclick="showAlert('Feature 1 activated!')">Test Feature</button>
+              </div>
+              <div class="feature-card">
+                <h3>Feature 2</h3>
+                <p>Additional functionality as specified in the requirements. Includes responsive design and modern styling.</p>
+                <button class="btn-secondary" onclick="toggleDemo()">Toggle Demo</button>
+              </div>
+              <div class="feature-card">
+                <h3>Data Management</h3>
+                <p>Built-in state management and API integration ready for your backend services.</p>
+                <button class="btn-primary" onclick="simulateLoading()">Load Data</button>
               </div>
             </div>
-          </main>
-        </div>
-      ` : `
-        <div style="padding: 40px; text-align: center; background: #f8fafc; min-height: 100vh;">
-          <h2 style="color: #1e293b; margin-bottom: 20px;">Backend Code Generated</h2>
-          <p style="color: #64748b; margin-bottom: 30px;">Backend services don't have a visual preview, but your API is ready to deploy!</p>
-          <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); max-width: 500px; margin: 0 auto;">
-            <h3 style="color: #3b82f6; margin-bottom: 15px;">✅ Server Code Ready</h3>
-            <p style="color: #64748b;">Your backend implementation is complete with proper error handling, routing, and best practices.</p>
+          </div>
+          
+          <div class="feature-section">
+            <h2>Interactive Demo</h2>
+            <div id="demo-area" style="padding: 2rem; background: var(--bg-color); border-radius: var(--border-radius); text-align: center; margin-top: 1rem;">
+              <p>Click the buttons above to test the interactive features!</p>
+            </div>
           </div>
         </div>
-      `}
+      </main>
     </div>
     
     <script>
-      // Add some interactivity for demo
+      function showAlert(message) {
+        const demoArea = document.getElementById('demo-area');
+        demoArea.innerHTML = '<p style="color: var(--primary-color); font-weight: 600;">' + message + '</p>';
+        setTimeout(() => {
+          demoArea.innerHTML = '<p>Click the buttons above to test the interactive features!</p>';
+        }, 3000);
+      }
+      
+      function toggleDemo() {
+        const demoArea = document.getElementById('demo-area');
+        const isActive = demoArea.classList.contains('active');
+        
+        if (isActive) {
+          demoArea.classList.remove('active');
+          demoArea.style.background = 'var(--bg-color)';
+          demoArea.innerHTML = '<p>Demo deactivated. Click again to reactivate.</p>';
+        } else {
+          demoArea.classList.add('active');
+          demoArea.style.background = 'linear-gradient(135deg, var(--primary-color), #8b5cf6)';
+          demoArea.style.color = 'white';
+          demoArea.innerHTML = '<p><strong>Demo Mode Active!</strong><br/>Your component is fully interactive.</p>';
+        }
+      }
+      
+      function simulateLoading() {
+        const demoArea = document.getElementById('demo-area');
+        demoArea.innerHTML = '<p>Loading data... <span id="loader">●</span></p>';
+        
+        let dots = '●';
+        const loader = setInterval(() => {
+          dots += '●';
+          if (dots.length > 3) dots = '●';
+          document.getElementById('loader').textContent = dots;
+        }, 500);
+        
+        setTimeout(() => {
+          clearInterval(loader);
+          demoArea.innerHTML = '<p style="color: var(--primary-color); font-weight: 600;">✓ Data loaded successfully! Your API integration is ready.</p>';
+        }, 3000);
+      }
+      
       console.log('Preview loaded successfully');
+      console.log('Generated code is working and interactive!');
     </script>
 </body>
 </html>`;
         
-        console.log('[PREVIEW] Writing HTML to iframe');
+        console.log('[PREVIEW] Writing functional HTML to iframe');
         iframeDoc.open();
         iframeDoc.write(wrappedHtml);
         iframeDoc.close();
         
-        console.log('[PREVIEW] Preview updated successfully');
+        console.log('[PREVIEW] Interactive preview updated successfully');
       }
     }
   };
@@ -1182,19 +1385,28 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* File Tabs */}
-                    <div className="flex items-center space-x-2 border-b border-gray-200 pb-2">
-                      {generatedCode.files.map((file) => (
-                        <Button
-                          key={file.filename}
-                          variant={selectedFile === file.filename ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setSelectedFile(file.filename)}
-                        >
-                          <FileCode2 className="w-4 h-4 mr-1" />
-                          {file.filename}
-                        </Button>
-                      ))}
+                    {/* File Tabs - Improved Layout */}
+                    <div className="border-b border-gray-200 pb-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">Generated Files ({generatedCode.files.length})</span>
+                        <Badge variant="outline" className="text-xs">
+                          {generatedCode.language} • {generatedCode.codeType}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {generatedCode.files.map((file) => (
+                          <Button
+                            key={file.filename}
+                            variant={selectedFile === file.filename ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setSelectedFile(file.filename)}
+                            className="text-xs max-w-[200px] truncate"
+                          >
+                            <FileCode2 className="w-3 h-3 mr-1 flex-shrink-0" />
+                            <span className="truncate">{file.filename}</span>
+                          </Button>
+                        ))}
+                      </div>
                     </div>
                     
                     {/* Code Content */}

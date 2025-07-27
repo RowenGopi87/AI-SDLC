@@ -905,16 +905,47 @@ def create_fallback_code_structure(content: str, code_type: str, language: str) 
             'content': content
         })
     
-    # Create files from code blocks
+    # Create essential files only (limit to 3 files max)
     files = []
-    for i, block in enumerate(code_blocks):
-        filename = determine_filename(block['language'], code_type, i)
-        files.append({
-            'filename': filename,
-            'content': block['content'],
-            'type': 'main' if i == 0 else 'component',
-            'language': block['language']
-        })
+    
+    # Main file
+    main_filename = determine_filename(actual_language, code_type, 0)
+    main_content = code_blocks[0]['content'] if code_blocks else content
+    files.append({
+        'filename': main_filename,
+        'content': main_content,
+        'type': 'main',
+        'language': actual_language
+    })
+    
+    # Add CSS file for frontend projects
+    if code_type in ['frontend', 'fullstack']:
+        css_block = next((block for block in code_blocks if block['language'] == 'css'), None)
+        if css_block:
+            files.append({
+                'filename': 'App.css',
+                'content': css_block['content'],
+                'type': 'style',
+                'language': 'css'
+            })
+        else:
+            # Generate basic CSS if not provided
+            files.append({
+                'filename': 'App.css',
+                'content': generate_basic_css(),
+                'type': 'style',
+                'language': 'css'
+            })
+    
+    # Add package.json/requirements.txt
+    config_filename = 'requirements.txt' if actual_language == 'python' else 'package.json'
+    config_content = generate_basic_config(code_type, actual_language)
+    files.append({
+        'filename': config_filename,
+        'content': config_content,
+        'type': 'config',
+        'language': 'text' if actual_language == 'python' else 'json'
+    })
     
     return {
         'language': actual_language,
@@ -924,6 +955,99 @@ def create_fallback_code_structure(content: str, code_type: str, language: str) 
         'dependencies': generate_dependencies(code_type, actual_language),
         'runInstructions': generate_run_instructions(code_type, actual_language)
     }
+
+def generate_basic_css() -> str:
+    """Generate basic CSS styles"""
+    return '''/* Basic Application Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f5f5f5;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border-radius: 12px;
+}
+
+.app-main {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #3b82f6;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background-color: #2563eb;
+}'''
+
+def generate_basic_config(code_type: str, language: str) -> str:
+    """Generate basic configuration file"""
+    if language == 'python':
+        if code_type == 'backend':
+            return '''fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6'''
+        else:
+            return '''streamlit==1.28.0
+requests==2.31.0'''
+    else:
+        import json
+        config = {
+            "name": "generated-app",
+            "version": "1.0.0",
+            "description": f"Generated {code_type} application"
+        }
+        
+        if code_type == 'backend':
+            config["scripts"] = {
+                "start": "node server.js",
+                "dev": "node server.js"
+            }
+            config["dependencies"] = {
+                "express": "^4.18.2",
+                "cors": "^2.8.5"
+            }
+        else:
+            config["scripts"] = {
+                "start": "react-scripts start",
+                "build": "react-scripts build"
+            }
+            config["dependencies"] = {
+                "react": "^18.2.0",
+                "react-dom": "^18.2.0"
+            }
+        
+        return json.dumps(config, indent=2)
 
 def determine_filename(language: str, code_type: str, index: int) -> str:
     """
