@@ -33,6 +33,7 @@ import {
   Link as LinkIcon,
   TrendingUp,
   Palette,
+  Code2,
 } from 'lucide-react';
 
 // Global state for selected item traceability
@@ -75,6 +76,7 @@ export function Sidebar() {
       'defects': Bug,
       'traceability': GitBranch,
       'dashboard': BarChart3,
+      'code': Code2,
     };
     return icons[moduleId as keyof typeof icons] || Home;
   };

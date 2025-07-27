@@ -8,6 +8,7 @@ export const MODULES = [
   { id: "use-cases", name: "Idea", path: "/use-cases" },
   { id: "requirements", name: "Work Items", path: "/requirements" },
   { id: "design", name: "Design", path: "/design" },
+  { id: "code", name: "Code", path: "/code" },
   // { id: "decomposition", name: "Decomposition", path: "/decomposition" }, // Disabled
   { id: "test-cases", name: "Test Cases", path: "/test-cases" },
   { id: "execution", name: "Execution", path: "/execution" },

@@ -88,6 +88,22 @@ class DesignCodeGenerationResponse(BaseModel):
     message: str
     error: Optional[str] = None
 
+class CodeGenerationRequest(BaseModel):
+    systemPrompt: str
+    userPrompt: str
+    codeType: str
+    language: str
+    framework: str
+    workItemId: str
+    llm_provider: str = "google"
+    model: str = "gemini-2.5-pro"
+
+class CodeGenerationResponse(BaseModel):
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    message: str
+    error: Optional[str] = None
+
 async def create_mcp_client(server_type: str = "playwright"):
     """Create a new MCP client for the specified server type"""
     try:
@@ -587,6 +603,86 @@ async def generate_design_code(request: DesignCodeGenerationRequest):
             error=error_msg
         )
 
+@app.post("/generate-code", response_model=CodeGenerationResponse)
+async def generate_code(request: CodeGenerationRequest):
+    try:
+        print(f"[CODE] Generating {request.codeType} code")
+        print(f"[LLM] Using {request.llm_provider} model: {request.model}")
+        print(f"[LANGUAGE] Target language: {request.language}")
+        print(f"[FRAMEWORK] Target framework: {request.framework}")
+        print(f"[WORK_ITEM] Work item ID: {request.workItemId}")
+        
+        # Create LLM directly (no MCP tools needed for code generation)
+        try:
+            if request.llm_provider == "google":
+                llm = ChatGoogleGenerativeAI(
+                    model=request.model,
+                    google_api_key=os.getenv("GOOGLE_API_KEY")
+                )
+            else:
+                llm = ChatOpenAI(
+                    model="gpt-4",
+                    openai_api_key=os.getenv("OPENAI_API_KEY")
+                )
+            
+            print(f"[LLM] LLM created successfully for {request.llm_provider}")
+            
+        except Exception as llm_error:
+            print(f"[ERROR] Failed to create LLM: {llm_error}")
+            return CodeGenerationResponse(
+                success=False,
+                message="Failed to initialize LLM",
+                error=str(llm_error)
+            )
+
+        # Combine system and user prompts
+        full_prompt = f"""
+{request.systemPrompt}
+
+{request.userPrompt}
+"""
+
+        # Execute the code generation
+        start_time = time.time()
+        try:
+            print(f"[GENERATE] Starting AI code generation...")
+            result = llm.invoke(full_prompt)
+            execution_time = time.time() - start_time
+            
+            print(f"[OK] Code generation completed in {execution_time:.2f}s")
+            
+            # Extract the content from the LLM response
+            result_content = result.content if hasattr(result, 'content') else str(result)
+            
+            # Parse the result to extract code files and structure
+            generated_code = parse_generated_code_response(result_content, request.codeType, request.language)
+            
+            return CodeGenerationResponse(
+                success=True,
+                data=generated_code,
+                message=f"Code generated successfully in {execution_time:.2f}s"
+            )
+            
+        except Exception as generation_error:
+            print(f"[ERROR] Code generation failed: {generation_error}")
+            execution_time = time.time() - start_time
+            
+            return CodeGenerationResponse(
+                success=False,
+                message=f"Code generation failed after {execution_time:.2f}s",
+                error=str(generation_error)
+            )
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[ERROR] Code generation error: {error_msg}")
+        
+        return CodeGenerationResponse(
+            success=False,
+            message="Code generation failed",
+            error=error_msg
+        )
+
 def parse_generated_code(llm_result: str, framework: str) -> Dict[str, Any]:
     """
     Parse the LLM result to extract HTML, CSS, and JavaScript code
@@ -642,6 +738,194 @@ def parse_generated_code(llm_result: str, framework: str) -> Dict[str, Any]:
             "framework": framework,
             "generatedAt": datetime.now().isoformat()
         }
+
+def parse_generated_code_response(llm_result: str, code_type: str, language: str) -> Dict[str, Any]:
+    """
+    Parse the LLM result to extract code files, project structure, and dependencies
+    """
+    try:
+        import json
+        
+        result_str = str(llm_result)
+        
+        # Try to extract JSON from the response
+        json_start = result_str.find('{')
+        json_end = result_str.rfind('}') + 1
+        
+        if json_start != -1 and json_end > json_start:
+            try:
+                json_content = result_str[json_start:json_end]
+                parsed_response = json.loads(json_content)
+                
+                # Validate the structure
+                if all(key in parsed_response for key in ['language', 'codeType', 'files']):
+                    return parsed_response
+            except json.JSONDecodeError:
+                pass
+        
+        # Fallback: create a structured response from the raw content
+        return create_fallback_code_structure(result_str, code_type, language)
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to parse code response: {e}")
+        return create_fallback_code_structure(llm_result, code_type, language)
+
+def create_fallback_code_structure(content: str, code_type: str, language: str) -> Dict[str, Any]:
+    """
+    Create a fallback code structure when JSON parsing fails
+    """
+    actual_language = language if language != 'auto' else 'typescript'
+    
+    # Extract code blocks if present
+    code_blocks = []
+    lines = content.split('\n')
+    current_block = None
+    current_content = []
+    
+    for line in lines:
+        if line.strip().startswith('```'):
+            if current_block is not None:
+                # End of current block
+                code_blocks.append({
+                    'language': current_block,
+                    'content': '\n'.join(current_content)
+                })
+                current_block = None
+                current_content = []
+            else:
+                # Start of new block
+                current_block = line.replace('```', '').strip() or actual_language
+        elif current_block is not None:
+            current_content.append(line)
+    
+    # Handle final block if not closed
+    if current_block is not None and current_content:
+        code_blocks.append({
+            'language': current_block,
+            'content': '\n'.join(current_content)
+        })
+    
+    # If no code blocks found, treat entire content as code
+    if not code_blocks:
+        code_blocks.append({
+            'language': actual_language,
+            'content': content
+        })
+    
+    # Create files from code blocks
+    files = []
+    for i, block in enumerate(code_blocks):
+        filename = determine_filename(block['language'], code_type, i)
+        files.append({
+            'filename': filename,
+            'content': block['content'],
+            'type': 'main' if i == 0 else 'component',
+            'language': block['language']
+        })
+    
+    return {
+        'language': actual_language,
+        'codeType': code_type,
+        'files': files,
+        'projectStructure': generate_project_structure(code_type, actual_language),
+        'dependencies': generate_dependencies(code_type, actual_language),
+        'runInstructions': generate_run_instructions(code_type, actual_language)
+    }
+
+def determine_filename(language: str, code_type: str, index: int) -> str:
+    """
+    Determine appropriate filename based on language and code type
+    """
+    if code_type == 'backend':
+        if language == 'python':
+            return 'main.py' if index == 0 else f'module_{index}.py'
+        elif language in ['javascript', 'typescript']:
+            return 'server.ts' if index == 0 else f'module_{index}.ts'
+        elif language == 'java':
+            return 'Application.java' if index == 0 else f'Service_{index}.java'
+        elif language == 'csharp':
+            return 'Program.cs' if index == 0 else f'Service_{index}.cs'
+    else:  # frontend
+        if language in ['javascript', 'typescript']:
+            return 'App.tsx' if index == 0 else f'Component_{index}.tsx'
+        elif language == 'python':
+            return 'app.py' if index == 0 else f'component_{index}.py'
+    
+    return f'code_{index}.{get_file_extension(language)}'
+
+def get_file_extension(language: str) -> str:
+    """
+    Get file extension for a given language
+    """
+    extensions = {
+        'javascript': 'js',
+        'typescript': 'ts',
+        'python': 'py',
+        'java': 'java',
+        'csharp': 'cs',
+        'go': 'go',
+        'rust': 'rs',
+        'php': 'php',
+        'css': 'css',
+        'html': 'html',
+        'json': 'json'
+    }
+    return extensions.get(language, 'txt')
+
+def generate_project_structure(code_type: str, language: str) -> str:
+    """
+    Generate project structure based on code type and language
+    """
+    if code_type == 'backend':
+        if language == 'python':
+            return """backend/
+├── main.py
+├── requirements.txt
+├── models/
+├── routes/
+└── config/"""
+        else:
+            return """backend/
+├── src/
+│   ├── server.ts
+│   ├── routes/
+│   ├── models/
+│   └── config/
+├── package.json
+└── tsconfig.json"""
+    else:
+        return """frontend/
+├── src/
+│   ├── App.tsx
+│   ├── components/
+│   ├── pages/
+│   └── styles/
+├── public/
+└── package.json"""
+
+def generate_dependencies(code_type: str, language: str) -> List[str]:
+    """
+    Generate typical dependencies based on code type and language
+    """
+    if code_type == 'backend':
+        if language == 'python':
+            return ['fastapi', 'uvicorn', 'pydantic', 'python-dotenv']
+        else:
+            return ['express', 'cors', 'typescript', 'ts-node', '@types/node']
+    else:
+        return ['react', 'react-dom', 'typescript', '@types/react', '@types/react-dom']
+
+def generate_run_instructions(code_type: str, language: str) -> str:
+    """
+    Generate run instructions based on code type and language
+    """
+    if code_type == 'backend':
+        if language == 'python':
+            return 'pip install -r requirements.txt && uvicorn main:app --reload'
+        else:
+            return 'npm install && npm run dev'
+    else:
+        return 'npm install && npm start'
 
 @app.get("/health")
 async def health_check():
