@@ -99,6 +99,7 @@ export default function CodePage() {
   const [codeReview, setCodeReview] = useState<CodeReview | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  const [previewSrcDoc, setPreviewSrcDoc] = useState('');
   
   const previewRef = useRef<HTMLIFrameElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -201,11 +202,31 @@ export default function CodePage() {
 
   // Effect to update preview when generated code changes
   useEffect(() => {
-    if (generatedCode && previewRef.current && (codeType === 'frontend' || codeType === 'fullstack' || selectedLanguage === 'html-single')) {
+    if (generatedCode && (codeType === 'frontend' || codeType === 'fullstack' || selectedLanguage === 'html-single')) {
       console.log('[EFFECT] Generated code changed, triggering preview update.');
       updatePreview(generatedCode);
     }
-  }, [generatedCode, previewRef.current]);
+  }, [generatedCode]);
+  
+  const updatePreview = (code: GeneratedCode) => {
+    console.log('[PREVIEW] updatePreview called with:', {
+      codeType,
+      selectedLanguage,
+      fileCount: code?.files?.length,
+      codeLanguage: code?.language,
+      files: code?.files?.map(f => ({ name: f.filename, type: f.type, lang: f.language }))
+    });
+    
+    const htmlFile = code.files.find(f => 
+      f.filename.endsWith('.html') ||
+      (selectedLanguage === 'html-single' && f.type === 'main')
+    );
+    
+    if (htmlFile) {
+      console.log('[PREVIEW] Found HTML file:', htmlFile.filename);
+      setPreviewSrcDoc(htmlFile.content);
+    }
+  };
   
   const generateCode = async () => {
     if (!selectedWorkItem) {
@@ -611,363 +632,6 @@ body {
     grid-template-columns: 1fr;
   }
 }`;
-  };
-
-  const updatePreview = (code: GeneratedCode) => {
-    console.log('[PREVIEW] updatePreview called with:', {
-      codeType,
-      selectedLanguage,
-      hasIframe: !!previewRef.current,
-      fileCount: code?.files?.length,
-      codeLanguage: code?.language,
-      files: code?.files?.map(f => ({ name: f.filename, type: f.type, lang: f.language }))
-    });
-    
-    if (!previewRef.current) {
-      console.log('[PREVIEW] ❌ No iframe ref available');
-      return;
-    }
-    
-    // Allow preview for single HTML files even if codeType is backend
-    const isPreviewable = (
-      codeType === 'frontend' ||
-      codeType === 'fullstack' ||
-      selectedLanguage === 'html-single'
-    );
-    
-    if (!isPreviewable) {
-      console.log('[PREVIEW] ❌ Not a previewable project type, showing backend message');
-      // For backend projects, show a message
-      const iframe = previewRef.current;
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      
-      if (iframeDoc) {
-        const backendHtml = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Backend Code Preview</title>
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        margin: 0;
-        padding: 40px;
-        background: #f8fafc;
-        color: #1e293b;
-        text-align: center;
-      }
-      .container {
-        max-width: 500px;
-        margin: 0 auto;
-        background: white;
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-      }
-      h2 { color: #3b82f6; margin-bottom: 20px; }
-      p { color: #64748b; line-height: 1.6; }
-    </style>
-</head>
-<body>
-    <div class="container">
-      <h2>🚀 Backend Code Generated</h2>
-      <p>Backend services don't have a visual preview, but your API is ready to deploy!</p>
-      <p>Your backend implementation includes proper error handling, routing, and best practices.</p>
-    </div>
-</body>
-</html>`;
-        
-        iframeDoc.open();
-        iframeDoc.write(backendHtml);
-        iframeDoc.close();
-      }
-      return;
-    }
-    
-    const iframe = previewRef.current;
-    
-    // Wait for iframe to be ready
-    const updateIframe = () => {
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      
-      if (!iframeDoc) {
-        console.log('[PREVIEW] ❌ No iframe document available');
-        return;
-      }
-      
-      const htmlFile = code.files.find(f => 
-        f.filename.endsWith('.tsx') || 
-        f.filename.endsWith('.jsx') || 
-        f.filename.endsWith('.html') ||
-        (selectedLanguage === 'html-single' && f.type === 'main')
-      );
-      const cssFile = code.files.find(f => f.filename.endsWith('.css'));
-      
-      console.log('[PREVIEW] Found files:', { 
-        htmlFile: htmlFile?.filename, 
-        cssFile: cssFile?.filename,
-        totalFiles: code.files.length,
-        language: code.language 
-      });
-      
-      // For single HTML files, use the content directly
-      // Check multiple conditions to ensure we catch the single HTML file
-      const isSingleHTMLFile = (
-        (code.language === 'html' || selectedLanguage === 'html-single') && 
-        htmlFile?.filename === 'index.html'
-      ) || (
-        selectedLanguage === 'html-single' && htmlFile
-      );
-      
-      console.log('[PREVIEW] Single HTML check:', {
-        codeLanguage: code.language,
-        selectedLanguage: selectedLanguage,
-        htmlFileName: htmlFile?.filename,
-        isSingleHTMLFile,
-        htmlFileContent: htmlFile?.content ? 'Present' : 'Missing'
-      });
-      
-      if (isSingleHTMLFile) {
-        console.log('[PREVIEW] Using single HTML file content directly');
-        console.log('[PREVIEW] HTML content preview:', htmlFile?.content?.substring(0, 200) + '...');
-        console.log('[PREVIEW] Full HTML length:', htmlFile?.content?.length);
-        
-        try {
-          const blob = new Blob([htmlFile?.content || ''], { type: 'text/html' });
-          const blobUrl = URL.createObjectURL(blob);
-          iframe.src = blobUrl;
-          
-          iframe.onload = () => {
-            console.log('[PREVIEW] ✅ Blob URL approach successful');
-            // Clean up the blob URL after use
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-          };
-        } catch (error) {
-          console.error('[PREVIEW] ❌ Blob URL approach failed:', error);
-        }
-        return;
-      }
-      
-      const workItem = mockWorkItems.find(item => item.id === selectedWorkItem);
-      
-      // Create a working HTML preview for multi-file projects
-      const wrappedHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Preview - ${workItem?.title || 'Generated Code'}</title>
-    <style>
-      /* Base styles */
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        line-height: 1.6;
-        color: #1e293b;
-        background-color: #f8fafc;
-      }
-      
-      /* Custom CSS from generated code */
-      ${cssFile?.content || `
-        .app-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 2rem;
-          min-height: 100vh;
-        }
-        
-        .app-header {
-          text-align: center;
-          margin-bottom: 3rem;
-          padding: 2rem;
-          background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-          color: white;
-          border-radius: 12px;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-        }
-        
-        .app-header h1 {
-          font-size: 2.5rem;
-          font-weight: 700;
-          margin-bottom: 0.5rem;
-        }
-        
-        .app-main {
-          background: white;
-          border-radius: 12px;
-          padding: 2rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-        }
-        
-        .feature-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 1.5rem;
-          margin-top: 1rem;
-        }
-        
-        .feature-card {
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 1.5rem;
-          transition: all 0.3s ease;
-        }
-        
-        .feature-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px -8px rgba(0,0,0,0.2);
-        }
-        
-        .btn-primary, .btn-secondary {
-          padding: 0.75rem 1.5rem;
-          border-radius: 8px;
-          border: none;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          margin-top: 1rem;
-        }
-        
-        .btn-primary {
-          background-color: #3b82f6;
-          color: white;
-        }
-        
-        .btn-secondary {
-          background-color: #64748b;
-          color: white;
-        }
-        
-        .btn-primary:hover { background-color: #2563eb; }
-        .btn-secondary:hover { background-color: #475569; }
-      `}
-    </style>
-</head>
-<body>
-    <div class="app-container">
-      <header class="app-header">
-        <h1>${workItem?.title || 'Generated Application'}</h1>
-        <p>${workItem?.description || 'Live preview of your generated code'}</p>
-      </header>
-      
-      <main class="app-main">
-        <div class="content">
-          <div class="feature-section">
-            <h2>✨ Interactive Preview</h2>
-            <p style="margin-bottom: 1.5rem; color: #64748b;">Your generated ${code.language} code is working! Click the buttons below to test functionality.</p>
-            
-            <div class="feature-grid">
-              <div class="feature-card">
-                <h3>🚀 Feature 1</h3>
-                <p>Implementation based on work item requirements. This component is fully functional and ready for development.</p>
-                <button class="btn-primary" onclick="showAlert('Feature 1 activated!')">Test Feature</button>
-              </div>
-              <div class="feature-card">
-                <h3>🎨 Feature 2</h3>
-                <p>Additional functionality with responsive design and modern styling.</p>
-                <button class="btn-secondary" onclick="toggleDemo()">Toggle Demo</button>
-              </div>
-              <div class="feature-card">
-                <h3>📊 Data Management</h3>
-                <p>Built-in state management and API integration ready for your backend services.</p>
-                <button class="btn-primary" onclick="simulateLoading()">Load Data</button>
-              </div>
-            </div>
-            
-            <div style="margin-top: 2rem; padding: 2rem; background: #f8fafc; border-radius: 12px; text-align: center; border: 2px solid #e2e8f0;">
-              <div id="demo-area">
-                <p>👆 Click the buttons above to test the interactive features!</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-    
-    <script>
-      function showAlert(message) {
-        const demoArea = document.getElementById('demo-area');
-        demoArea.innerHTML = '<p style="color: #3b82f6; font-weight: 600;">🎉 ' + message + '</p>';
-        setTimeout(() => {
-          demoArea.innerHTML = '<p>👆 Click the buttons above to test the interactive features!</p>';
-        }, 3000);
-      }
-      
-      function toggleDemo() {
-        const demoArea = document.getElementById('demo-area');
-        const isActive = demoArea.classList.contains('active');
-        
-        if (isActive) {
-          demoArea.classList.remove('active');
-          demoArea.style.background = '#f8fafc';
-          demoArea.style.color = '#1e293b';
-          demoArea.innerHTML = '<p>❌ Demo deactivated. Click again to reactivate.</p>';
-        } else {
-          demoArea.classList.add('active');
-          demoArea.style.background = 'linear-gradient(135deg, #3b82f6, #8b5cf6)';
-          demoArea.style.color = 'white';
-          demoArea.innerHTML = '<p><strong>✅ Demo Mode Active!</strong><br/>Your component is fully interactive and working!</p>';
-        }
-      }
-      
-      function simulateLoading() {
-        const demoArea = document.getElementById('demo-area');
-        demoArea.innerHTML = '<p>⏳ Loading data... <span id="loader">●</span></p>';
-        
-        let dots = '●';
-        const loader = setInterval(() => {
-          dots += '●';
-          if (dots.length > 3) dots = '●';
-          const loaderEl = document.getElementById('loader');
-          if (loaderEl) loaderEl.textContent = dots;
-        }, 500);
-        
-        setTimeout(() => {
-          clearInterval(loader);
-          demoArea.innerHTML = '<p style="color: #3b82f6; font-weight: 600;">✅ Data loaded successfully! Your API integration is ready.</p>';
-        }, 3000);
-      }
-      
-      // Initialize preview
-      console.log('🚀 Preview loaded successfully!');
-      console.log('Generated code is working and interactive!');
-      
-      // Add some interactive effects
-      document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, preview is ready!');
-      });
-    </script>
-</body>
-</html>`;
-      
-      try {
-        console.log('[PREVIEW] Writing HTML to iframe...');
-        iframeDoc.open();
-        iframeDoc.write(wrappedHtml);
-        iframeDoc.close();
-        console.log('[PREVIEW] ✅ Preview updated successfully!');
-      } catch (error) {
-        console.error('[PREVIEW] ❌ Error writing to iframe:', error);
-      }
-    };
-    
-    // Try immediately, then retry if needed
-    if (iframe.contentDocument) {
-      updateIframe();
-    } else {
-      // Wait for iframe to load
-      iframe.onload = updateIframe;
-      // Also try after a short delay as fallback
-      setTimeout(updateIframe, 100);
-    }
   };
 
   const reviewCodeWithAI = async () => {
@@ -2026,11 +1690,40 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                   
                   <div className="flex items-center justify-end flex-wrap gap-2 flex-shrink-0">
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={downloadCode}
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      Download
+                    </Button>
+                    {generatedCode && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={reviewCodeWithAI}
+                        disabled={isReviewing}
+                      >
+                        {isReviewing ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <Eye className="w-4 h-4 mr-1" />
+                        )}
+                        Review with AI
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className={isFullscreen ? 'flex-1 flex flex-col' : ''}>
+                <div className="flex items-center justify-between bg-gray-50 p-2 rounded-lg mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Button
                       variant={previewMode === 'preview' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setPreviewMode('preview')}
                     >
-                      <Eye className="w-4 h-4 mr-1" />
+                      <Monitor className="w-4 h-4 mr-1" />
                       Preview
                     </Button>
                     <Button
@@ -2049,23 +1742,22 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                       <FolderTree className="w-4 h-4 mr-1" />
                       Structure
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={toggleFullscreen}
-                    >
-                      {isFullscreen ? (
-                        <Minimize2 className="w-4 h-4 mr-1" />
-                      ) : (
-                        <Maximize2 className="w-4 h-4 mr-1" />
-                      )}
-                      {isFullscreen ? 'Exit' : 'Fullscreen'}
-                    </Button>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleFullscreen}
+                  >
+                    {isFullscreen ? (
+                      <Minimize2 className="w-4 h-4 mr-1" />
+                    ) : (
+                      <Maximize2 className="w-4 h-4 mr-1" />
+                    )}
+                    {isFullscreen ? 'Exit' : 'Fullscreen'}
+                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent className={isFullscreen ? 'flex-1 flex flex-col' : ''}>
-                {previewMode === 'preview' && (codeType === 'frontend' || codeType === 'fullstack') ? (
+                
+                {previewMode === 'preview' ? (
                   <div className={`space-y-4 ${isFullscreen ? 'flex-1 flex flex-col' : ''}`}>
                     {/* Viewport Controls */}
                     <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
@@ -2096,17 +1788,15 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                           Mobile
                         </Button>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {viewportType === 'desktop' && 'Responsive'}
-                        {viewportType === 'tablet' && '768px'}
-                        {viewportType === 'mobile' && '375px'}
-                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        Responsive
+                      </Badge>
                     </div>
                     
-                    {/* Preview Frame */}
-                    <div className={`border rounded-lg bg-gray-100 p-4 ${isFullscreen ? 'flex-1' : 'min-h-[400px]'} flex justify-center`}>
-                      <div
-                        className="bg-white rounded shadow-lg"
+                    {/* Preview Iframe */}
+                    <div className={`border rounded-lg bg-gray-100 p-4 ${isFullscreen ? 'flex-1' : 'min-h-[400px]'} flex justify-center items-center`}>
+                      <div 
+                        className="bg-white rounded-md shadow-lg overflow-hidden w-full h-full"
                         style={{
                           width: viewportDimensions[viewportType].width,
                           height: isFullscreen ? '100%' : viewportDimensions[viewportType].height,
@@ -2115,52 +1805,17 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                         }}
                       >
                         <iframe
-                          ref={previewRef}
-                          className="w-full h-full border-0 rounded"
+                          srcDoc={previewSrcDoc}
+                          className="w-full h-full border-0"
                           title="Code Preview"
-                          sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation"
+                          sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation"
                         />
                       </div>
                     </div>
                   </div>
                 ) : previewMode === 'structure' ? (
-                  <div className="space-y-4">
-                    {/* Project Structure */}
-                    <div>
-                      <h3 className="text-lg font-medium mb-3 flex items-center">
-                        <FolderTree className="w-5 h-5 mr-2" />
-                        Project Structure
-                      </h3>
-                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                        <code>{generatedCode.projectStructure}</code>
-                      </pre>
-                    </div>
-                    
-                    {/* Dependencies */}
-                    <div>
-                      <h3 className="text-lg font-medium mb-3 flex items-center">
-                        <Package className="w-5 h-5 mr-2" />
-                        Dependencies
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {generatedCode.dependencies?.map((dep, index) => (
-                          <Badge key={index} variant="outline">
-                            {dep}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Run Instructions */}
-                    <div>
-                      <h3 className="text-lg font-medium mb-3 flex items-center">
-                        <Terminal className="w-5 h-5 mr-2" />
-                        Run Instructions
-                      </h3>
-                      <div className="bg-gray-900 text-gray-100 p-4 rounded-lg">
-                        <code>{generatedCode.runInstructions}</code>
-                      </div>
-                    </div>
+                  <div className="bg-gray-900 text-white font-mono text-sm p-4 rounded-lg overflow-auto min-h-[400px]">
+                    <pre>{generatedCode.projectStructure}</pre>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -2188,31 +1843,26 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                       </div>
                     </div>
                     
-                    {/* Code Content */}
-                    {selectedFile && (
-                      <div className="relative">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="absolute top-2 right-2 z-10"
-                          onClick={() => {
-                            const file = generatedCode.files.find(f => f.filename === selectedFile);
-                            if (file) copyToClipboard(file.content, selectedFile);
-                          }}
-                        >
-                          {copied === selectedFile ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm max-h-96">
-                          <code>
-                            {generatedCode.files.find(f => f.filename === selectedFile)?.content}
-                          </code>
-                        </pre>
-                      </div>
-                    )}
+                    {/* Code Display */}
+                    <div className="relative bg-gray-900 text-white font-mono text-sm p-4 rounded-lg overflow-auto min-h-[400px]">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2 text-gray-400 hover:text-white hover:bg-gray-700"
+                        onClick={() => copyToClipboard(generatedCode.files.find(f => f.filename === selectedFile)?.content || '', 'code')}
+                      >
+                        {copied === 'code' ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <pre>
+                        <code>
+                          {generatedCode.files.find(f => f.filename === selectedFile)?.content}
+                        </code>
+                      </pre>
+                    </div>
                   </div>
                 )}
               </CardContent>
