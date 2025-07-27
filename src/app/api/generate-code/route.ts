@@ -42,7 +42,54 @@ export async function POST(request: NextRequest) {
     const { prompt, workItemId, codeType, language, framework, designReference, additionalRequirements } = validatedData.data;
 
     // Build comprehensive system prompt for code generation
-    const systemPrompt = `You are an expert software developer and architect. Generate production-ready code based on the requirements provided.
+    const systemPrompt = language === 'html-single' ? 
+      `You are an expert frontend developer specializing in single-file HTML applications. Generate a complete, working HTML application with all code in ONE file.
+
+CRITICAL REQUIREMENTS FOR SINGLE-FILE HTML:
+1. Generate ONLY ONE FILE named "index.html" 
+2. Include ALL CSS in <style> tags within the <head> section
+3. Include ALL JavaScript in <script> tags before closing </body>
+4. Create a fully functional, interactive application
+5. Use modern HTML5, CSS3, and vanilla JavaScript
+6. Make it responsive and visually appealing
+7. Include proper meta tags and document structure
+8. Add comprehensive comments explaining the code
+9. Ensure the application works when opened directly in a browser
+
+STYLING REQUIREMENTS:
+- Use modern CSS with flexbox/grid layouts
+- Include responsive design (mobile-first approach)
+- Add smooth animations and transitions
+- Use attractive color schemes and typography
+- Include hover effects and interactive elements
+
+JAVASCRIPT REQUIREMENTS:
+- Use modern ES6+ JavaScript features
+- Add event listeners for user interactions
+- Include form validation if applicable
+- Add error handling for all functions
+- Make the application fully interactive
+
+OUTPUT FORMAT:
+Provide the response as a JSON object with this structure:
+{
+  "language": "html",
+  "codeType": "${codeType}",
+  "files": [
+    {
+      "filename": "index.html",
+      "content": "complete_html_file_with_embedded_css_and_js",
+      "type": "main",
+      "language": "html"
+    }
+  ],
+  "projectStructure": "Single HTML file containing all code",
+  "dependencies": [],
+  "runInstructions": "Open index.html in any modern web browser"
+}
+
+Generate a beautiful, functional single-file HTML application that works perfectly in the browser preview.` :
+      `You are an expert software developer and architect. Generate production-ready code based on the requirements provided.
 
 IMPORTANT INSTRUCTIONS:
 1. Generate complete, working code files with proper structure

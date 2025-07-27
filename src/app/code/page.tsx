@@ -111,6 +111,7 @@ export default function CodePage() {
   // Language options
   const languageOptions = [
     { value: 'auto', label: 'Auto Detect', icon: Sparkles },
+    { value: 'html-single', label: 'HTML, JS, and CSS all in one file', icon: Globe },
     { value: 'javascript', label: 'JavaScript', icon: FileCode2 },
     { value: 'typescript', label: 'TypeScript', icon: FileCode2 },
     { value: 'python', label: 'Python', icon: FileCode2 },
@@ -124,6 +125,11 @@ export default function CodePage() {
   // Framework options based on language and type
   const getFrameworkOptions = (lang: string, type: CodeType) => {
     const frameworks: Record<string, Record<CodeType, string[]>> = {
+      'html-single': {
+        frontend: ['Vanilla HTML/CSS/JS', 'Bootstrap', 'Tailwind CSS'],
+        backend: ['Not Applicable'],
+        fullstack: ['Single Page App', 'Interactive Website']
+      },
       javascript: {
         frontend: ['React', 'Vue.js', 'Angular', 'Vanilla JS', 'Next.js'],
         backend: ['Node.js', 'Express.js', 'Fastify', 'Koa.js'],
@@ -312,6 +318,33 @@ Make sure the code is well-structured, follows best practices, and includes prop
       
       // Continue with fallback...
       const workItem = mockWorkItems.find(item => item.id === selectedWorkItem);
+      
+      // Special handling for single HTML file
+      if (selectedLanguage === 'html-single') {
+        const mockGeneratedCode: GeneratedCode = {
+          language: 'html',
+          codeType,
+          files: [
+            {
+              filename: 'index.html',
+              content: generateSingleHTMLFile(workItem),
+              type: 'main',
+              language: 'html',
+            }
+          ],
+          projectStructure: 'Single HTML file containing all code',
+          dependencies: [],
+          runInstructions: 'Open index.html in any modern web browser'
+        };
+        
+        setGeneratedCode(mockGeneratedCode);
+        setSelectedFile('index.html');
+        
+        // Update preview for single HTML file
+        setTimeout(() => updatePreview(mockGeneratedCode), 100);
+        return;
+      }
+      
       const mockGeneratedCode: GeneratedCode = {
         language: selectedLanguage === 'auto' ? 'typescript' : selectedLanguage,
         codeType,
@@ -633,12 +666,27 @@ body {
       console.log('[PREVIEW] Found files:', { 
         htmlFile: htmlFile?.filename, 
         cssFile: cssFile?.filename,
-        totalFiles: code.files.length 
+        totalFiles: code.files.length,
+        language: code.language 
       });
+      
+      // For single HTML files, use the content directly
+      if (code.language === 'html' && htmlFile?.filename === 'index.html') {
+        console.log('[PREVIEW] Using single HTML file content directly');
+        try {
+          iframeDoc.open();
+          iframeDoc.write(htmlFile.content);
+          iframeDoc.close();
+          console.log('[PREVIEW] ✅ Single HTML file preview updated successfully!');
+        } catch (error) {
+          console.error('[PREVIEW] ❌ Error writing single HTML file to iframe:', error);
+        }
+        return;
+      }
       
       const workItem = mockWorkItems.find(item => item.id === selectedWorkItem);
       
-      // Create a working HTML preview
+      // Create a working HTML preview for multi-file projects
       const wrappedHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1207,10 +1255,442 @@ const ${workItem?.title.replace(/\\s+/g, '')}Component: React.FC = () => {
 export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
   };
 
+  const generateSingleHTMLFile = (workItem: any) => {
+    const title = workItem?.title || 'Generated Application';
+    const description = workItem?.description || 'A beautiful, interactive application';
+    
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        /* Modern CSS Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary-color: #64748b;
+            --accent-color: #8b5cf6;
+            --background-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--background-color);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 3rem 2rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            pointer-events: none;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .main-content {
+            background: var(--surface-color);
+            border-radius: var(--border-radius);
+            padding: 3rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-color);
+        }
+
+        .feature-card:hover::before {
+            left: 100%;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.875rem 1.75rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #475569;
+            transform: translateY(-2px);
+        }
+
+        .interactive-demo {
+            margin-top: 3rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            border-radius: var(--border-radius);
+            border: 2px solid var(--border-color);
+            text-align: center;
+        }
+
+        .demo-area {
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem;
+            transition: all 0.3s ease;
+        }
+
+        .demo-area.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-radius: 8px;
+            transform: scale(1.02);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .header {
+                padding: 2rem 1rem;
+                margin-bottom: 2rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .main-content {
+                padding: 2rem;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+        }
+
+        /* Animation Classes */
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header fade-in">
+            <h1>${title}</h1>
+            <p>${description}</p>
+        </header>
+
+        <main class="main-content fade-in">
+            <section>
+                <h2 style="font-size: 2rem; margin-bottom: 1rem; text-align: center;">✨ Interactive Features</h2>
+                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">
+                    Explore the functionality of your generated application
+                </p>
+
+                <div class="features-grid">
+                    <div class="feature-card" onclick="activateFeature(1)">
+                        <h3>🚀 Core Functionality</h3>
+                        <p>Experience the main features of your application with interactive elements and smooth animations.</p>
+                        <button class="btn btn-primary">Activate Feature</button>
+                    </div>
+
+                    <div class="feature-card" onclick="activateFeature(2)">
+                        <h3>🎨 Dynamic Interface</h3>
+                        <p>Interactive UI components with modern design patterns and responsive behavior.</p>
+                        <button class="btn btn-secondary">Test Interface</button>
+                    </div>
+
+                    <div class="feature-card" onclick="activateFeature(3)">
+                        <h3>📊 Data Management</h3>
+                        <p>Efficient data handling with real-time updates and seamless user interactions.</p>
+                        <button class="btn btn-primary">Load Data</button>
+                    </div>
+                </div>
+
+                <div class="interactive-demo">
+                    <h3 style="margin-bottom: 1rem;">Interactive Demo Area</h3>
+                    <div id="demoArea" class="demo-area">
+                        👆 Click the cards above to see interactive functionality!
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Modern JavaScript functionality
+        console.log('🚀 ${title} loaded successfully!');
+
+        // Feature activation function
+        function activateFeature(featureNum) {
+            const demoArea = document.getElementById('demoArea');
+            const features = [
+                {
+                    title: 'Core Functionality Activated!',
+                    message: '✅ Your application core is working perfectly with all systems operational.',
+                    color: 'linear-gradient(135deg, #10b981, #059669)'
+                },
+                {
+                    title: 'Dynamic Interface Active!',
+                    message: '🎨 Interactive UI components are responsive and beautifully animated.',
+                    color: 'linear-gradient(135deg, #8b5cf6, #7c3aed)'
+                },
+                {
+                    title: 'Data Management Ready!',
+                    message: '📊 Data systems are operational with real-time synchronization enabled.',
+                    color: 'linear-gradient(135deg, #f59e0b, #d97706)'
+                }
+            ];
+
+            const feature = features[featureNum - 1];
+            
+            // Add active class and update content
+            demoArea.classList.add('active');
+            demoArea.style.background = feature.color;
+            demoArea.innerHTML = \`
+                <div>
+                    <div style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">
+                        \${feature.title}
+                    </div>
+                    <div style="font-size: 1rem; opacity: 0.9;">
+                        \${feature.message}
+                    </div>
+                </div>
+            \`;
+
+            // Reset after 4 seconds
+            setTimeout(() => {
+                demoArea.classList.remove('active');
+                demoArea.style.background = '';
+                demoArea.innerHTML = '👆 Click the cards above to see interactive functionality!';
+            }, 4000);
+
+            // Add ripple effect
+            createRipple(event);
+        }
+
+        // Create ripple effect on click
+        function createRipple(event) {
+            const button = event.target.closest('.feature-card');
+            if (!button) return;
+
+            const ripple = document.createElement('span');
+            const rect = button.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = event.clientX - rect.left - size / 2;
+            const y = event.clientY - rect.top - size / 2;
+
+            ripple.style.cssText = \`
+                position: absolute;
+                width: \${size}px;
+                height: \${size}px;
+                left: \${x}px;
+                top: \${y}px;
+                background: radial-gradient(circle, rgba(255,255,255,0.6) 0%, transparent 70%);
+                border-radius: 50%;
+                transform: scale(0);
+                animation: ripple-animation 0.6s ease-out;
+                pointer-events: none;
+                z-index: 10;
+            \`;
+
+            button.appendChild(ripple);
+
+            // Remove ripple after animation
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        }
+
+        // Add ripple animation to CSS
+        const style = document.createElement('style');
+        style.textContent = \`
+            @keyframes ripple-animation {
+                to {
+                    transform: scale(2);
+                    opacity: 0;
+                }
+            }
+        \`;
+        document.head.appendChild(style);
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📱 Application initialized successfully');
+            
+            // Add fade-in animation to cards
+            const cards = document.querySelectorAll('.feature-card');
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.classList.add('fade-in');
+                }, index * 200);
+            });
+
+            // Add interactive hover effects
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-8px) scale(1.02)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+        });
+
+        // Performance monitoring
+        window.addEventListener('load', function() {
+            const loadTime = performance.now();
+            console.log(\`⚡ Application loaded in \${Math.round(loadTime)}ms\`);
+        });
+    </script>
+</body>
+</html>`;
+  };
+
   const selectedWorkItemData = mockWorkItems.find(item => item.id === selectedWorkItem);
 
   return (
-    <div className={`container mx-auto p-6 space-y-6 ${isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto' : ''}`}>
+    <div className={isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto p-6 space-y-6' : 'container mx-auto p-6 space-y-6'}>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Code Repository</h1>
