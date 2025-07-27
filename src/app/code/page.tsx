@@ -728,78 +728,19 @@ body {
         console.log('[PREVIEW] Full HTML length:', htmlFile?.content?.length);
         
         try {
-          // Clear any existing content first
-          iframeDoc.open();
-          iframeDoc.write('');
-          iframeDoc.close();
-          
-          // Wait a moment then write the new content
-          setTimeout(() => {
-            try {
-              const iframeDocRefresh = iframe.contentDocument || iframe.contentWindow?.document;
-              if (iframeDocRefresh && htmlFile?.content) {
-                iframeDocRefresh.open();
-                iframeDocRefresh.write(htmlFile.content);
-                iframeDocRefresh.close();
-                console.log('[PREVIEW] ✅ Single HTML file preview updated successfully!');
-                
-                // Add load event listener to check if content loaded
-                iframe.onload = () => {
-                  console.log('[PREVIEW] 🎯 Iframe loaded successfully');
-                };
-                
-                // Also check content after a delay
-                setTimeout(() => {
-                  const body = iframeDocRefresh.body;
-                  if (body && body.innerHTML.length > 0) {
-                    console.log('[PREVIEW] ✅ Iframe content verified - body length:', body.innerHTML.length);
-                  } else {
-                    console.log('[PREVIEW] ⚠️ Iframe body is empty or missing');
-                  }
-                }, 500);
-              } else {
-                console.log('[PREVIEW] ❌ No iframe document or content available for refresh');
-              }
-                      } catch (innerError) {
-            console.error('[PREVIEW] ❌ Error in delayed iframe write:', innerError);
-            
-            // Try alternative approach with blob URL as fallback
-            console.log('[PREVIEW] 🔄 Trying blob URL fallback approach...');
-            try {
-              const blob = new Blob([htmlFile?.content || ''], { type: 'text/html' });
-              const blobUrl = URL.createObjectURL(blob);
-              iframe.src = blobUrl;
-              
-              iframe.onload = () => {
-                console.log('[PREVIEW] ✅ Blob URL approach successful');
-                // Clean up the blob URL after use
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-              };
-            } catch (blobError) {
-              console.error('[PREVIEW] ❌ Blob URL fallback also failed:', blobError);
-            }
-          }
-        }, 100);
-        
-      } catch (error) {
-        console.error('[PREVIEW] ❌ Error writing single HTML file to iframe:', error);
-        
-        // Final fallback: try blob URL approach immediately
-        console.log('[PREVIEW] 🔄 Trying immediate blob URL fallback...');
-        try {
           const blob = new Blob([htmlFile?.content || ''], { type: 'text/html' });
           const blobUrl = URL.createObjectURL(blob);
           iframe.src = blobUrl;
           
           iframe.onload = () => {
-            console.log('[PREVIEW] ✅ Immediate blob URL approach successful');
+            console.log('[PREVIEW] ✅ Blob URL approach successful');
+            // Clean up the blob URL after use
             setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
           };
-        } catch (blobError) {
-          console.error('[PREVIEW] ❌ All fallback approaches failed:', blobError);
+        } catch (error) {
+          console.error('[PREVIEW] ❌ Blob URL approach failed:', error);
         }
-      }
-      return;
+        return;
       }
       
       const workItem = mockWorkItems.find(item => item.id === selectedWorkItem);
@@ -1808,7 +1749,7 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
   const selectedWorkItemData = mockWorkItems.find(item => item.id === selectedWorkItem);
 
   return (
-    <div className={isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto' : 'container mx-auto'}>
+    <div className={isFullscreen ? "fixed inset-0 z-50 bg-white overflow-auto" : "container mx-auto"}>
       <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
