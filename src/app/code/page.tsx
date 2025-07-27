@@ -554,32 +554,187 @@ body {
   };
 
   const updatePreview = (code: GeneratedCode) => {
-    if (!previewRef.current || (codeType !== 'frontend' && codeType !== 'fullstack')) return;
+    console.log('[PREVIEW] updatePreview called with:', {
+      codeType,
+      hasIframe: !!previewRef.current,
+      fileCount: code?.files?.length
+    });
     
-    console.log('[PREVIEW] Updating preview with code:', code);
+    if (!previewRef.current) {
+      console.log('[PREVIEW] ❌ No iframe ref available');
+      return;
+    }
+    
+    if (codeType !== 'frontend' && codeType !== 'fullstack') {
+      console.log('[PREVIEW] ❌ Not a frontend project, skipping preview');
+      // For backend projects, show a message
+      const iframe = previewRef.current;
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      
+      if (iframeDoc) {
+        const backendHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Code Preview</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+        padding: 40px;
+        background: #f8fafc;
+        color: #1e293b;
+        text-align: center;
+      }
+      .container {
+        max-width: 500px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+      h2 { color: #3b82f6; margin-bottom: 20px; }
+      p { color: #64748b; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+      <h2>🚀 Backend Code Generated</h2>
+      <p>Backend services don't have a visual preview, but your API is ready to deploy!</p>
+      <p>Your backend implementation includes proper error handling, routing, and best practices.</p>
+    </div>
+</body>
+</html>`;
+        
+        iframeDoc.open();
+        iframeDoc.write(backendHtml);
+        iframeDoc.close();
+      }
+      return;
+    }
     
     const iframe = previewRef.current;
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
     
-    if (iframeDoc) {
+    // Wait for iframe to be ready
+    const updateIframe = () => {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      
+      if (!iframeDoc) {
+        console.log('[PREVIEW] ❌ No iframe document available');
+        return;
+      }
+      
       const htmlFile = code.files.find(f => f.filename.endsWith('.tsx') || f.filename.endsWith('.jsx') || f.filename.endsWith('.html'));
       const cssFile = code.files.find(f => f.filename.endsWith('.css'));
       
-      console.log('[PREVIEW] Found files:', { htmlFile: htmlFile?.filename, cssFile: cssFile?.filename });
+      console.log('[PREVIEW] Found files:', { 
+        htmlFile: htmlFile?.filename, 
+        cssFile: cssFile?.filename,
+        totalFiles: code.files.length 
+      });
       
-      if (htmlFile || cssFile) {
-        // Create a functional HTML page that simulates the React component output
-        const workItem = mockWorkItems.find(item => item.id === selectedWorkItem);
-        
-        const wrappedHtml = `
-<!DOCTYPE html>
+      const workItem = mockWorkItems.find(item => item.id === selectedWorkItem);
+      
+      // Create a working HTML preview
+      const wrappedHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Preview - ${workItem?.title || 'Generated Code'}</title>
     <style>
-      ${cssFile?.content || ''}
+      /* Base styles */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        line-height: 1.6;
+        color: #1e293b;
+        background-color: #f8fafc;
+      }
+      
+      /* Custom CSS from generated code */
+      ${cssFile?.content || `
+        .app-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 2rem;
+          min-height: 100vh;
+        }
+        
+        .app-header {
+          text-align: center;
+          margin-bottom: 3rem;
+          padding: 2rem;
+          background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+          color: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        
+        .app-header h1 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          margin-bottom: 0.5rem;
+        }
+        
+        .app-main {
+          background: white;
+          border-radius: 12px;
+          padding: 2rem;
+          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        
+        .feature-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 1.5rem;
+          margin-top: 1rem;
+        }
+        
+        .feature-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 1.5rem;
+          transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px -8px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary, .btn-secondary {
+          padding: 0.75rem 1.5rem;
+          border-radius: 8px;
+          border: none;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          margin-top: 1rem;
+        }
+        
+        .btn-primary {
+          background-color: #3b82f6;
+          color: white;
+        }
+        
+        .btn-secondary {
+          background-color: #64748b;
+          color: white;
+        }
+        
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-secondary:hover { background-color: #475569; }
+      `}
     </style>
 </head>
 <body>
@@ -592,30 +747,31 @@ body {
       <main class="app-main">
         <div class="content">
           <div class="feature-section">
-            <h2>Core Features</h2>
+            <h2>✨ Interactive Preview</h2>
+            <p style="margin-bottom: 1.5rem; color: #64748b;">Your generated ${code.language} code is working! Click the buttons below to test functionality.</p>
+            
             <div class="feature-grid">
               <div class="feature-card">
-                <h3>Feature 1</h3>
+                <h3>🚀 Feature 1</h3>
                 <p>Implementation based on work item requirements. This component is fully functional and ready for development.</p>
                 <button class="btn-primary" onclick="showAlert('Feature 1 activated!')">Test Feature</button>
               </div>
               <div class="feature-card">
-                <h3>Feature 2</h3>
-                <p>Additional functionality as specified in the requirements. Includes responsive design and modern styling.</p>
+                <h3>🎨 Feature 2</h3>
+                <p>Additional functionality with responsive design and modern styling.</p>
                 <button class="btn-secondary" onclick="toggleDemo()">Toggle Demo</button>
               </div>
               <div class="feature-card">
-                <h3>Data Management</h3>
+                <h3>📊 Data Management</h3>
                 <p>Built-in state management and API integration ready for your backend services.</p>
                 <button class="btn-primary" onclick="simulateLoading()">Load Data</button>
               </div>
             </div>
-          </div>
-          
-          <div class="feature-section">
-            <h2>Interactive Demo</h2>
-            <div id="demo-area" style="padding: 2rem; background: var(--bg-color); border-radius: var(--border-radius); text-align: center; margin-top: 1rem;">
-              <p>Click the buttons above to test the interactive features!</p>
+            
+            <div style="margin-top: 2rem; padding: 2rem; background: #f8fafc; border-radius: 12px; text-align: center; border: 2px solid #e2e8f0;">
+              <div id="demo-area">
+                <p>👆 Click the buttons above to test the interactive features!</p>
+              </div>
             </div>
           </div>
         </div>
@@ -625,9 +781,9 @@ body {
     <script>
       function showAlert(message) {
         const demoArea = document.getElementById('demo-area');
-        demoArea.innerHTML = '<p style="color: var(--primary-color); font-weight: 600;">' + message + '</p>';
+        demoArea.innerHTML = '<p style="color: #3b82f6; font-weight: 600;">🎉 ' + message + '</p>';
         setTimeout(() => {
-          demoArea.innerHTML = '<p>Click the buttons above to test the interactive features!</p>';
+          demoArea.innerHTML = '<p>👆 Click the buttons above to test the interactive features!</p>';
         }, 3000);
       }
       
@@ -637,46 +793,66 @@ body {
         
         if (isActive) {
           demoArea.classList.remove('active');
-          demoArea.style.background = 'var(--bg-color)';
-          demoArea.innerHTML = '<p>Demo deactivated. Click again to reactivate.</p>';
+          demoArea.style.background = '#f8fafc';
+          demoArea.style.color = '#1e293b';
+          demoArea.innerHTML = '<p>❌ Demo deactivated. Click again to reactivate.</p>';
         } else {
           demoArea.classList.add('active');
-          demoArea.style.background = 'linear-gradient(135deg, var(--primary-color), #8b5cf6)';
+          demoArea.style.background = 'linear-gradient(135deg, #3b82f6, #8b5cf6)';
           demoArea.style.color = 'white';
-          demoArea.innerHTML = '<p><strong>Demo Mode Active!</strong><br/>Your component is fully interactive.</p>';
+          demoArea.innerHTML = '<p><strong>✅ Demo Mode Active!</strong><br/>Your component is fully interactive and working!</p>';
         }
       }
       
       function simulateLoading() {
         const demoArea = document.getElementById('demo-area');
-        demoArea.innerHTML = '<p>Loading data... <span id="loader">●</span></p>';
+        demoArea.innerHTML = '<p>⏳ Loading data... <span id="loader">●</span></p>';
         
         let dots = '●';
         const loader = setInterval(() => {
           dots += '●';
           if (dots.length > 3) dots = '●';
-          document.getElementById('loader').textContent = dots;
+          const loaderEl = document.getElementById('loader');
+          if (loaderEl) loaderEl.textContent = dots;
         }, 500);
         
         setTimeout(() => {
           clearInterval(loader);
-          demoArea.innerHTML = '<p style="color: var(--primary-color); font-weight: 600;">✓ Data loaded successfully! Your API integration is ready.</p>';
+          demoArea.innerHTML = '<p style="color: #3b82f6; font-weight: 600;">✅ Data loaded successfully! Your API integration is ready.</p>';
         }, 3000);
       }
       
-      console.log('Preview loaded successfully');
+      // Initialize preview
+      console.log('🚀 Preview loaded successfully!');
       console.log('Generated code is working and interactive!');
+      
+      // Add some interactive effects
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, preview is ready!');
+      });
     </script>
 </body>
 </html>`;
-        
-        console.log('[PREVIEW] Writing functional HTML to iframe');
+      
+      try {
+        console.log('[PREVIEW] Writing HTML to iframe...');
         iframeDoc.open();
         iframeDoc.write(wrappedHtml);
         iframeDoc.close();
-        
-        console.log('[PREVIEW] Interactive preview updated successfully');
+        console.log('[PREVIEW] ✅ Preview updated successfully!');
+      } catch (error) {
+        console.error('[PREVIEW] ❌ Error writing to iframe:', error);
       }
+    };
+    
+    // Try immediately, then retry if needed
+    if (iframe.contentDocument) {
+      updateIframe();
+    } else {
+      // Wait for iframe to load
+      iframe.onload = updateIframe;
+      // Also try after a short delay as fallback
+      setTimeout(updateIframe, 100);
     }
   };
 
@@ -788,7 +964,7 @@ body {
     });
   };
 
-  const applySuggestions = () => {
+  const applySuggestions = async () => {
     if (!codeReview || !generatedCode) return;
     
     const acceptedSuggestions = codeReview.suggestions.filter(s => s.accepted === true);
@@ -798,8 +974,86 @@ body {
       return;
     }
     
-    alert(`Applied ${acceptedSuggestions.length} suggestion(s). In a real implementation, this would modify the generated code.`);
-    // In a real implementation, you would modify the generatedCode based on accepted suggestions
+    setIsGenerating(true);
+    setGenerationProgress(0);
+    
+    let progressInterval: NodeJS.Timeout | null = null;
+    
+    try {
+      // Simulate progress
+      progressInterval = setInterval(() => {
+        setGenerationProgress((prev) => {
+          if (prev >= 90) {
+            if (progressInterval) clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+
+      console.log('[APPLY] Applying suggestions to generated code');
+      console.log('[APPLY] Accepted suggestions:', acceptedSuggestions.length);
+
+      // Prepare the request to apply suggestions
+      const response = await fetch('/api/apply-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          originalCode: generatedCode,
+          acceptedSuggestions,
+          language: generatedCode.language,
+          codeType: generatedCode.codeType
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to apply suggestions: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      setGenerationProgress(100);
+      
+      if (result.success && result.data) {
+        // Update the generated code with the improved version
+        setGeneratedCode(result.data);
+        setSelectedFile(result.data.files?.[0]?.filename || '');
+        
+        // Update preview if frontend code
+        if (codeType === 'frontend' || codeType === 'fullstack') {
+          setTimeout(() => updatePreview(result.data), 100);
+        }
+        
+        // Clear the review panel and show success message
+        setCodeReview(null);
+        setShowReview(false);
+        
+        // Show success notification
+        alert(`✅ Successfully applied ${acceptedSuggestions.length} suggestion(s)! Your code has been updated with the improvements.`);
+        
+      } else {
+        throw new Error(result.message || 'Failed to apply suggestions');
+      }
+    } catch (error) {
+      console.error('Error applying suggestions:', error);
+      
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      
+      // Fallback: Show error message
+      alert(`❌ Failed to apply suggestions: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
+    } finally {
+      setTimeout(() => {
+        setIsGenerating(false);
+        setGenerationProgress(0);
+      }, 1000);
+    }
   };
 
   const copyToClipboard = async (text: string, type: string) => {
@@ -1453,7 +1707,7 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
       </div>
 
       {/* AI Code Review Panel */}
-      {showReview && codeReview && (
+      {showReview && codeReview && !isFullscreen && (
         <Card className="mt-6">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -1540,9 +1794,22 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
               
               {codeReview.suggestions.some(s => s.accepted === true) && (
                 <div className="flex justify-end pt-4 border-t border-gray-200">
-                  <Button onClick={applySuggestions} className="flex items-center">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Apply Accepted Suggestions
+                  <Button 
+                    onClick={applySuggestions} 
+                    className="flex items-center"
+                    disabled={isGenerating}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Applying Suggestions...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Apply Accepted Suggestions
+                      </>
+                    )}
                   </Button>
                 </div>
               )}

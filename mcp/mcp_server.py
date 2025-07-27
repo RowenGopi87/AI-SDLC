@@ -118,6 +118,22 @@ class CodeReviewResponse(BaseModel):
     message: str
     error: Optional[str] = None
 
+class ApplySuggestionsRequest(BaseModel):
+    systemPrompt: str
+    userPrompt: str
+    originalCode: Dict[str, Any]
+    acceptedSuggestions: List[Dict[str, Any]]
+    codeType: str
+    language: str
+    llm_provider: str = "google"
+    model: str = "gemini-2.5-pro"
+
+class ApplySuggestionsResponse(BaseModel):
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    message: str
+    error: Optional[str] = None
+
 async def create_mcp_client(server_type: str = "playwright"):
     """Create a new MCP client for the specified server type"""
     try:
@@ -773,6 +789,102 @@ async def review_code(request: CodeReviewRequest):
         return CodeReviewResponse(
             success=False,
             message="Code review failed",
+            error=error_msg
+        )
+
+class ApplySuggestionsRequest(BaseModel):
+    systemPrompt: str
+    userPrompt: str
+    originalCode: Dict[str, Any]
+    acceptedSuggestions: List[Dict[str, Any]]
+    codeType: str
+    language: str
+    llm_provider: str = "google"
+    model: str = "gemini-2.5-pro"
+
+class ApplySuggestionsResponse(BaseModel):
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    message: str
+    error: Optional[str] = None
+
+@app.post("/apply-suggestions", response_model=ApplySuggestionsResponse)
+async def apply_suggestions(request: ApplySuggestionsRequest):
+    try:
+        print(f"[APPLY] Starting suggestion application")
+        print(f"[LLM] Using {request.llm_provider} model: {request.model}")
+        print(f"[LANGUAGE] Target language: {request.language}")
+        print(f"[CODE_TYPE] Code type: {request.codeType}")
+        print(f"[SUGGESTIONS] Applying {len(request.acceptedSuggestions)} suggestions")
+        
+        # Create LLM directly (no MCP tools needed for applying suggestions)
+        try:
+            if request.llm_provider == "google":
+                llm = ChatGoogleGenerativeAI(
+                    model=request.model,
+                    google_api_key=os.getenv("GOOGLE_API_KEY")
+                )
+            else:
+                llm = ChatOpenAI(
+                    model="gpt-4",
+                    openai_api_key=os.getenv("OPENAI_API_KEY")
+                )
+            
+            print(f"[LLM] LLM created successfully for {request.llm_provider}")
+            
+        except Exception as llm_error:
+            print(f"[ERROR] Failed to create LLM: {llm_error}")
+            return ApplySuggestionsResponse(
+                success=False,
+                message="Failed to initialize LLM",
+                error=str(llm_error)
+            )
+
+        # Combine system and user prompts
+        full_prompt = f"""
+{request.systemPrompt}
+
+{request.userPrompt}
+"""
+
+        # Execute the suggestion application
+        start_time = time.time()
+        try:
+            print(f"[APPLY] Starting AI suggestion application...")
+            result = llm.invoke(full_prompt)
+            execution_time = time.time() - start_time
+            
+            print(f"[OK] Suggestion application completed in {execution_time:.2f}s")
+            
+            # Extract the content from the LLM response
+            result_content = result.content if hasattr(result, 'content') else str(result)
+            
+            # Parse the result to extract improved code
+            improved_code = parse_suggestion_application_response(result_content, request.originalCode, request.acceptedSuggestions)
+            
+            return ApplySuggestionsResponse(
+                success=True,
+                data=improved_code,
+                message=f"Successfully applied {len(request.acceptedSuggestions)} suggestion(s) in {execution_time:.2f}s"
+            )
+            
+        except Exception as application_error:
+            print(f"[ERROR] Suggestion application failed: {application_error}")
+            execution_time = time.time() - start_time
+            
+            return ApplySuggestionsResponse(
+                success=False,
+                message=f"Suggestion application failed after {execution_time:.2f}s",
+                error=str(application_error)
+            )
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[ERROR] Suggestion application error: {error_msg}")
+        
+        return ApplySuggestionsResponse(
+            success=False,
+            message="Suggestion application failed",
             error=error_msg
         )
 
