@@ -47,6 +47,10 @@ export default function UseCasesPage() {
   const { addGeneratedInitiatives } = useInitiativeStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isQualityAssessmentOpen, setIsQualityAssessmentOpen] = useState(false);
+  const [qualityAssessment, setQualityAssessment] = useState<any>(null);
+  const [isAssessing, setIsAssessing] = useState(false);
+  const [useRealLLM, setUseRealLLM] = useState(false);
   // Commented out workflow modal - using sidebar workflow steps instead
   // const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
   const [viewingUseCase, setViewingUseCase] = useState<any>(null);
@@ -59,7 +63,7 @@ export default function UseCasesPage() {
     businessValue: '',
     acceptanceCriteria: '',
     submittedBy: '',
-    priority: 'medium' as const,
+    priority: 'high' as 'low' | 'medium' | 'high' | 'critical',
     status: 'draft' as const,
     // Business Brief fields
     businessOwner: '',
@@ -88,6 +92,87 @@ export default function UseCasesPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Instead of immediately adding the use case, first assess quality
+    assessBusinessBriefQuality();
+  };
+
+  const populateBadSampleData = () => {
+    setFormData({
+      title: 'Make an app',
+      description: 'We need an app for stuff',
+      businessValue: 'It will be good',
+      acceptanceCriteria: 'It should work',
+      submittedBy: 'John Doe',
+      priority: 'high',
+      status: 'draft',
+      // Business Brief fields with poor quality data
+      businessOwner: 'joshua-payne',
+      leadBusinessUnit: 'technology',
+      additionalBusinessUnits: [],
+      primaryStrategicTheme: 'growth',
+      businessObjective: 'We want to make money and get more customers. The current system is slow and customers complain sometimes.',
+      quantifiableBusinessOutcomes: 'More sales, better performance, happy customers',
+      inScope: 'Mobile app and maybe website',
+      impactOfDoNothing: 'Bad things will happen',
+      happyPath: 'Users open app and use it',
+      exceptions: 'If something breaks',
+      impactedEndUsers: 'All users',
+      changeImpactExpected: 'They will like it more',
+      impactToOtherDepartments: 'Some impact',
+      otherDepartmentsImpacted: [],
+      impactsExistingTechnology: true,
+      technologySolutions: 'Old system',
+      relevantBusinessOwners: 'Business people',
+      otherTechnologyInfo: 'It needs to be fast',
+      supportingDocuments: [],
+    });
+  };
+
+  const assessBusinessBriefQuality = async () => {
+    setIsAssessing(true);
+    
+    // IMMEDIATELY close the business brief modal for clean UX
+    setIsDialogOpen(false);
+    
+    // Show loading notification for better UX feedback
+    const assessmentMode = useRealLLM ? '🧠 AI is evaluating' : '🎭 Mock system is evaluating';
+    notify.info('Assessing Quality', `${assessmentMode} your business brief...`);
+    
+    // Brief delay to ensure smooth modal transition
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    try {
+      const response = await fetch('/api/assess-business-brief-quality', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          businessBrief: formData,
+          useRealLLM: useRealLLM,
+          llmSettings: llmSettings
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to assess business brief quality');
+      }
+
+      const assessment = await response.json();
+      setQualityAssessment(assessment.data);
+      setIsQualityAssessmentOpen(true);
+      
+    } catch (error) {
+      console.error('Error assessing business brief:', error);
+      notify.error('Assessment Failed', 'Could not assess quality. Proceeding with submission.');
+      // Fallback - proceed with normal submission if assessment fails
+      proceedWithSubmission();
+    } finally {
+      setIsAssessing(false);
+    }
+  };
+
+  const proceedWithSubmission = () => {
     const acceptanceCriteriaArray = formData.acceptanceCriteria
       .split('\n')
       .filter(item => item.trim())
@@ -101,9 +186,19 @@ export default function UseCasesPage() {
       supportingDocuments: formData.supportingDocuments,
       workflowStage: 'idea' as const,
       completionPercentage: 10,
+      // TODO: Add qualityAssessment and needsApproval to UseCase type
+      // qualityAssessment: qualityAssessment, // Add quality assessment to the use case
+      // needsApproval: qualityAssessment?.overallGrade !== 'green', // Flag for approval if not green
     });
 
-    // Reset form
+    // Reset form only after successful submission
+    resetForm();
+    
+    setIsQualityAssessmentOpen(false);
+    setQualityAssessment(null);
+  };
+
+  const resetForm = () => {
     setFormData({
       title: '',
       description: '',
@@ -132,8 +227,13 @@ export default function UseCasesPage() {
       otherTechnologyInfo: '',
       supportingDocuments: [],
     });
-    
-    setIsDialogOpen(false);
+  };
+
+  const handleMakeImprovements = () => {
+    // Close assessment modal and reopen business brief modal with existing data
+    setIsQualityAssessmentOpen(false);
+    setQualityAssessment(null);
+    setIsDialogOpen(true);
   };
 
   const handleStatusChange = (id: string, newStatus: any) => {
@@ -383,10 +483,41 @@ export default function UseCasesPage() {
             </DialogTrigger>
             <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Business Brief</DialogTitle>
-                <DialogDescription>
-                  NEW IDEA REQUEST BY Joshua Payne
-                </DialogDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle>Business Brief</DialogTitle>
+                    <DialogDescription>
+                      NEW IDEA REQUEST BY Joshua Payne
+                    </DialogDescription>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-50 rounded-lg border">
+                      <input
+                        type="checkbox"
+                        id="use-real-llm"
+                        checked={useRealLLM}
+                        onChange={(e) => setUseRealLLM(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="use-real-llm" className="text-sm text-gray-700 font-medium">
+                        Use Real LLM
+                      </label>
+                      <div className="text-xs text-gray-500">
+                        {useRealLLM ? '🧠 AI Analysis' : '🎭 Mock Analysis'}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={populateBadSampleData}
+                      className="bg-yellow-50 text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                    >
+                      <Lightbulb className="w-4 h-4 mr-1" />
+                      Load Test Data
+                    </Button>
+                  </div>
+                </div>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -777,7 +908,16 @@ export default function UseCasesPage() {
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">Submit Business Brief</Button>
+                  <Button type="submit" disabled={isAssessing}>
+                    {isAssessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Assessing Quality...
+                      </>
+                    ) : (
+                      'Submit Business Brief'
+                    )}
+                  </Button>
                 </div>
               </form>
             </DialogContent>
@@ -1100,6 +1240,286 @@ export default function UseCasesPage() {
                   </ul>
                 </div>
               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Quality Assessment Modal */}
+      <Dialog open={isQualityAssessmentOpen} onOpenChange={setIsQualityAssessmentOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              {qualityAssessment?.overallGrade === 'green' && (
+                <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
+              )}
+              {qualityAssessment?.overallGrade === 'amber' && (
+                <AlertCircle className="w-6 h-6 text-amber-600 mr-2" />
+              )}
+              {qualityAssessment?.overallGrade === 'red' && (
+                <AlertCircle className="w-6 h-6 text-red-600 mr-2" />
+              )}
+              Business Brief Quality Assessment
+            </DialogTitle>
+                          <DialogDescription>
+                AI-powered quality evaluation with improvement recommendations
+                {qualityAssessment?.assessmentMode && (
+                  <div className="mt-2 text-xs">
+                    {qualityAssessment.assessmentMode === 'real-llm' && (
+                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
+                        🧠 Real AI Assessment Used
+                      </span>
+                    )}
+                    {qualityAssessment.assessmentMode === 'mock' && (
+                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                        🎭 Mock Assessment Used
+                      </span>
+                    )}
+                    {qualityAssessment.assessmentMode === 'mock-fallback' && (
+                      <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                        ⚠️ Fallback to Mock (Real LLM Failed)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </DialogDescription>
+          </DialogHeader>
+
+          {qualityAssessment && (
+            <div className="space-y-6">
+              {/* Fallback Warning Card */}
+              {qualityAssessment.assessmentMode === 'mock-fallback' && (
+                <Card className="border-l-4 border-l-amber-500 bg-amber-50">
+                  <CardHeader>
+                    <CardTitle className="text-amber-900 flex items-center">
+                      <AlertCircle className="w-5 h-5 mr-2" />
+                      Real LLM Assessment Failed
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-amber-800 mb-2">
+                      The system attempted to use real AI assessment but encountered an error. Falling back to mock assessment.
+                    </p>
+                    {qualityAssessment.fallbackReason && (
+                      <div className="bg-amber-100 p-3 rounded text-sm">
+                        <strong>Error Details:</strong> {qualityAssessment.fallbackReason}
+                      </div>
+                    )}
+                    <p className="text-xs text-amber-700 mt-2">
+                      Check the console logs for more details or verify your LLM configuration.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Overall Grade Card */}
+              <Card className={`border-l-4 ${
+                qualityAssessment.overallGrade === 'green' ? 'border-l-green-500 bg-green-50' :
+                qualityAssessment.overallGrade === 'amber' ? 'border-l-amber-500 bg-amber-50' :
+                'border-l-red-500 bg-red-50'
+              }`}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className={`text-lg ${
+                      qualityAssessment.overallGrade === 'green' ? 'text-green-900' :
+                      qualityAssessment.overallGrade === 'amber' ? 'text-amber-900' :
+                      'text-red-900'
+                    }`}>
+                      Overall Grade: {qualityAssessment.overallGrade.toUpperCase()}
+                    </CardTitle>
+                    <Badge variant="outline" className={`${
+                      qualityAssessment.overallGrade === 'green' ? 'bg-green-100 text-green-800 border-green-300' :
+                      qualityAssessment.overallGrade === 'amber' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                      'bg-red-100 text-red-800 border-red-300'
+                    }`}>
+                      {qualityAssessment.overallScore}/10
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className={`${
+                    qualityAssessment.overallGrade === 'green' ? 'text-green-800' :
+                    qualityAssessment.overallGrade === 'amber' ? 'text-amber-800' :
+                    'text-red-800'
+                  }`}>
+                    {qualityAssessment.summary}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Improvements Section */}
+              {(qualityAssessment.improvements.critical.length > 0 || 
+                qualityAssessment.improvements.important.length > 0 || 
+                qualityAssessment.improvements.suggested.length > 0) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-gray-900">Required Improvements</CardTitle>
+                    <CardDescription>Areas that need attention before approval</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {qualityAssessment.improvements.critical.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-red-900 mb-2 flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          Critical Issues (Must Fix)
+                        </h4>
+                        <ul className="space-y-1">
+                          {qualityAssessment.improvements.critical.map((item: string, index: number) => (
+                            <li key={index} className="flex items-start text-sm text-red-800">
+                              <span className="text-red-600 mr-2">•</span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {qualityAssessment.improvements.important.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-amber-900 mb-2 flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          Important Improvements
+                        </h4>
+                        <ul className="space-y-1">
+                          {qualityAssessment.improvements.important.map((item: string, index: number) => (
+                            <li key={index} className="flex items-start text-sm text-amber-800">
+                              <span className="text-amber-600 mr-2">•</span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {qualityAssessment.improvements.suggested.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-blue-900 mb-2 flex items-center">
+                          <Lightbulb className="w-4 h-4 mr-1" />
+                          Suggested Enhancements
+                        </h4>
+                        <ul className="space-y-1">
+                          {qualityAssessment.improvements.suggested.map((item: string, index: number) => (
+                            <li key={index} className="flex items-start text-sm text-blue-800">
+                              <span className="text-blue-600 mr-2">•</span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Field Assessments */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg text-gray-900">Field-by-Field Assessment</CardTitle>
+                  <CardDescription>Detailed evaluation of each section</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(qualityAssessment.fieldAssessments).map(([field, assessment]: [string, any]) => (
+                      <div key={field} className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-medium text-sm text-gray-900 capitalize">
+                            {field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </h5>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="outline" className={`text-xs ${
+                              assessment.grade === 'green' ? 'bg-green-100 text-green-800 border-green-300' :
+                              assessment.grade === 'amber' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                              'bg-red-100 text-red-800 border-red-300'
+                            }`}>
+                              {assessment.grade}
+                            </Badge>
+                            <span className="text-xs text-gray-500">{assessment.score}/10</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-2">{assessment.feedback}</p>
+                        {assessment.suggestions.length > 0 && (
+                          <div className="bg-gray-50 p-2 rounded text-xs">
+                            <span className="font-medium">Suggestions:</span>
+                            <ul className="mt-1 space-y-1">
+                              {assessment.suggestions.map((suggestion: string, idx: number) => (
+                                <li key={idx} className="text-gray-600">• {suggestion}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Next Steps */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg text-gray-900">Recommended Next Steps</CardTitle>
+                  <CardDescription>Actions to take based on this assessment</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ol className="space-y-2">
+                    {qualityAssessment.nextSteps.map((step: string, index: number) => (
+                      <li key={index} className="flex items-start text-sm text-gray-700">
+                        <span className="bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs mr-3 mt-0.5 flex-shrink-0">
+                          {index + 1}
+                        </span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex justify-between pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  {qualityAssessment.approvalRequired ? (
+                    <div className="flex items-center text-amber-700">
+                      <Clock className="w-4 h-4 mr-1" />
+                      Approval required before proceeding to next phase
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-green-700">
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Ready for next phase implementation
+                    </div>
+                  )}
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleMakeImprovements}
+                  >
+                    Make Improvements
+                  </Button>
+                  {qualityAssessment.overallGrade === 'green' ? (
+                    <Button
+                      onClick={() => {
+                        proceedWithSubmission();
+                        notify.success('Business Brief Approved', 'Your business brief has been approved and submitted successfully!');
+                      }}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Approve & Submit
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        proceedWithSubmission();
+                        notify.warning('Submitted for Review', 'Your business brief has been submitted and will require approval before proceeding.');
+                      }}
+                      className="bg-amber-600 hover:bg-amber-700"
+                    >
+                      <Clock className="w-4 h-4 mr-1" />
+                      Submit for Review
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>

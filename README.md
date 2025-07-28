@@ -74,6 +74,69 @@ GOOGLE_API_KEY=your_google_api_key_here
 4. **Jira Creation** → Epic created with proper mapping and labels
 5. **Success Notification** → Shows Jira issue link and key
 
+## 🧠 Business Brief Quality Assessment
+
+AI-powered quality evaluation system for business ideas with real-time feedback and improvement recommendations.
+
+### Features
+- **AI Quality Grading**: Traffic light system (🟢 Green, 🟡 Amber, 🔴 Red)
+- **Field-by-Field Analysis**: Detailed evaluation of each section
+- **Improvement Recommendations**: Specific, actionable feedback
+- **Approval Workflow**: Automatic approval routing based on quality grade
+- **UI Toggle Switch**: Real-time switching between mock and real LLM assessment
+
+### Usage
+
+#### Development/Testing Toggle
+Simply check/uncheck the **"Use Real LLM"** checkbox in the Business Brief dialog:
+- ✅ **Checked**: Real AI analysis with your configured LLM
+- ☐ **Unchecked**: Mock assessment for development/testing
+
+#### LLM Configuration (Settings Page)
+Configure your LLM provider through the **Settings** page in the application:
+
+1. **Navigate to Settings** → LLM Provider Configuration
+2. **Select Provider**: OpenAI or Google AI (Gemini)
+3. **Choose Model**: GPT-4, GPT-3.5 Turbo, Gemini Pro, etc.
+4. **Add API Key**: Enter your provider's API key
+5. **Adjust Settings**: Temperature (creativity) and Max Tokens
+6. **Save Configuration** → Ready for real LLM assessment
+
+No environment variables needed - all configuration is done through the UI!
+
+### How It Works
+1. User opens "New Business Brief" dialog
+2. **Toggle "Use Real LLM"** checkbox to choose assessment method
+3. Submit business brief → System analyzes content using selected method
+4. Quality assessment modal shows detailed feedback with visual indicators
+5. User can improve and resubmit, or proceed based on grade
+6. Green ideas get automatic approval, others require review
+
+### Assessment Methods
+
+#### 🎭 **Mock Assessment** (Default)
+- Fast, no API costs
+- Rule-based analysis (content length, keywords, completeness)
+- Consistent for UI/UX testing
+- Always available as fallback
+
+#### 🧠 **Real LLM Assessment** (Optional)
+- Sophisticated AI business analysis
+- Strategic evaluation of market fit, viability, competitive positioning
+- Intelligent feedback on business model logic
+- Requires API key configuration
+
+### Supported LLM Providers
+- **OpenAI**: GPT-4, GPT-3.5-turbo
+- **Anthropic**: Claude-3 (Opus, Sonnet, Haiku)
+
+### Error Handling
+- Real LLM failures automatically fall back to mock assessment
+- System never breaks, always provides quality feedback
+- Clear logging and user notifications for debugging
+
+---
+
 ## 🏗️ Architecture
 
 ```
