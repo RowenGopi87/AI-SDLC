@@ -88,19 +88,54 @@ export async function POST(request: NextRequest) {
 function buildUIUXConversionPrompt(): string {
   return `You are an expert AI Frontend Developer specializing in converting visual designs into high-quality, single-file HTML. Your primary function is to take a provided image (e.g., JPG, PNG) or a PDF of a webpage design and accurately recreate it as a single, self-contained HTML file.
 
-Your Goal: To produce a pixel-perfect, responsive, and functional HTML representation of the visual design provided by the user.
+Your Goal: To produce a pixel-perfect, responsive, and functional HTML representation of the visual design provided by the user with EXACT visual fidelity to the source material.
 
 Core Instructions & Workflow:
-1. Analyze the Input: Carefully examine the provided image(s) or PDF. Deconstruct the visual hierarchy, including the header, main content sections, footer, layout grids, and overall structure. If multiple images are provided, treat them as different views (e.g., full page, close-ups, mobile version) of the same design.
+
+1. **COMPREHENSIVE VISUAL ANALYSIS**: When an image is provided, perform a detailed forensic analysis:
+   
+   🎨 **COLOR EXTRACTION & MATCHING**:
+   - Identify the EXACT color palette using digital color picker techniques
+   - Extract primary colors (backgrounds, main UI elements)
+   - Extract secondary colors (accents, highlights, borders)
+   - Extract text colors (headings, body text, links, captions)
+   - Identify gradients, shadows, and color transitions
+   - Provide exact hex codes or RGB values for all colors
+   - Note color usage patterns and hierarchies
+   
+   🖋️ **TYPOGRAPHY ANALYSIS**:
+   - Identify font families (attempt to match with web-safe or Google Fonts)
+   - Determine font weights (100-900 scale)
+   - Measure font sizes for different text elements
+   - Analyze letter spacing, line height, and text density
+   - Identify text alignment patterns
+   - Note any special typography effects (shadows, outlines, etc.)
+   
+   🏗️ **LAYOUT & SPATIAL ANALYSIS**:
+   - Deconstruct the grid system and alignment patterns
+   - Measure spacing between elements (margins, padding)
+   - Analyze container widths and proportions
+   - Identify responsive breakpoint implications
+   - Note element positioning and layering
+   - Analyze white space usage and visual rhythm
+   
+   🎭 **STYLE & AESTHETIC ANALYSIS**:
+   - Determine overall design style (modern, minimal, corporate, creative, etc.)
+   - Analyze button styles (shapes, shadows, hover states)
+   - Examine card/container treatments (borders, shadows, backgrounds)
+   - Identify icon styles and visual treatments
+   - Note any animation or interaction hints
+   - Assess overall visual hierarchy and emphasis patterns
 
 2. Structure with Semantic HTML: Write clean, semantic HTML5. Use appropriate tags like <header>, <footer>, <nav>, <main>, <section>, <h1>, <p>, and <button>. This is crucial for accessibility and maintainability.
 
 3. Style with Embedded CSS: All CSS must be placed within a single <style> tag in the <head> of the HTML file. Do not link to external CSS files.
    - Use modern CSS techniques like Flexbox and Grid for layout.
-   - Pay close attention to the color palette. Use a "color picker" to match hex or RGBA codes exactly.
-   - Replicate typography precisely: font families, sizes, weights, and line heights.
+   - CRITICALLY IMPORTANT: Replicate the analyzed colors EXACTLY using the extracted hex codes
+   - CRITICALLY IMPORTANT: Match typography precisely using the analyzed font properties
+   - CRITICALLY IMPORTANT: Maintain exact spacing and proportions from the analysis
 
-4. Ensure Responsiveness: The final output must be responsive and adapt gracefully to different screen sizes. Use media queries (@media) to adjust layouts, font sizes, and spacing for tablet and mobile views. If a mobile view is provided in the input, it is your primary reference for mobile styling. If not, create a logical mobile layout from the desktop design.
+4. Ensure Responsiveness: The final output must be responsive and adapt gracefully to different screen sizes. Use media queries (@media) to adjust layouts, font sizes, and spacing for tablet and mobile views. If a mobile view is provided in the input, it is your primary reference for mobile styling. If not, create a logical mobile layout from the desktop design while maintaining the visual style.
 
 CRITICAL RULES & CONSTRAINTS:
 - Single File Output: The entire output must be a single index.html file. No external CSS or JavaScript files are permitted.
@@ -129,23 +164,47 @@ function buildUserPrompt(
   imageType?: string
 ): string {
   const imagePrompt = imageData ? 
-    `I have provided an image of a UI/UX design that I want you to convert to HTML. Please analyze this image carefully and recreate it as a complete, single-file HTML document.` : 
+    `🖼️ VISUAL DESIGN ANALYSIS REQUIRED: I have provided a design reference image that contains the exact visual style, colors, fonts, and layout that must be replicated.
+
+MANDATORY ANALYSIS STEPS:
+1. **Extract Color Palette**: Identify all colors used (backgrounds, text, accents, borders) and provide exact hex codes
+2. **Analyze Typography**: Identify font families, weights, sizes, and spacing used throughout the design
+3. **Study Layout**: Examine spacing patterns, grid systems, component arrangements, and proportions  
+4. **Assess Visual Style**: Determine the design aesthetic, button styles, shadows, borders, and overall theme
+5. **Match Exactly**: The generated HTML must visually match the uploaded image as closely as possible
+
+Please analyze this image comprehensively and recreate it as a complete, single-file HTML document with pixel-perfect accuracy.` : 
     `Please create a web component based on the following description: ${context}`;
 
   const additionalRequirements = [
-    includeResponsive ? "Make it fully responsive with mobile-first design" : "",
+    includeResponsive ? "Make it fully responsive with mobile-first design while maintaining visual consistency" : "",
     includeAccessibility ? "Include proper accessibility features (ARIA labels, semantic HTML, keyboard navigation)" : "",
     designStyle ? `Use a ${designStyle} design aesthetic` : "",
-    framework !== 'vanilla' ? `Structure it to be easily convertible to ${framework} component later` : ""
+    framework !== 'vanilla' ? `Structure it to be easily convertible to ${framework} component later` : "",
+    imageData ? "CRITICAL: Prioritize visual fidelity to the uploaded image over generic styling choices" : ""
   ].filter(Boolean).join(". ");
 
   return `${imagePrompt}
 
+📋 **PROJECT CONTEXT**: ${context}
+
+🎯 **SPECIFIC REQUIREMENTS**: 
 ${prompt}
 
-Additional Requirements: ${additionalRequirements}
+⚙️ **TECHNICAL REQUIREMENTS**: ${additionalRequirements}
 
-Please provide a complete HTML file with embedded CSS that perfectly recreates the design shown in the image.`;
+${imageData ? `
+🔍 **VISUAL MATCHING PRIORITY**: 
+The uploaded design image is the PRIMARY reference. Extract and replicate:
+- Exact color palette and usage patterns
+- Typography hierarchy and font characteristics  
+- Spacing, proportions, and layout structure
+- Visual style elements (buttons, cards, shadows, etc.)
+- Overall aesthetic and design theme
+
+The final result should look virtually identical to the provided design image.` : ''}
+
+Please provide a complete HTML file with embedded CSS that ${imageData ? 'perfectly recreates the design shown in the image' : 'meets the specified requirements'}.`;
 }
 
 async function generateCodeWithLLM(

@@ -118,6 +118,9 @@ export default function DesignPage() {
   const [isReverseEngineering, setIsReverseEngineering] = useState(false);
   const [reverseProgress, setReverseProgress] = useState(0);
   
+  // Real vs Mock LLM toggle for reverse engineering
+  const [useRealLLMForReverse, setUseRealLLMForReverse] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workItemImageRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
@@ -271,7 +274,8 @@ export default function DesignPage() {
           fileData,
           analysisLevel: reverseConfig.analysisLevel,
           extractUserFlows: reverseConfig.extractUserFlows,
-          includeAccessibility: reverseConfig.includeAccessibility
+          includeAccessibility: reverseConfig.includeAccessibility,
+          useRealLLM: useRealLLMForReverse
         }),
       });
 
@@ -497,7 +501,37 @@ Requirements: Create a user interface that addresses the work item requirements.
             context += ` | Reference Design: ${workItemImage.name}`;
             workItemPrompt += `
 
-VISUAL REFERENCE: I have also provided a design reference image to guide the visual implementation. Please analyze the uploaded image and incorporate its design patterns, layout, color scheme, and visual elements into the generated component while ensuring it fulfills the work item requirements.`;
+VISUAL REFERENCE & DESIGN ANALYSIS: I have provided a design reference image that MUST be analyzed comprehensively to extract and replicate its visual characteristics. Please carefully examine the uploaded image and extract the following design elements:
+
+🎨 **COLOR PALETTE ANALYSIS**:
+- Primary colors (backgrounds, main elements)
+- Secondary colors (accents, highlights)
+- Text colors (headings, body text, links)
+- Border colors and gradients
+- Extract exact hex codes where possible
+
+🖋️ **TYPOGRAPHY & FONTS**:
+- Font families used (serif, sans-serif specific names if identifiable)
+- Font weights (light, regular, medium, bold)
+- Font sizes and hierarchy (headings, body text, captions)
+- Letter spacing and line height patterns
+- Text alignment and formatting
+
+🏗ī¸ **LAYOUT & STRUCTURE**:
+- Grid system and spacing patterns
+- Component arrangement and hierarchy
+- Padding and margin patterns
+- Container widths and responsive breakpoints
+- Element proportions and sizing
+
+🎭 **VISUAL STYLE & THEME**:
+- Overall design aesthetic (modern, minimal, corporate, playful, etc.)
+- Button styles (rounded corners, shadows, hover effects)
+- Card/container styling (borders, shadows, backgrounds)
+- Icon styles and treatments
+- Animation and interaction patterns
+
+CRITICAL REQUIREMENT: The generated component MUST visually match the uploaded design image as closely as possible while fulfilling the work item requirements. Prioritize visual fidelity to the design image over generic styling choices.`;
 
             // Convert work item image to base64
             imageData = await fileToBase64(workItemImage);
@@ -821,7 +855,7 @@ ${generatedCode.html}`;
                         
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Upload Reference Design Image
+                            🎨 Upload Design Reference for Visual Analysis
                           </label>
                           <div 
                             className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
@@ -840,7 +874,7 @@ ${generatedCode.html}`;
                               <div className="space-y-2">
                                 <FileImage className="w-8 h-8 text-green-600 mx-auto" />
                                 <p className="text-sm font-medium text-green-700">{workItemImage.name}</p>
-                                <p className="text-xs text-green-600">Click to change</p>
+                                <p className="text-xs text-green-600">Click to change • AI will analyze design elements</p>
                               </div>
                             ) : (
                               <div className="space-y-2">
@@ -848,13 +882,22 @@ ${generatedCode.html}`;
                                 <p className="text-sm text-gray-600">
                                   <span className="font-medium text-blue-600">Click to upload</span> design reference
                                 </p>
-                                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB (Optional)</p>
+                                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB • AI will extract visual elements</p>
                               </div>
                             )}
                           </div>
-                          <p className="text-xs text-gray-500 mt-2">
-                            Upload a design mockup, wireframe, or reference image to provide additional visual context for code generation.
-                          </p>
+                          <div className="text-xs text-gray-600 mt-2 space-y-1">
+                            <p className="font-medium">🔍 AI Visual Analysis will extract:</p>
+                            <ul className="text-xs text-gray-500 space-y-0.5 ml-4">
+                              <li>• Color palette and theme</li>
+                              <li>• Typography and font styles</li>
+                              <li>• Layout patterns and spacing</li>
+                              <li>• Visual style and aesthetic</li>
+                            </ul>
+                            <p className="text-xs text-blue-600 font-medium mt-2">
+                              The generated code will closely match your design's visual characteristics
+                            </p>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1344,6 +1387,29 @@ ${generatedCode.html}`;
                           Accessibility Analysis 
                         </label>
                       </div>
+                    </div>
+
+                    {/* LLM Mode Toggle */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-yellow-800 mb-2">⚙️ Analysis Mode</h4>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="use-real-llm-reverse"
+                          checked={useRealLLMForReverse}
+                          onChange={(e) => setUseRealLLMForReverse(e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="use-real-llm-reverse" className="text-sm text-yellow-700">
+                          <span className="font-medium">Use Real LLM</span> (requires API key configuration)
+                        </label>
+                      </div>
+                      <p className="text-xs text-yellow-600 mt-1">
+                        {useRealLLMForReverse 
+                          ? "🔥 Using real AI for comprehensive design analysis with product owner expertise" 
+                          : "🎭 Using mock analysis for development/testing (no API costs)"
+                        }
+                      </p>
                     </div>
 
                     {/* Analyze Button */}

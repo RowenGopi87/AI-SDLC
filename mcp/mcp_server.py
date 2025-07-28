@@ -134,6 +134,22 @@ class ApplySuggestionsResponse(BaseModel):
     message: str
     error: Optional[str] = None
 
+class ReverseEngineerDesignRequest(BaseModel):
+    systemPrompt: str
+    userPrompt: str
+    analysisLevel: str
+    hasImage: bool
+    imageData: Optional[str] = None
+    imageType: Optional[str] = None
+    llm_provider: str = "google"
+    model: str = "gemini-2.5-pro"
+
+class ReverseEngineerDesignResponse(BaseModel):
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    message: str
+    error: Optional[str] = None
+
 async def create_mcp_client(server_type: str = "playwright"):
     """Create a new MCP client for the specified server type"""
     try:
@@ -1369,6 +1385,189 @@ async def clear_screenshots():
         return {"success": True, "message": "Screenshots cleared"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+def flatten_nested_work_items(data):
+    """Flatten nested work items structure for UI compatibility"""
+    try:
+        # Initialize flat arrays
+        all_epics = []
+        all_stories = []
+        
+        # Extract nested epics and stories from features
+        if 'features' in data and isinstance(data['features'], list):
+            for feature in data['features']:
+                if isinstance(feature, dict) and 'epics' in feature:
+                    if isinstance(feature['epics'], list):
+                        for epic in feature['epics']:
+                            all_epics.append(epic)
+                            # Extract stories from epics
+                            if isinstance(epic, dict) and 'stories' in epic:
+                                if isinstance(epic['stories'], list):
+                                    for story in epic['stories']:
+                                        all_stories.append(story)
+        
+        # If no nested structure, check top-level
+        if 'epics' in data and isinstance(data['epics'], list):
+            all_epics.extend(data['epics'])
+            
+        if 'stories' in data and isinstance(data['stories'], list):
+            all_stories.extend(data['stories'])
+        
+        # Create flattened result
+        result = dict(data)  # Copy original data
+        result['epics'] = all_epics
+        result['stories'] = all_stories
+        
+        return result
+        
+    except Exception as e:
+        print(f"[WARN] Error flattening work items: {e}")
+        return data  # Return original if flattening fails
+
+@app.post("/reverse-engineer-design", response_model=ReverseEngineerDesignResponse)
+async def reverse_engineer_design(request: ReverseEngineerDesignRequest):
+    """Reverse engineer visual designs into business requirements using LLM"""
+    try:
+        print(f"[REVERSE-DESIGN] Starting design reverse engineering")
+        print(f"[LLM] Using {request.llm_provider} model: {request.model}")
+        print(f"[ANALYSIS] Analysis level: {request.analysisLevel}")
+        print(f"[IMAGE] Has image data: {request.hasImage}")
+        
+        # Create LLM directly (no MCP tools needed for design reverse engineering)
+        try:
+            if request.llm_provider == "google":
+                llm = ChatGoogleGenerativeAI(
+                    model=request.model,
+                    google_api_key=os.getenv("GOOGLE_API_KEY")
+                )
+            else:
+                llm = ChatOpenAI(
+                    model="gpt-4",
+                    openai_api_key=os.getenv("OPENAI_API_KEY")
+                )
+            
+            print(f"[LLM] LLM created successfully for {request.llm_provider}")
+            
+        except Exception as llm_error:
+            print(f"[ERROR] Failed to create LLM: {llm_error}")
+            return ReverseEngineerDesignResponse(
+                success=False,
+                message="Failed to initialize LLM",
+                error=str(llm_error)
+            )
+
+        # Prepare the message content with image if available
+        start_time = time.time()
+        try:
+            print("[LLM] Generating design analysis...")
+            
+            # Build message content
+            if request.hasImage and request.imageData:
+                print(f"[IMAGE] Including image data in analysis ({len(request.imageData)} chars)")
+                
+                # For Gemini, we need to format the image properly
+                if request.llm_provider == "google":
+                    message_content = [
+                        {
+                            "type": "text",
+                            "text": f"{request.systemPrompt}\n\n{request.userPrompt}"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{request.imageType};base64,{request.imageData}"
+                            }
+                        }
+                    ]
+                else:
+                    # For OpenAI format
+                    message_content = [
+                        {
+                            "type": "text", 
+                            "text": f"{request.systemPrompt}\n\n{request.userPrompt}"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{request.imageType};base64,{request.imageData}"
+                            }
+                        }
+                    ]
+                
+                response = await llm.ainvoke([{"role": "user", "content": message_content}])
+            else:
+                print("[TEXT] Processing text-only analysis")
+                full_prompt = f"{request.systemPrompt}\n\n{request.userPrompt}"
+                response = await llm.ainvoke([{"role": "user", "content": full_prompt}])
+            
+            # Extract content from response  
+            if hasattr(response, 'content'):
+                analysis_result = response.content
+            else:
+                analysis_result = str(response)
+                
+            execution_time = time.time() - start_time
+            print(f"[SUCCESS] Design reverse engineering completed in {execution_time:.2f}s")
+            
+            # Try to parse as JSON, handling markdown code blocks
+            try:
+                import json
+                import re
+                
+                # Remove markdown code block syntax if present
+                cleaned_result = analysis_result.strip()
+                
+                # Check if it's wrapped in markdown code blocks
+                if cleaned_result.startswith('```json\n') and cleaned_result.endswith('\n```'):
+                    # Remove the ```json and ``` markers
+                    cleaned_result = cleaned_result[7:-4].strip()
+                elif cleaned_result.startswith('```\n') and cleaned_result.endswith('\n```'):
+                    # Remove generic ``` markers
+                    cleaned_result = cleaned_result[4:-4].strip()
+                
+                # Try to parse the cleaned JSON
+                parsed_result = json.loads(cleaned_result)
+                
+                # Flatten nested structure for UI compatibility
+                flattened_result = flatten_nested_work_items(parsed_result)
+                
+                return ReverseEngineerDesignResponse(
+                    success=True,
+                    data=flattened_result,
+                    message="Design reverse engineered successfully"
+                )
+            except json.JSONDecodeError as e:
+                print(f"[WARN] JSON parsing failed: {e}")
+                print(f"[WARN] Raw response length: {len(analysis_result)}")
+                print(f"[WARN] First 200 chars: {analysis_result[:200]}...")
+                
+                # If not valid JSON, return as text
+                return ReverseEngineerDesignResponse(
+                    success=True,
+                    data={
+                        "analysis": analysis_result,
+                        "analysisLevel": request.analysisLevel,
+                        "executionTime": execution_time
+                    },
+                    message="Design reverse engineered successfully (text format)"
+                )
+                
+        except Exception as generation_error:
+            execution_time = time.time() - start_time
+            print(f"[ERROR] Design reverse engineering failed after {execution_time:.2f}s: {generation_error}")
+            return ReverseEngineerDesignResponse(
+                success=False,
+                message="Failed to reverse engineer design",
+                error=str(generation_error)
+            )
+            
+    except Exception as e:
+        print(f"[ERROR] Unexpected error in design reverse engineering: {e}")
+        return ReverseEngineerDesignResponse(
+            success=False,
+            message="Unexpected error occurred",
+            error=str(e)
+        )
 
 if __name__ == "__main__":
     import uvicorn
