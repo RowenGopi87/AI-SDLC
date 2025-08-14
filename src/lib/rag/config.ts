@@ -22,7 +22,7 @@ export const RAG_CONFIG = {
   
   // SAFe Integration
   SAFE_VECTOR_STORE: 'safe_documents',
-  WORK_ITEMS_VECTOR_STORE: 'work_items_context',
+  WORK_ITEMS_VECTOR_STORE_NAME: 'work_items_context',
   
   // Chat Configuration
   SYSTEM_PROMPT: `You are an intelligent assistant for Aura SDLC management system. 

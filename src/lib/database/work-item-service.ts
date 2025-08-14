@@ -3,6 +3,7 @@
 
 import { databaseService, vectorStore, embeddingService } from './index';
 import { RAG_CONFIG } from '../rag/config';
+import { workItemIndexer, WorkItemForIndexing } from './work-item-indexer';
 
 export interface WorkItemSearchResult {
   id: string;
@@ -171,38 +172,29 @@ export class WorkItemDatabaseService {
    * Index work item in vector store for search
    */
   private async indexWorkItemForSearch(type: string, item: any): Promise<void> {
-    // Only index if embedding service is available
-    if (!embeddingService.isEnabled()) {
-      console.log(`⚠️ Embedding service not enabled, skipping vector indexing for ${type} ${item.title}`);
-      return;
-    }
-
     try {
-      // Create searchable text from work item
-      const searchableContent = this.createSearchableContent(type, item);
-      
-      // Create vector document
-      const vectorDocument = {
-        id: `${type}_${item.id}`,
-        document: searchableContent,
-        metadata: {
-          type: type,
-          id: item.id,
-          title: item.title,
-          status: item.status,
-          priority: item.priority,
-          assignedTo: item.assignedTo,
-          createdAt: item.createdAt?.toISOString(),
-          updatedAt: item.updatedAt?.toISOString(),
-          source: `${type}:${item.title}`
-        }
+      // Convert to WorkItemForIndexing format
+      const workItemForIndexing: WorkItemForIndexing = {
+        id: item.id,
+        type: type as 'businessBrief' | 'initiative' | 'feature' | 'epic' | 'story',
+        title: item.title,
+        description: item.description,
+        businessValue: item.businessValue,
+        acceptanceCriteria: item.acceptanceCriteria,
+        status: item.status,
+        priority: item.priority,
+        assignedTo: item.assignedTo,
+        workflowStage: item.workflowStage,
+        completionPercentage: item.completionPercentage,
+        // Relationship fields
+        businessBriefId: item.businessBriefId,
+        initiativeId: item.initiativeId,
+        featureId: item.featureId,
+        epicId: item.epicId
       };
 
-      // Store in work items vector store
-      await vectorStore.insertDocuments(
-        RAG_CONFIG.WORK_ITEMS_VECTOR_STORE,
-        [vectorDocument]
-      );
+      // Use the enhanced work item indexer
+      await workItemIndexer.indexWorkItem(workItemForIndexing);
 
     } catch (error) {
       console.warn(`⚠️ Failed to index ${type} ${item.title} for search:`, error);
@@ -210,40 +202,7 @@ export class WorkItemDatabaseService {
     }
   }
 
-  /**
-   * Create searchable text content from work item
-   */
-  private createSearchableContent(type: string, item: any): string {
-    const parts = [
-      `Type: ${type}`,
-      `ID: ${item.id}`,
-      `Title: ${item.title}`,
-      `Status: ${item.status || 'unknown'}`,
-      `Priority: ${item.priority || 'medium'}`,
-    ];
 
-    if (item.description) {
-      parts.push(`Description: ${item.description}`);
-    }
-
-    if (item.businessValue) {
-      parts.push(`Business Value: ${item.businessValue}`);
-    }
-
-    if (item.acceptanceCriteria?.length) {
-      parts.push(`Acceptance Criteria: ${item.acceptanceCriteria.join('; ')}`);
-    }
-
-    if (item.assignedTo) {
-      parts.push(`Assigned To: ${item.assignedTo}`);
-    }
-
-    if (item.rationale) {
-      parts.push(`Rationale: ${item.rationale}`);
-    }
-
-    return parts.join('\n');
-  }
 
   /**
    * Search work items from database by text

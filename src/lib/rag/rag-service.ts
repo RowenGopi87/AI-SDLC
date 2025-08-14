@@ -1,6 +1,7 @@
 // RAG Service for Aura - Handles document queries and context-aware responses
 import { vectorStore, embeddingService, databaseService } from '../database';
 import { workItemService } from '../database/work-item-service';
+import { workItemIndexer } from '../database/work-item-indexer';
 import { RAG_CONFIG } from './config';
 import type { ProcessedDocument, DocumentChunk } from './document-processor';
 
@@ -204,7 +205,26 @@ export class RAGService {
    */
   private async searchWorkItems(query: string, maxResults: number): Promise<RetrievedContext[]> {
     try {
-      // Use work item service to search database
+      // First try vector search for work items
+      const vectorResults = await workItemIndexer.searchWorkItems(query, maxResults);
+      
+      if (vectorResults && vectorResults.length > 0) {
+        console.log(`📊 Found ${vectorResults.length} work items via vector search`);
+        return vectorResults.map((result) => ({
+          content: result.content,
+          source: `${result.metadata.type.toUpperCase()} - ${result.metadata.title}`,
+          relevance: 1 - result.distance, // Convert distance to relevance (lower distance = higher relevance)
+          metadata: {
+            workItemId: result.metadata.id,
+            workItemType: result.metadata.type,
+            status: result.metadata.status,
+            priority: result.metadata.priority
+          }
+        }));
+      }
+
+      // Fallback to text search if vector search doesn't find results
+      console.log('📝 Falling back to text-based work item search');
       const searchResults = await workItemService.searchWorkItemsByText(query);
       
       if (!searchResults || searchResults.length === 0) {
@@ -214,7 +234,7 @@ export class RAGService {
       return searchResults.slice(0, maxResults).map((item) => ({
         content: `${item.title}: ${item.description}\nStatus: ${item.status}\nPriority: ${item.priority}${item.assignedTo ? `\nAssigned to: ${item.assignedTo}` : ''}`,
         source: `${item.type.replace('_', ' ').toUpperCase()} - ${item.title}`,
-        relevance: 0.9, // High relevance for direct database matches
+        relevance: 0.7, // Lower relevance for text search fallback
         metadata: {
           workItemId: item.id,
           workItemType: item.type

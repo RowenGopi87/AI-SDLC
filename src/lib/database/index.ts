@@ -4,6 +4,7 @@ export { embeddingService, EmbeddingService } from './embeddings';
 export { vectorStore, VectorStoreService } from './vector-store';
 export { databaseService } from './service';
 export type { DatabaseService } from './service';
+export { workItemIndexer } from './work-item-indexer';
 export { DatabaseSchema } from './schema';
 
 // Import services for internal use

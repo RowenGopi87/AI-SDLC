@@ -150,7 +150,7 @@ export class EmbeddingService {
     const targetModel = model || EMBEDDING_CONFIG.model || 'text-embedding-3-small';
     
     if (EMBEDDING_CONFIG.provider === 'openai') {
-      return EMBEDDING_DIMENSIONS.openai[targetModel as keyof typeof EMBEDDING_DIMENSIONS.openai] || 1536;
+      return EMBEDDING_DIMENSIONS[targetModel as keyof typeof EMBEDDING_DIMENSIONS] || 1536;
     }
     
     if (EMBEDDING_CONFIG.provider === 'gemini') {
