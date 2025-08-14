@@ -16,9 +16,9 @@ export const DATABASE_CONFIG = {
 
 // Embedding configuration
 export const EMBEDDING_CONFIG = {
-  enabled: !!process.env.AURA_EMBEDDING_API_KEY,
+  enabled: !!(process.env.AURA_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY),
   provider: process.env.AURA_EMBEDDING_PROVIDER || 'openai',
-  apiKey: process.env.AURA_EMBEDDING_API_KEY || '',
+  apiKey: process.env.AURA_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY || '',
   model: process.env.AURA_EMBEDDING_MODEL || 'text-embedding-3-small'
 };
 
