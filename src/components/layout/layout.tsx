@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/app-store';
 import { cn } from '@/lib/utils';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
+import ChatAssistantImproved from '@/components/rag/chat-assistant-improved';
 
 interface LayoutProps {
   children: ReactNode;
@@ -40,6 +41,9 @@ export function Layout({ children }: LayoutProps) {
           onClick={() => useAppStore.getState().setSidebarOpen(false)}
         />
       )}
+      
+      {/* Global Chat Assistant */}
+      <ChatAssistantImproved />
     </div>
   );
 } 
