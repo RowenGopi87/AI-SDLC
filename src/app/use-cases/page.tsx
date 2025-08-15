@@ -166,33 +166,107 @@ export default function UseCasesPage() {
       console.error('Error assessing business brief:', error);
       notify.error('Assessment Failed', 'Could not assess quality. Proceeding with submission.');
       // Fallback - proceed with normal submission if assessment fails
-      proceedWithSubmission();
+      await proceedWithSubmission();
     } finally {
       setIsAssessing(false);
     }
   };
 
-  const proceedWithSubmission = () => {
-    const acceptanceCriteriaArray = formData.acceptanceCriteria
-      .split('\n')
-      .filter(item => item.trim())
-      .map(item => item.trim());
+  const proceedWithSubmission = async () => {
+    try {
+      console.log('🚀 Proceeding with business brief submission...');
 
-    addUseCase({
-      ...formData,
-      acceptanceCriteria: acceptanceCriteriaArray,
-      additionalBusinessUnits: formData.additionalBusinessUnits,
-      otherDepartmentsImpacted: formData.otherDepartmentsImpacted,
-      supportingDocuments: formData.supportingDocuments,
-      workflowStage: 'idea' as const,
-      completionPercentage: 10,
-      // TODO: Add qualityAssessment and needsApproval to UseCase type
-      // qualityAssessment: qualityAssessment, // Add quality assessment to the use case
-      // needsApproval: qualityAssessment?.overallGrade !== 'green', // Flag for approval if not green
-    });
+      const acceptanceCriteriaArray = formData.acceptanceCriteria
+        .split('\n')
+        .filter(item => item.trim())
+        .map(item => item.trim());
 
-    // Reset form only after successful submission
-    resetForm();
+      // Prepare data for database API
+      const businessBriefData = {
+        ...formData,
+        acceptanceCriteria: acceptanceCriteriaArray,
+        additionalBusinessUnits: formData.additionalBusinessUnits,
+        otherDepartmentsImpacted: formData.otherDepartmentsImpacted,
+        supportingDocuments: formData.supportingDocuments,
+        status: qualityAssessment?.overallGrade === 'green' ? 'approved' : 'submitted'
+      };
+
+      console.log('💾 Saving business brief to database...', {
+        title: businessBriefData.title,
+        status: businessBriefData.status,
+        priority: businessBriefData.priority
+      });
+
+      // Save to database first
+      const response = await fetch('/api/business-briefs/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(businessBriefData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save business brief to database');
+      }
+
+      const result = await response.json();
+      console.log('✅ Business brief saved to database successfully:', result.data?.id);
+
+      // Also save to Zustand store for immediate UI updates (backward compatibility)
+      addUseCase({
+        ...formData,
+        id: result.data?.id, // Use the database-generated ID
+        acceptanceCriteria: acceptanceCriteriaArray,
+        additionalBusinessUnits: formData.additionalBusinessUnits,
+        otherDepartmentsImpacted: formData.otherDepartmentsImpacted,
+        supportingDocuments: formData.supportingDocuments,
+        workflowStage: 'idea' as const,
+        completionPercentage: qualityAssessment?.overallGrade === 'green' ? 25 : 10,
+        status: businessBriefData.status,
+        submittedAt: new Date().toISOString(),
+        // TODO: Add qualityAssessment and needsApproval to UseCase type
+        // qualityAssessment: qualityAssessment, // Add quality assessment to the use case
+        // needsApproval: qualityAssessment?.overallGrade !== 'green', // Flag for approval if not green
+      });
+
+      console.log('✅ Business brief added to local store for UI updates');
+
+      // Reset form only after successful submission
+      resetForm();
+      
+      notify.success(
+        'Business Brief Saved', 
+        `Successfully saved "${businessBriefData.title}" to database and indexed for search.`
+      );
+
+    } catch (error: any) {
+      console.error('❌ Failed to save business brief:', error);
+      
+      // Fallback: save to Zustand store only (original behavior)
+      notify.warning(
+        'Database Save Failed', 
+        `Saved locally but database error: ${error.message}. Please try again.`
+      );
+      
+      const acceptanceCriteriaArray = formData.acceptanceCriteria
+        .split('\n')
+        .filter(item => item.trim())
+        .map(item => item.trim());
+
+      addUseCase({
+        ...formData,
+        acceptanceCriteria: acceptanceCriteriaArray,
+        additionalBusinessUnits: formData.additionalBusinessUnits,
+        otherDepartmentsImpacted: formData.otherDepartmentsImpacted,
+        supportingDocuments: formData.supportingDocuments,
+        workflowStage: 'idea' as const,
+        completionPercentage: 10,
+      });
+      
+      resetForm();
+    }
     
     setIsQualityAssessmentOpen(false);
     setQualityAssessment(null);
@@ -1497,9 +1571,9 @@ export default function UseCasesPage() {
                   </Button>
                   {qualityAssessment.overallGrade === 'green' ? (
                     <Button
-                      onClick={() => {
-                        proceedWithSubmission();
-                        notify.success('Business Brief Approved', 'Your business brief has been approved and submitted successfully!');
+                      onClick={async () => {
+                        await proceedWithSubmission();
+                        // Success notification is now handled inside proceedWithSubmission()
                       }}
                       className="bg-green-600 hover:bg-green-700"
                     >
@@ -1508,9 +1582,9 @@ export default function UseCasesPage() {
                     </Button>
                   ) : (
                     <Button
-                      onClick={() => {
-                        proceedWithSubmission();
-                        notify.warning('Submitted for Review', 'Your business brief has been submitted and will require approval before proceeding.');
+                      onClick={async () => {
+                        await proceedWithSubmission();
+                        // Success notification is now handled inside proceedWithSubmission()
                       }}
                       className="bg-amber-600 hover:bg-amber-700"
                     >

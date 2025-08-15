@@ -36,8 +36,28 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatApiRe
       }, { status: 400 });
     }
 
-    // Parse request body
-    const body: ChatRequest = await request.json();
+    // Parse request body with error handling
+    let body: ChatRequest;
+    try {
+      body = await request.json();
+    } catch (jsonError) {
+      console.error('❌ Invalid JSON in request body:', jsonError);
+      return NextResponse.json({
+        success: false,
+        error: 'INVALID_JSON',
+        message: 'Request body is not valid JSON'
+      }, { status: 400 });
+    }
+
+    if (!body || typeof body !== 'object') {
+      console.error('❌ Request body is not an object:', body);
+      return NextResponse.json({
+        success: false,
+        error: 'INVALID_BODY',
+        message: 'Request body must be a JSON object'
+      }, { status: 400 });
+    }
+
     const { message, conversationId, includeContext = true, conversationHistory = [] } = body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
