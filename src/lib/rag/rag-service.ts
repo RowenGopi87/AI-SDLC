@@ -106,6 +106,14 @@ export class RAGService {
     
     // FIRST: Check if this is an analytical/aggregation query that needs intelligent routing
     const analyticalPatterns = [
+      // Basic counting patterns (CRITICAL FIX)
+      /how many.*are there|how many.*exist/i,
+      /how many.*epics|how many.*stories|how many.*initiatives|how many.*features|how many.*briefs/i,
+      /how many.*approved|how many.*draft|how many.*completed|how many.*in.*progress/i,
+      /count.*epics|count.*stories|count.*initiatives|count.*features/i,
+      /total.*epics|total.*stories|total.*initiatives/i,
+      
+      // Complex analytical patterns
       /which.*has more than|which.*have more than/i,
       /which.*contains.*more than/i,
       /list.*that have.*more than/i,

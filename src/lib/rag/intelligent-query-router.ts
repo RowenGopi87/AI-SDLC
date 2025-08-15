@@ -167,6 +167,11 @@ export class IntelligentQueryRouter {
     console.log('📊 Handling analytical query...');
 
     try {
+      // Handle basic counting queries first
+      if (intent.operation === 'count') {
+        return await this.handleBasicCountQuery(question, intent);
+      }
+
       // Example: "Which Business Brief has more than 1 story?"
       if (intent.operation === 'filter_greater' && 
           intent.entities.includes('business_brief') && 
@@ -242,6 +247,171 @@ export class IntelligentQueryRouter {
       console.error('❌ Analytical query failed:', error);
       return {
         answer: `I encountered an error while analyzing the data: ${(error as Error).message}. Please try rephrasing your question.`,
+        confidence: 0.2,
+        dataSource: 'database'
+      };
+    }
+  }
+
+  /**
+   * Handle basic counting queries like "How many epics are there?"
+   */
+  private async handleBasicCountQuery(question: string, intent: QueryIntent): Promise<QueryResult> {
+    console.log('🔢 Handling basic count query...');
+
+    try {
+      const lowerQuestion = question.toLowerCase();
+      let query = '';
+      let entityType = '';
+      let entityTypePlural = '';
+
+      // Determine which entity type to count
+      if (lowerQuestion.includes('epic')) {
+        entityType = 'Epic';
+        entityTypePlural = 'Epics';
+        query = 'SELECT COUNT(*) as count FROM epics';
+        
+        // Handle status-specific counting
+        if (lowerQuestion.includes('approved')) {
+          query += " WHERE status = 'approved'";
+          entityTypePlural = 'Approved Epics';
+        } else if (lowerQuestion.includes('draft')) {
+          query += " WHERE status = 'draft'";
+          entityTypePlural = 'Draft Epics';
+        } else if (lowerQuestion.includes('in progress') || lowerQuestion.includes('in_progress')) {
+          query += " WHERE status = 'in_progress'";
+          entityTypePlural = 'In Progress Epics';
+        }
+        
+      } else if (lowerQuestion.includes('story') || lowerQuestion.includes('stories')) {
+        entityType = 'Story';
+        entityTypePlural = 'Stories';
+        query = 'SELECT COUNT(*) as count FROM stories';
+        
+        if (lowerQuestion.includes('approved')) {
+          query += " WHERE status = 'approved'";
+          entityTypePlural = 'Approved Stories';
+        } else if (lowerQuestion.includes('draft')) {
+          query += " WHERE status = 'draft'";
+          entityTypePlural = 'Draft Stories';
+        } else if (lowerQuestion.includes('backlog')) {
+          query += " WHERE status = 'backlog'";
+          entityTypePlural = 'Backlog Stories';
+        }
+        
+      } else if (lowerQuestion.includes('initiative')) {
+        entityType = 'Initiative';
+        entityTypePlural = 'Initiatives';
+        query = 'SELECT COUNT(*) as count FROM initiatives';
+        
+        if (lowerQuestion.includes('approved')) {
+          query += " WHERE status = 'approved'";
+          entityTypePlural = 'Approved Initiatives';
+        } else if (lowerQuestion.includes('draft')) {
+          query += " WHERE status = 'draft'";
+          entityTypePlural = 'Draft Initiatives';
+        } else if (lowerQuestion.includes('in progress') || lowerQuestion.includes('in_progress')) {
+          query += " WHERE status = 'in_progress'";
+          entityTypePlural = 'In Progress Initiatives';
+        }
+        
+      } else if (lowerQuestion.includes('feature')) {
+        entityType = 'Feature';
+        entityTypePlural = 'Features';
+        query = 'SELECT COUNT(*) as count FROM features';
+        
+        if (lowerQuestion.includes('approved')) {
+          query += " WHERE status = 'approved'";
+          entityTypePlural = 'Approved Features';
+        } else if (lowerQuestion.includes('draft')) {
+          query += " WHERE status = 'draft'";
+          entityTypePlural = 'Draft Features';
+        }
+        
+      } else if (lowerQuestion.includes('business brief') || lowerQuestion.includes('brief')) {
+        entityType = 'Business Brief';
+        entityTypePlural = 'Business Briefs';
+        query = 'SELECT COUNT(*) as count FROM business_briefs';
+        
+        if (lowerQuestion.includes('approved')) {
+          query += " WHERE status = 'approved'";
+          entityTypePlural = 'Approved Business Briefs';
+        } else if (lowerQuestion.includes('draft')) {
+          query += " WHERE status = 'draft'";
+          entityTypePlural = 'Draft Business Briefs';
+        } else if (lowerQuestion.includes('submitted')) {
+          query += " WHERE status = 'submitted'";
+          entityTypePlural = 'Submitted Business Briefs';
+        }
+        
+      } else {
+        // Default to all work items
+        entityTypePlural = 'Work Items';
+        query = `
+          SELECT 
+            'Business Brief' as type, COUNT(*) as count FROM business_briefs
+          UNION ALL
+          SELECT 
+            'Initiative' as type, COUNT(*) as count FROM initiatives
+          UNION ALL
+          SELECT 
+            'Feature' as type, COUNT(*) as count FROM features
+          UNION ALL
+          SELECT 
+            'Epic' as type, COUNT(*) as count FROM epics
+          UNION ALL
+          SELECT 
+            'Story' as type, COUNT(*) as count FROM stories
+        `;
+      }
+
+      console.log('🔍 Executing basic count query:', query);
+      const results = await db.execute(query);
+      
+      if (results && results.length > 0) {
+        let answer = '';
+        
+        if (entityTypePlural === 'Work Items') {
+          answer = '**Total Work Items Count:**\n\n';
+          let totalCount = 0;
+          
+          results.forEach((item: any) => {
+            answer += `• **${item.type}s**: ${item.count}\n`;
+            totalCount += parseInt(item.count);
+          });
+          
+          answer += `\n**Grand Total: ${totalCount} work items across all types**`;
+        } else {
+          const count = results[0].count;
+          answer = `**There ${count === 1 ? 'is' : 'are'} ${count} ${entityTypePlural}** in the system.`;
+          
+          if (count === 0) {
+            answer += `\n\n💡 **Suggestion**: Consider creating ${entityType.toLowerCase()}s to progress your project development.`;
+          } else if (count > 0) {
+            answer += `\n\n📊 This represents all ${entityTypePlural.toLowerCase()} currently tracked in your SDLC system.`;
+          }
+        }
+
+        return {
+          answer,
+          data: results,
+          confidence: 0.95,
+          dataSource: 'database',
+          queryExecuted: query
+        };
+      }
+
+      return {
+        answer: `No ${entityTypePlural.toLowerCase()} found in the system.`,
+        confidence: 0.8,
+        dataSource: 'database',
+        queryExecuted: query
+      };
+
+    } catch (error) {
+      console.error('❌ Basic count query failed:', error);
+      return {
+        answer: `Error counting items: ${(error as Error).message}`,
         confidence: 0.2,
         dataSource: 'database'
       };
