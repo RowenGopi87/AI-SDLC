@@ -3,6 +3,7 @@ import { vectorStore, embeddingService, databaseService } from '../database';
 import { workItemService } from '../database/work-item-service';
 import { workItemIndexer } from '../database/work-item-indexer';
 import { QueryParser, QueryContext, WorkItemHierarchy } from './query-parser';
+import { intelligentQueryRouter } from './intelligent-query-router';
 import { RAG_CONFIG } from './config';
 import type { ProcessedDocument, DocumentChunk } from './document-processor';
 
@@ -103,7 +104,54 @@ export class RAGService {
   async queryContext(question: string, maxResults = RAG_CONFIG.MAX_RETRIEVAL_RESULTS, conversationHistory: string[] = []): Promise<RetrievedContext[]> {
     console.log(`🔍 Querying context for: "${question.substring(0, 100)}..."`);
     
-    // Parse query to understand intent
+    // FIRST: Check if this is an analytical/aggregation query that needs intelligent routing
+    const analyticalPatterns = [
+      /which.*has more than|which.*have more than/i,
+      /which.*contains.*more than/i,
+      /list.*that have.*more than/i,
+      /show.*where.*greater than/i,
+      /find.*with.*count.*greater/i,
+      /how many.*total|total.*count/i,
+      /how many.*for each|how many.*per/i,
+      /what.*percentage|what percent/i,
+      /which.*most|which.*least/i,
+      /compare.*between|comparison of/i,
+      /analyze.*across|breakdown of/i,
+      /status breakdown|breakdown.*status/i,
+      /what.*status.*breakdown|what.*breakdown/i,
+      /which.*have no|which.*without/i,
+      /initiatives.*have no|epics.*have no|stories.*have no/i,
+      /count.*for each|number.*for each/i
+    ];
+
+    const isAnalyticalQuery = analyticalPatterns.some(pattern => pattern.test(question));
+    
+    if (isAnalyticalQuery) {
+      console.log('🧠 Detected analytical query - routing to intelligent query router');
+      try {
+        const intelligentResult = await intelligentQueryRouter.routeAndAnswer(question, conversationHistory);
+        
+        // Convert intelligent result to RetrievedContext format
+        if (intelligentResult.confidence > 0.6) {
+          return [{
+            content: intelligentResult.answer,
+            source: `Analytical Query - ${intelligentResult.dataSource}`,
+            relevance: intelligentResult.confidence,
+            metadata: {
+              queryExecuted: intelligentResult.queryExecuted,
+              dataSource: intelligentResult.dataSource,
+              workItemType: 'analytical_result'
+            }
+          }];
+        } else {
+          console.log('⚠️ Intelligent router confidence too low, falling back to standard processing');
+        }
+      } catch (error) {
+        console.error('❌ Intelligent query router failed, falling back:', error);
+      }
+    }
+    
+    // Parse query to understand intent (existing logic)
     const queryContext = QueryParser.parseQuery(question, conversationHistory);
     console.log(`📊 Query analysis:`, queryContext);
     
