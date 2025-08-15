@@ -97,7 +97,7 @@ export class QueryParser {
   }
   
   /**
-   * Extract work item titles/names
+   * Extract work item titles/names with fuzzy matching and typo tolerance
    */
   private static extractWorkItemTitle(query: string): string | undefined {
     const lowerQuery = query.toLowerCase();
@@ -112,13 +112,75 @@ export class QueryParser {
       'mobile security framework'
     ];
     
+    // First try exact matching
     for (const title of knownTitles) {
       if (lowerQuery.includes(title)) {
         return title;
       }
     }
     
+    // Then try fuzzy matching for typos and variations
+    for (const title of knownTitles) {
+      if (this.fuzzyMatch(lowerQuery, title)) {
+        return title;
+      }
+    }
+    
+    // Also check for partial matches (like "customer portal" matching "customer portal enhancement")
+    const partialMatches = [
+      { partial: 'customer portal', full: 'customer portal enhancement' },
+      { partial: 'mobile payment', full: 'mobile payment integration' },
+      { partial: 'user authentication', full: 'user authentication and authorization' },
+      { partial: 'emirates booking', full: 'emirates booking management' }
+    ];
+    
+    for (const match of partialMatches) {
+      if (lowerQuery.includes(match.partial)) {
+        return match.full;
+      }
+    }
+    
     return undefined;
+  }
+
+  /**
+   * Simple fuzzy matching for typo tolerance
+   */
+  private static fuzzyMatch(query: string, target: string): boolean {
+    // Remove common typos and check
+    const normalizeString = (str: string) => 
+      str.replace(/enhaement/g, 'enhancement')  // Common typo
+         .replace(/enhanement/g, 'enhancement')  // Another typo
+         .replace(/enhansement/g, 'enhancement') // Another typo
+         .replace(/intergration/g, 'integration') // Common typo
+         .replace(/autorization/g, 'authorization'); // Common typo
+    
+    const normalizedQuery = normalizeString(query);
+    const normalizedTarget = normalizeString(target);
+    
+    // Check if normalized query contains the target
+    if (normalizedQuery.includes(normalizedTarget)) {
+      return true;
+    }
+    
+    // Check for key words matching (at least 2 out of 3 words must match)
+    const queryWords = normalizedQuery.split(/\s+/);
+    const targetWords = normalizedTarget.split(/\s+/);
+    
+    let matchCount = 0;
+    for (const targetWord of targetWords) {
+      if (targetWord.length > 2) { // Only count meaningful words
+        for (const queryWord of queryWords) {
+          if (queryWord.includes(targetWord) || targetWord.includes(queryWord)) {
+            matchCount++;
+            break;
+          }
+        }
+      }
+    }
+    
+    // If we match at least 2 significant words, consider it a match
+    return matchCount >= Math.min(2, targetWords.filter(w => w.length > 2).length);
   }
   
   /**
@@ -226,32 +288,104 @@ export class QueryParser {
   private static async buildHierarchyFromTitle(title: string, hierarchy: WorkItemHierarchy): Promise<void> {
     const titlePattern = `%${title}%`;
     
-    // Search across all work item types
-    hierarchy.businessBriefs = await db.execute('SELECT * FROM business_briefs WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
-    hierarchy.initiatives = await db.execute('SELECT * FROM initiatives WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
-    hierarchy.features = await db.execute('SELECT * FROM features WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
-    hierarchy.epics = await db.execute('SELECT * FROM epics WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
-    hierarchy.stories = await db.execute('SELECT * FROM stories WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
-    
-    // For each match, get related items
-    for (const bb of hierarchy.businessBriefs) {
-      const relatedInitiatives = await db.execute('SELECT * FROM initiatives WHERE business_brief_id = ?', [bb.id]);
-      hierarchy.initiatives.push(...relatedInitiatives.filter(i => !hierarchy.initiatives.find(existing => existing.id === i.id)));
+    try {
+      console.log(`🔍 Building hierarchy for title: "${title}"`);
       
-      for (const init of relatedInitiatives) {
-        const features = await db.execute('SELECT * FROM features WHERE initiative_id = ?', [init.id]);
-        hierarchy.features.push(...features.filter(f => !hierarchy.features.find(existing => existing.id === f.id)));
+      // Search across all work item types for direct matches
+      hierarchy.businessBriefs = await db.execute('SELECT * FROM business_briefs WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
+      hierarchy.initiatives = await db.execute('SELECT * FROM initiatives WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
+      hierarchy.features = await db.execute('SELECT * FROM features WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
+      hierarchy.epics = await db.execute('SELECT * FROM epics WHERE LOWER(title) LIKE LOWER(?)', [titlePattern]);
+      hierarchy.stories = await db.execute('SELECT * FROM stories WHERE LOWER(title) LIKE LOWER(?) OR LOWER(description) LIKE LOWER(?)', [titlePattern, titlePattern]);
+      
+      console.log(`📊 Direct matches found: BB:${hierarchy.businessBriefs.length}, Init:${hierarchy.initiatives.length}, Feat:${hierarchy.features.length}, Epic:${hierarchy.epics.length}, Story:${hierarchy.stories.length}`);
+      
+      // Build complete hierarchy from business briefs down
+      const processedInitiatives = new Set();
+      const processedFeatures = new Set();
+      const processedEpics = new Set();
+      
+      for (const bb of hierarchy.businessBriefs) {
+        const relatedInitiatives = await db.execute('SELECT * FROM initiatives WHERE business_brief_id = ?', [bb.id]);
+        console.log(`📈 Found ${relatedInitiatives.length} initiatives for business brief ${bb.id}`);
         
-        for (const feature of features) {
-          const epics = await db.execute('SELECT * FROM epics WHERE feature_id = ?', [feature.id]);
-          hierarchy.epics.push(...epics.filter(e => !hierarchy.epics.find(existing => existing.id === e.id)));
-          
-          for (const epic of epics) {
-            const stories = await db.execute('SELECT * FROM stories WHERE epic_id = ?', [epic.id]);
-            hierarchy.stories.push(...stories.filter(s => !hierarchy.stories.find(existing => existing.id === s.id)));
+        for (const init of relatedInitiatives) {
+          if (!processedInitiatives.has(init.id)) {
+            hierarchy.initiatives.push(init);
+            processedInitiatives.add(init.id);
+            
+            const features = await db.execute('SELECT * FROM features WHERE initiative_id = ?', [init.id]);
+            console.log(`📋 Found ${features.length} features for initiative ${init.id}`);
+            
+            for (const feature of features) {
+              if (!processedFeatures.has(feature.id)) {
+                hierarchy.features.push(feature);
+                processedFeatures.add(feature.id);
+                
+                const epics = await db.execute('SELECT * FROM epics WHERE feature_id = ?', [feature.id]);
+                console.log(`🎯 Found ${epics.length} epics for feature ${feature.id}`);
+                
+                for (const epic of epics) {
+                  if (!processedEpics.has(epic.id)) {
+                    hierarchy.epics.push(epic);
+                    processedEpics.add(epic.id);
+                    
+                    const stories = await db.execute('SELECT * FROM stories WHERE epic_id = ?', [epic.id]);
+                    console.log(`📝 Found ${stories.length} stories for epic ${epic.id}`);
+                    
+                    for (const story of stories) {
+                      if (!hierarchy.stories.find(existing => existing.id === story.id)) {
+                        hierarchy.stories.push(story);
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
+      
+      // Also build hierarchy from initiatives up and down
+      const directInitiatives = [...hierarchy.initiatives];
+      for (const init of directInitiatives) {
+        // Get parent business brief
+        if (init.business_brief_id) {
+          const parentBB = await db.execute('SELECT * FROM business_briefs WHERE id = ?', [init.business_brief_id]);
+          for (const bb of parentBB) {
+            if (!hierarchy.businessBriefs.find(existing => existing.id === bb.id)) {
+              hierarchy.businessBriefs.push(bb);
+            }
+          }
+        }
+        
+        // Get child features
+        const features = await db.execute('SELECT * FROM features WHERE initiative_id = ?', [init.id]);
+        for (const feature of features) {
+          if (!hierarchy.features.find(existing => existing.id === feature.id)) {
+            hierarchy.features.push(feature);
+            
+            const epics = await db.execute('SELECT * FROM epics WHERE feature_id = ?', [feature.id]);
+            for (const epic of epics) {
+              if (!hierarchy.epics.find(existing => existing.id === epic.id)) {
+                hierarchy.epics.push(epic);
+                
+                const stories = await db.execute('SELECT * FROM stories WHERE epic_id = ?', [epic.id]);
+                for (const story of stories) {
+                  if (!hierarchy.stories.find(existing => existing.id === story.id)) {
+                    hierarchy.stories.push(story);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      console.log(`✅ Final hierarchy: BB:${hierarchy.businessBriefs.length}, Init:${hierarchy.initiatives.length}, Feat:${hierarchy.features.length}, Epic:${hierarchy.epics.length}, Story:${hierarchy.stories.length}`);
+      
+    } catch (error) {
+      console.error(`❌ Error building hierarchy for title "${title}":`, error);
     }
   }
   

@@ -182,6 +182,7 @@ export class RAGService {
     let content = '';
     let source = 'Work Item Count';
 
+    // Handle count by work item ID (like BB-004)
     if (queryContext.workItemId?.startsWith('bb-')) {
       const businessBrief = hierarchy.businessBriefs[0];
       const epicCount = hierarchy.epics.length;
@@ -189,17 +190,84 @@ export class RAGService {
       const featureCount = hierarchy.features.length;
       const storyCount = hierarchy.stories.length;
 
-      content = `BUSINESS BRIEF: ${businessBrief?.title || queryContext.workItemId}
+      if (queryContext.workItemType === 'epic') {
+        if (epicCount > 0) {
+          content = `**Yes, there are ${epicCount} epics for ${businessBrief?.title || queryContext.workItemId}:**\n\n`;
+          hierarchy.epics.forEach(epic => {
+            content += `• ${epic.title} (Status: ${epic.status}, Priority: ${epic.priority})\n`;
+          });
+        } else {
+          content = `**There are 0 epics for ${businessBrief?.title || queryContext.workItemId}.**\n\nThe project currently has:\n- Initiatives: ${initiativeCount}\n- Features: ${featureCount}\n- Stories: ${storyCount}`;
+        }
+      } else {
+        content = `BUSINESS BRIEF: ${businessBrief?.title || queryContext.workItemId}\n\nWORK ITEM BREAKDOWN:\n- Initiatives: ${initiativeCount}\n- Features: ${featureCount}\n- Epics: ${epicCount}\n- Stories: ${storyCount}`;
+      }
+      
+      source = `${businessBrief?.title || queryContext.workItemId} - Count`;
+    }
+    
+    // Handle count by work item title (like "Customer Portal Enhancement")
+    else if (queryContext.workItemTitle) {
+      const allItems = [
+        ...hierarchy.businessBriefs.map(i => ({...i, type: 'Business Brief'})),
+        ...hierarchy.initiatives.map(i => ({...i, type: 'Initiative'})),
+        ...hierarchy.features.map(i => ({...i, type: 'Feature'})),
+        ...hierarchy.epics.map(i => ({...i, type: 'Epic'})),
+        ...hierarchy.stories.map(i => ({...i, type: 'Story'}))
+      ];
 
-WORK ITEM BREAKDOWN:
-- Initiatives: ${initiativeCount}
-- Features: ${featureCount} 
-- Epics: ${epicCount}
-- Stories: ${storyCount}
+      const requestedType = queryContext.workItemType === 'story' ? 'stories' : 
+                           queryContext.workItemType === 'epic' ? 'epics' :
+                           queryContext.workItemType === 'feature' ? 'features' :
+                           queryContext.workItemType === 'initiative' ? 'initiatives' : 'items';
 
-Total Epic count for ${queryContext.workItemId}: ${epicCount}`;
+      const matchingItems = allItems.filter(item => 
+        item.type.toLowerCase().includes(queryContext.workItemType || '') ||
+        (queryContext.workItemType === 'story' && item.type === 'Story')
+      );
 
-      source = `${businessBrief?.title || queryContext.workItemId} - Work Item Count`;
+      if (matchingItems.length > 0) {
+        content = `**Yes, there ${matchingItems.length === 1 ? 'is' : 'are'} ${matchingItems.length} ${requestedType} for ${queryContext.workItemTitle}:**\n\n`;
+        
+        matchingItems.forEach(item => {
+          content += `• ${item.title} (Status: ${item.status}, Priority: ${item.priority}`;
+          if (item.completion_percentage !== undefined) {
+            content += `, Completion: ${item.completion_percentage}%`;
+          }
+          content += `)\n`;
+        });
+        
+        // Add hierarchy context if available
+        if (hierarchy.businessBriefs.length > 0) {
+          const mainProject = hierarchy.businessBriefs[0] || hierarchy.initiatives[0];
+          if (mainProject) {
+            content += `\nProject: ${mainProject.title}\nOverall Progress: ${mainProject.completion_percentage || 0}%`;
+          }
+        }
+      } else {
+        // Check if we found the project but no items of the requested type
+        const hasProject = allItems.length > 0;
+        if (hasProject) {
+          content = `**There are 0 ${requestedType} for ${queryContext.workItemTitle}.**\n\nThe project currently has:\n`;
+          const counts = {
+            'Business Brief': allItems.filter(i => i.type === 'Business Brief').length,
+            'Initiative': allItems.filter(i => i.type === 'Initiative').length,
+            'Feature': allItems.filter(i => i.type === 'Feature').length,
+            'Epic': allItems.filter(i => i.type === 'Epic').length,
+            'Story': allItems.filter(i => i.type === 'Story').length,
+          };
+          
+          Object.entries(counts).forEach(([type, count]) => {
+            if (count > 0) {
+              content += `- ${type}${count > 1 ? 's' : ''}: ${count}\n`;
+            }
+          });
+        } else {
+          content = `**No work items found for "${queryContext.workItemTitle}."**\n\nPlease check the project name spelling or try a different search term.`;
+        }
+      }
+      
+      source = `${queryContext.workItemTitle} - ${requestedType.charAt(0).toUpperCase() + requestedType.slice(1)} Count`;
     }
 
     return {
@@ -208,7 +276,9 @@ Total Epic count for ${queryContext.workItemId}: ${epicCount}`;
       relevance: 1.0,
       metadata: {
         queryType: 'count',
-        workItemId: queryContext.workItemId
+        workItemId: queryContext.workItemId,
+        workItemTitle: queryContext.workItemTitle,
+        workItemType: queryContext.workItemType
       }
     };
   }
