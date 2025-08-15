@@ -80,6 +80,29 @@ export class IntelligentQueryRouter {
 
     // Analytical/Aggregation patterns
     const analyticalPatterns = [
+      // CRITICAL: Basic count queries
+      /how many.*are there|how many.*exist/i,
+      /how many.*epics|how many.*stories|how many.*initiatives|how many.*features|how many.*briefs/i,
+      /how many.*approved|how many.*draft|how many.*completed|how many.*in.*progress/i,
+      /count.*epics|count.*stories|count.*initiatives|count.*features/i,
+      /total.*epics|total.*stories|total.*initiatives/i,
+      
+      // CRITICAL: Listing/Display queries (COMPREHENSIVE PATTERNS!)
+      /what are these stories/i,
+      /what are the.*stories/i,
+      /what are the.*epics/i,
+      /list stories/i,
+      /list.*epics/i,
+      /list.*all.*stories/i,
+      /list.*all.*epics/i,
+      /list.*all.*business.*briefs/i,
+      /list out all stories/i,
+      /list the.*stories/i,
+      /list the.*epics/i,
+      /list the.*business.*briefs/i,
+      /show stories/i,
+      /show.*epics/i,
+      // Advanced analytical patterns
       /which.*has more than|which.*have more than/,
       /how many.*total|total.*count/,
       /what.*percentage|what percent/,
@@ -89,7 +112,10 @@ export class IntelligentQueryRouter {
       /which.*contains.*more than/,
       /list.*that have.*more than/,
       /show.*where.*greater than/,
-      /find.*with.*count.*greater/
+      /find.*with.*count.*greater/,
+      /status breakdown|breakdown.*status/,
+      /which.*have no|which.*without/,
+      /count.*for each|number.*for each/
     ];
 
     // Search patterns (specific item lookup)
@@ -112,7 +138,7 @@ export class IntelligentQueryRouter {
 
     if (analyticalPatterns.some(pattern => pattern.test(lowerQuestion))) {
       type = 'analytical';
-      confidence = 0.8;
+      confidence = 0.9; // HIGH confidence for analytical queries
     } else if (relationshipPatterns.some(pattern => pattern.test(lowerQuestion))) {
       type = 'relationship'; 
       confidence = 0.7;
@@ -170,6 +196,13 @@ export class IntelligentQueryRouter {
       // Handle basic counting queries first
       if (intent.operation === 'count') {
         return await this.handleBasicCountQuery(question, intent);
+      }
+      
+      // Handle listing/display queries - NEW FEATURE!
+      if (intent.operation === 'list' || intent.operation === 'show' || 
+          question.toLowerCase().includes('what are these') || question.toLowerCase().includes('what are the') ||
+          question.toLowerCase().includes('list') || question.toLowerCase().includes('show')) {
+        return await this.handleListWorkItemsQuery(question, intent);
       }
 
       // Example: "Which Business Brief has more than 1 story?"
@@ -256,6 +289,109 @@ export class IntelligentQueryRouter {
   /**
    * Handle basic counting queries like "How many epics are there?"
    */
+  private async handleListWorkItemsQuery(question: string, intent: QueryIntent): Promise<QueryResult> {
+    console.log('📋 Handling list work items query...');
+
+    try {
+      const lowerQuestion = question.toLowerCase();
+      let query = '';
+      let entityType = '';
+      let entityTypePlural = '';
+
+      // Determine which entity type to list
+      if (lowerQuestion.includes('story') || lowerQuestion.includes('stories')) {
+        entityType = 'Story';
+        entityTypePlural = 'Stories';
+        query = 'SELECT id, title, description, status, priority FROM stories ORDER BY created_at DESC';
+        
+      } else if (lowerQuestion.includes('epic')) {
+        entityType = 'Epic';
+        entityTypePlural = 'Epics';
+        query = 'SELECT id, title, description, status, priority FROM epics ORDER BY created_at DESC';
+        
+      } else if (lowerQuestion.includes('initiative')) {
+        entityType = 'Initiative';
+        entityTypePlural = 'Initiatives';
+        query = 'SELECT id, title, description, status, priority FROM initiatives ORDER BY created_at DESC';
+        
+      } else if (lowerQuestion.includes('feature')) {
+        entityType = 'Feature';
+        entityTypePlural = 'Features';
+        query = 'SELECT id, title, description, status, priority FROM features ORDER BY created_at DESC';
+        
+      } else if (lowerQuestion.includes('brief')) {
+        entityType = 'Business Brief';
+        entityTypePlural = 'Business Briefs';
+        query = 'SELECT id, title, description, status, priority FROM business_briefs ORDER BY submitted_at DESC';
+        
+      } else {
+        // Default to stories if context suggests it
+        entityType = 'Story';
+        entityTypePlural = 'Stories';
+        query = 'SELECT id, title, description, status, priority FROM stories ORDER BY created_at DESC';
+      }
+
+      console.log(`🔍 Executing list query: ${query}`);
+      const results = await db.execute(query) as any[];
+      
+      if (!results || results.length === 0) {
+        return {
+          success: true,
+          response: `No ${entityTypePlural.toLowerCase()} found in the system.`,
+          context: `**No ${entityTypePlural}** found in the system.\n\n💡 Consider creating ${entityTypePlural.toLowerCase()} to get started with your project.`,
+          confidence: 0.95,
+          metadata: {
+            queryExecuted: query,
+            dataSource: 'database',
+            workItemType: 'list_result'
+          }
+        };
+      }
+
+      // Format the results
+      let formattedList = `**${entityTypePlural} (${results.length}):**\n\n`;
+      results.forEach((item: any, index: number) => {
+        const status = item.status ? ` (${item.status.toUpperCase()})` : '';
+        const priority = item.priority ? ` [${item.priority}]` : '';
+        formattedList += `${index + 1}. **${item.title}**${status}${priority}\n`;
+        if (item.description) {
+          formattedList += `   ${item.description.substring(0, 100)}${item.description.length > 100 ? '...' : ''}\n`;
+        }
+        formattedList += `   ID: ${item.id}\n\n`;
+      });
+
+      const response = `Here are the ${results.length} ${entityTypePlural.toLowerCase()} in your system:\n\n${formattedList}`;
+
+      return {
+        success: true,
+        answer: response,
+        context: formattedList,
+        confidence: 0.95,
+        dataSource: 'database',
+        queryExecuted: query,
+        metadata: {
+          workItemType: 'list_result',
+          itemCount: results.length
+        }
+      };
+
+    } catch (error: any) {
+      console.error('❌ Error in handleListWorkItemsQuery:', error);
+      return {
+        success: false,
+        answer: `I encountered an error while retrieving the work items: ${error.message}`,
+        context: '',
+        confidence: 0.1,
+        dataSource: 'database',
+        queryExecuted: '',
+        metadata: {
+          error: error.message,
+          workItemType: 'error'
+        }
+      };
+    }
+  }
+
   private async handleBasicCountQuery(question: string, intent: QueryIntent): Promise<QueryResult> {
     console.log('🔢 Handling basic count query...');
 

@@ -113,6 +113,22 @@ export class RAGService {
       /count.*epics|count.*stories|count.*initiatives|count.*features/i,
       /total.*epics|total.*stories|total.*initiatives/i,
       
+      // CRITICAL: Listing/Display queries (COMPREHENSIVE PATTERNS!)
+      /what are these stories/i,
+      /what are the.*stories/i,
+      /what are the.*epics/i,
+      /list stories/i,
+      /list.*epics/i,
+      /list.*all.*stories/i,
+      /list.*all.*epics/i,
+      /list.*all.*business.*briefs/i,
+      /list out all stories/i,
+      /list the.*stories/i,
+      /list the.*epics/i,
+      /list the.*business.*briefs/i,
+      /show stories/i,
+      /show.*epics/i,
+      
       // Complex analytical patterns
       /which.*has more than|which.*have more than/i,
       /which.*contains.*more than/i,
@@ -130,8 +146,8 @@ export class RAGService {
       /which.*have no|which.*without/i,
       /initiatives.*have no|epics.*have no|stories.*have no/i,
       /count.*for each|number.*for each/i
-    ];
-
+        ];
+    
     const isAnalyticalQuery = analyticalPatterns.some(pattern => pattern.test(question));
     
     if (isAnalyticalQuery) {
