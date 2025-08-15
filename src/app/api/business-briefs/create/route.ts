@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       otherTechnologyInfo: validatedData.otherTechnologyInfo || null,
       supportingDocuments: validatedData.supportingDocuments?.join(',') || null,
       submittedBy: validatedData.submittedBy || 'Anonymous',
-      submittedAt: new Date().toISOString(),
+      submittedAt: new Date().toISOString().slice(0, 19).replace('T', ' '), // Convert to MySQL datetime format
       priority: validatedData.priority,
       status: validatedData.status,
       workflowStage: validatedData.status === 'approved' ? 'planning' : 'idea',
