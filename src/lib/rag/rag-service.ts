@@ -2,6 +2,7 @@
 import { vectorStore, embeddingService, databaseService } from '../database';
 import { workItemService } from '../database/work-item-service';
 import { workItemIndexer } from '../database/work-item-indexer';
+import { QueryParser, QueryContext, WorkItemHierarchy } from './query-parser';
 import { RAG_CONFIG } from './config';
 import type { ProcessedDocument, DocumentChunk } from './document-processor';
 
@@ -99,22 +100,35 @@ export class RAGService {
   /**
    * Query documents and work items for relevant context
    */
-  async queryContext(question: string, maxResults = RAG_CONFIG.MAX_RETRIEVAL_RESULTS): Promise<RetrievedContext[]> {
+  async queryContext(question: string, maxResults = RAG_CONFIG.MAX_RETRIEVAL_RESULTS, conversationHistory: string[] = []): Promise<RetrievedContext[]> {
     console.log(`🔍 Querying context for: "${question.substring(0, 100)}..."`);
+    
+    // Parse query to understand intent
+    const queryContext = QueryParser.parseQuery(question, conversationHistory);
+    console.log(`📊 Query analysis:`, queryContext);
     
     const context: RetrievedContext[] = [];
 
     try {
-      // 1. Search document vectors
-      const documentContext = await this.searchDocuments(question, maxResults);
-      context.push(...documentContext);
+      // Handle specific relationship queries
+      if (queryContext.queryType === 'relationship' || queryContext.queryType === 'status') {
+        const hierarchicalContext = await this.getHierarchicalContext(queryContext);
+        context.push(...hierarchicalContext);
+      }
+      
+      // Standard vector search for general queries
+      if (queryContext.queryType === 'general' || context.length === 0) {
+        // 1. Search document vectors
+        const documentContext = await this.searchDocuments(question, maxResults);
+        context.push(...documentContext);
 
-      // 2. Search work items context
-      const workItemContext = await this.searchWorkItems(question, maxResults);
-      context.push(...workItemContext);
+        // 2. Search work items context
+        const workItemContext = await this.searchWorkItems(question, maxResults);
+        context.push(...workItemContext);
+      }
 
       // 3. Check for SAFe-related queries
-      if (this.isSafeRelatedQuery(question)) {
+      if (this.isSafeRelatedQuery(question) || queryContext.requestedInfo === 'safe') {
         const safeContext = await this.searchSafeDocuments(question, maxResults);
         context.push(...safeContext);
       }
@@ -127,6 +141,278 @@ export class RAGService {
       console.error('❌ Failed to query context:', error);
       return [];
     }
+  }
+
+  /**
+   * Get hierarchical context for relationship queries
+   */
+  private async getHierarchicalContext(queryContext: QueryContext): Promise<RetrievedContext[]> {
+    try {
+      const hierarchy = await QueryParser.getWorkItemHierarchy(
+        queryContext.workItemId,
+        queryContext.workItemTitle
+      );
+
+      const context: RetrievedContext[] = [];
+
+      // Build specific responses based on query type
+      if (queryContext.requestedInfo === 'count') {
+        context.push(this.buildCountResponse(hierarchy, queryContext));
+      } else if (queryContext.requestedInfo === 'list') {
+        context.push(...this.buildListResponse(hierarchy, queryContext));
+      } else if (queryContext.requestedInfo === 'status') {
+        context.push(...this.buildStatusResponse(hierarchy, queryContext));
+      } else if (queryContext.requestedInfo === 'sdlc') {
+        context.push(...this.buildSDLCResponse(hierarchy, queryContext));
+      } else if (queryContext.requestedInfo === 'safe') {
+        context.push(...this.buildSAFeResponse(hierarchy, queryContext));
+      }
+
+      return context;
+    } catch (error) {
+      console.error('❌ Failed to get hierarchical context:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Build count response for "how many" queries
+   */
+  private buildCountResponse(hierarchy: WorkItemHierarchy, queryContext: QueryContext): RetrievedContext {
+    let content = '';
+    let source = 'Work Item Count';
+
+    if (queryContext.workItemId?.startsWith('bb-')) {
+      const businessBrief = hierarchy.businessBriefs[0];
+      const epicCount = hierarchy.epics.length;
+      const initiativeCount = hierarchy.initiatives.length;
+      const featureCount = hierarchy.features.length;
+      const storyCount = hierarchy.stories.length;
+
+      content = `BUSINESS BRIEF: ${businessBrief?.title || queryContext.workItemId}
+
+WORK ITEM BREAKDOWN:
+- Initiatives: ${initiativeCount}
+- Features: ${featureCount} 
+- Epics: ${epicCount}
+- Stories: ${storyCount}
+
+Total Epic count for ${queryContext.workItemId}: ${epicCount}`;
+
+      source = `${businessBrief?.title || queryContext.workItemId} - Work Item Count`;
+    }
+
+    return {
+      content,
+      source,
+      relevance: 1.0,
+      metadata: {
+        queryType: 'count',
+        workItemId: queryContext.workItemId
+      }
+    };
+  }
+
+  /**
+   * Build list response for "list" queries
+   */
+  private buildListResponse(hierarchy: WorkItemHierarchy, queryContext: QueryContext): RetrievedContext[] {
+    const context: RetrievedContext[] = [];
+
+    // If searching by title (like "mobile payment integration")
+    if (queryContext.workItemTitle) {
+      // Find the main work item
+      const allItems = [
+        ...hierarchy.businessBriefs.map(i => ({...i, type: 'Business Brief'})),
+        ...hierarchy.initiatives.map(i => ({...i, type: 'Initiative'})),
+        ...hierarchy.features.map(i => ({...i, type: 'Feature'})),
+        ...hierarchy.epics.map(i => ({...i, type: 'Epic'})),
+        ...hierarchy.stories.map(i => ({...i, type: 'Story'}))
+      ];
+
+      const mainItem = allItems.find(item => 
+        item.title.toLowerCase().includes(queryContext.workItemTitle!.toLowerCase())
+      );
+
+      if (mainItem) {
+        // Build hierarchical listing
+        let content = `${mainItem.type.toUpperCase()}: ${mainItem.title}
+Status: ${mainItem.status}
+Priority: ${mainItem.priority}
+Workflow Stage: ${mainItem.workflow_stage}
+
+RELATED WORK ITEMS:`;
+
+        if (hierarchy.initiatives.length > 0) {
+          content += `\n\nINITIATIVES (${hierarchy.initiatives.length}):`;
+          hierarchy.initiatives.forEach(init => {
+            content += `\n• ${init.title} (Status: ${init.status}, Priority: ${init.priority})`;
+          });
+        }
+
+        if (hierarchy.features.length > 0) {
+          content += `\n\nFEATURES (${hierarchy.features.length}):`;
+          hierarchy.features.forEach(feature => {
+            content += `\n• ${feature.title} (Status: ${feature.status}, Priority: ${feature.priority})`;
+          });
+        }
+
+        if (hierarchy.epics.length > 0) {
+          content += `\n\nEPICS (${hierarchy.epics.length}):`;
+          hierarchy.epics.forEach(epic => {
+            content += `\n• ${epic.title} (Status: ${epic.status}, Priority: ${epic.priority})`;
+          });
+        }
+
+        if (hierarchy.stories.length > 0) {
+          content += `\n\nSTORIES (${hierarchy.stories.length}):`;
+          hierarchy.stories.forEach(story => {
+            content += `\n• ${story.title} (Status: ${story.status}, Priority: ${story.priority})`;
+          });
+        }
+
+        context.push({
+          content,
+          source: `${mainItem.title} - Hierarchical Breakdown`,
+          relevance: 1.0,
+          metadata: {
+            queryType: 'list',
+            mainItemType: mainItem.type,
+            mainItemId: mainItem.id
+          }
+        });
+      }
+    }
+
+    return context;
+  }
+
+  /**
+   * Build status response for status queries
+   */
+  private buildStatusResponse(hierarchy: WorkItemHierarchy, queryContext: QueryContext): RetrievedContext[] {
+    const context: RetrievedContext[] = [];
+
+    // Combine all work items for status overview
+    const allItems = [
+      ...hierarchy.businessBriefs.map(i => ({...i, type: 'Business Brief'})),
+      ...hierarchy.initiatives.map(i => ({...i, type: 'Initiative'})),
+      ...hierarchy.features.map(i => ({...i, type: 'Feature'})), 
+      ...hierarchy.epics.map(i => ({...i, type: 'Epic'})),
+      ...hierarchy.stories.map(i => ({...i, type: 'Story'}))
+    ];
+
+    if (allItems.length > 0) {
+      let content = 'WORK ITEM STATUS OVERVIEW:\n\n';
+
+      allItems.forEach(item => {
+        const sdlcStage = QueryParser.mapToSDLC(item.workflow_stage);
+        content += `${item.type.toUpperCase()}: ${item.title}
+• Status: ${item.status}
+• Priority: ${item.priority}
+• Workflow Stage: ${item.workflow_stage}
+• SDLC Phase: ${sdlcStage}
+• Completion: ${item.completion_percentage || 0}%
+
+`;
+      });
+
+      context.push({
+        content,
+        source: 'Work Item Status Report',
+        relevance: 1.0,
+        metadata: {
+          queryType: 'status',
+          itemCount: allItems.length
+        }
+      });
+    }
+
+    return context;
+  }
+
+  /**
+   * Build SDLC mapping response
+   */
+  private buildSDLCResponse(hierarchy: WorkItemHierarchy, queryContext: QueryContext): RetrievedContext[] {
+    const context: RetrievedContext[] = [];
+
+    const allItems = [
+      ...hierarchy.businessBriefs.map(i => ({...i, type: 'Business Brief'})),
+      ...hierarchy.initiatives.map(i => ({...i, type: 'Initiative'})),
+      ...hierarchy.features.map(i => ({...i, type: 'Feature'})),
+      ...hierarchy.epics.map(i => ({...i, type: 'Epic'})),
+      ...hierarchy.stories.map(i => ({...i, type: 'Story'}))
+    ];
+
+    if (allItems.length > 0) {
+      let content = 'SDLC STAGE MAPPING:\n\n';
+
+      allItems.forEach(item => {
+        const sdlcStage = QueryParser.mapToSDLC(item.workflow_stage);
+        content += `${item.type.toUpperCase()}: ${item.title}
+• Current Stage: ${item.workflow_stage}
+• SDLC Phase: ${sdlcStage}
+• Status: ${item.status}
+• Completion: ${item.completion_percentage || 0}%
+
+`;
+      });
+
+      context.push({
+        content,
+        source: 'SDLC Stage Mapping',
+        relevance: 1.0,
+        metadata: {
+          queryType: 'sdlc',
+          itemCount: allItems.length
+        }
+      });
+    }
+
+    return context;
+  }
+
+  /**
+   * Build SAFe framework mapping response
+   */
+  private buildSAFeResponse(hierarchy: WorkItemHierarchy, queryContext: QueryContext): RetrievedContext[] {
+    const context: RetrievedContext[] = [];
+
+    const allItems = [
+      ...hierarchy.businessBriefs.map(i => ({...i, type: 'businessBrief'})),
+      ...hierarchy.initiatives.map(i => ({...i, type: 'initiative'})),
+      ...hierarchy.features.map(i => ({...i, type: 'feature'})),
+      ...hierarchy.epics.map(i => ({...i, type: 'epic'})),
+      ...hierarchy.stories.map(i => ({...i, type: 'story'}))
+    ];
+
+    if (allItems.length > 0) {
+      let content = 'SAFe FRAMEWORK MAPPING:\n\n';
+
+      allItems.forEach(item => {
+        const safeStage = QueryParser.mapToSAFe(item.workflow_stage, item.type);
+        content += `${item.type.toUpperCase()}: ${item.title}
+• Current Stage: ${item.workflow_stage}
+• SAFe Process: ${safeStage}
+• Status: ${item.status}
+• Completion: ${item.completion_percentage || 0}%
+
+`;
+      });
+
+      context.push({
+        content,
+        source: 'SAFe Framework Mapping',
+        relevance: 1.0,
+        metadata: {
+          queryType: 'safe',
+          itemCount: allItems.length
+        }
+      });
+    }
+
+    return context;
   }
 
   /**

@@ -6,6 +6,7 @@ export interface ChatRequest {
   message: string;
   conversationId?: string;
   includeContext?: boolean;
+  conversationHistory?: string[];
 }
 
 export interface ChatApiResponse {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatApiRe
 
     // Parse request body
     const body: ChatRequest = await request.json();
-    const { message, conversationId, includeContext = true } = body;
+    const { message, conversationId, includeContext = true, conversationHistory = [] } = body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json({
@@ -66,8 +67,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatApiRe
     let confidence = 0;
 
     if (includeContext) {
-      // Query for relevant context
-      context = await ragService.queryContext(message);
+      // Query for relevant context with conversation history
+      console.log(`📚 Using conversation history: ${conversationHistory.length} previous messages`);
+      context = await ragService.queryContext(message, 5, conversationHistory);
       
       if (context.length > 0) {
         // Generate context-aware response
