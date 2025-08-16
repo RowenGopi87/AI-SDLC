@@ -270,8 +270,26 @@ ASSESSMENT REQUEST:
 Please evaluate this business brief according to the established criteria and provide:
 1. An overall quality grade (gold/silver/bronze)
 2. Specific feedback on each major section
-3. Actionable improvement suggestions
+3. Contextual, actionable improvement suggestions with specific examples
 4. Recommendations for next steps
+
+CRITICAL REQUIREMENT FOR SUGGESTIONS:
+Your suggestions must be contextual, specific, and immediately actionable. Each suggestion should:
+- Reference the actual content provided in the business brief
+- Provide a concrete example of how to improve it
+- Be ready-to-implement (human can accept and directly apply)
+
+EXAMPLE OF GOOD vs BAD SUGGESTIONS:
+
+BAD SUGGESTION: "Add more specific details and measurable metrics"
+
+GOOD SUGGESTION: "Replace 'More sales, better performance, happy customers' with specific metrics like 'Increase sales by 25% within 6 months, reduce system response time from 5s to 2s, and achieve 90%+ customer satisfaction rating'"
+
+BAD SUGGESTION: "Review for clarity and ensure all aspects are covered"
+
+GOOD SUGGESTION: "Expand 'We want to make money and get more customers' to specify target customer segments and revenue goals, e.g., 'Target small-medium businesses in retail sector to increase quarterly revenue by $500K through improved customer acquisition (20% increase) and retention (15% improvement)'"
+
+Each suggestion should provide the exact text or approach the user should implement. This creates a true human-in-the-loop experience where business analysts can quickly accept specific improvements without having to interpret vague advice.
 
 Focus on identifying gaps, vague language, missing quantifiable metrics, and areas where more specificity or detail would strengthen the business case.
 
@@ -506,11 +524,11 @@ async function getMockAssessment(businessBrief: any): Promise<QualityAssessment>
   // This is the existing mock logic, extracted into a separate function
   
   // Analyze the brief quality based on content length and specificity
-  const titleQuality = assessFieldQuality(businessBrief.title, 'title');
-  const objectiveQuality = assessFieldQuality(businessBrief.businessObjective, 'objective');
-  const outcomesQuality = assessFieldQuality(businessBrief.quantifiableBusinessOutcomes, 'outcomes');
-  const usersQuality = assessFieldQuality(businessBrief.impactedEndUsers, 'users');
-  const changeQuality = assessFieldQuality(businessBrief.changeImpactExpected, 'change');
+  const titleQuality = assessFieldQuality(businessBrief.title, 'title', businessBrief);
+  const objectiveQuality = assessFieldQuality(businessBrief.businessObjective, 'businessObjective', businessBrief);
+  const outcomesQuality = assessFieldQuality(businessBrief.quantifiableBusinessOutcomes, 'quantifiableOutcomes', businessBrief);
+  const usersQuality = assessFieldQuality(businessBrief.impactedEndUsers, 'impactedEndUsers', businessBrief);
+  const changeQuality = assessFieldQuality(businessBrief.changeImpactExpected, 'changeImpactExpected', businessBrief);
   
   // Calculate overall score (weighted average)
   const overallScore = (
@@ -536,11 +554,11 @@ async function getMockAssessment(businessBrief: any): Promise<QualityAssessment>
       quantifiableBusinessOutcomes: outcomesQuality,
       impactedEndUsers: usersQuality,
       changeImpactExpected: changeQuality,
-      inScope: assessFieldQuality(businessBrief.inScope, 'scope'),
-      impactOfDoNothing: assessFieldQuality(businessBrief.impactOfDoNothing, 'impact'),
-      happyPath: assessFieldQuality(businessBrief.happyPath, 'happy-path'),
-      exceptions: assessFieldQuality(businessBrief.exceptions, 'exceptions'),
-      acceptanceCriteria: assessFieldQuality(businessBrief.acceptanceCriteria, 'criteria')
+      inScope: assessFieldQuality(businessBrief.inScope, 'inScope', businessBrief),
+      impactOfDoNothing: assessFieldQuality(businessBrief.impactOfDoNothing, 'impactOfDoNothing', businessBrief),
+      happyPath: assessFieldQuality(businessBrief.happyPath, 'happyPath', businessBrief),
+      exceptions: assessFieldQuality(businessBrief.exceptions, 'exceptions', businessBrief),
+      acceptanceCriteria: assessFieldQuality(businessBrief.acceptanceCriteria, 'acceptanceCriteria', businessBrief)
     },
     approvalRequired: overallGrade !== 'gold',
     nextSteps: generateNextSteps(overallGrade, businessBrief),
@@ -552,34 +570,89 @@ async function getMockAssessment(businessBrief: any): Promise<QualityAssessment>
   return mockAssessment;
 }
 
-function assessFieldQuality(content: string, fieldType: string) {
+function generateContextualSuggestions(content: string, fieldType: string, businessBrief: any): string[] {
+  const suggestions: string[] = [];
+  const currentContent = (content || '').trim();
+  
+  switch (fieldType) {
+    case 'businessObjective':
+      if (!currentContent) {
+        suggestions.push("Define specific business objective, e.g., 'Increase customer acquisition by 30% in Q1 2024 through improved digital experience platform'");
+      } else if (currentContent.length < 50) {
+        suggestions.push(`Replace "${currentContent}" with more specific goals like "Reduce customer service response time from 24 hours to 2 hours, achieving 95% customer satisfaction rating and reducing support costs by 20%"`);
+      } else if (!/\d+%|\$\d+|\d+ (hours?|days?|weeks?|months?)/.test(currentContent)) {
+        suggestions.push(`Add measurable targets to "${currentContent.substring(0, 30)}..." such as specific percentages, dollar amounts, or timeframes`);
+      }
+      break;
+      
+    case 'quantifiableOutcomes':
+      if (!currentContent) {
+        suggestions.push("Add specific metrics like 'Increase revenue by $2M annually, reduce processing time by 50%, improve customer retention by 15%'");
+      } else if (currentContent.toLowerCase().includes('more sales') || currentContent.toLowerCase().includes('better performance')) {
+        suggestions.push(`Replace vague terms like "more sales, better performance" with specific metrics: "Increase monthly sales by 25% ($500K), reduce system response time from 5s to 2s, achieve 90%+ customer satisfaction"`);
+      }
+      break;
+      
+    case 'inScope':
+      if (!currentContent) {
+        suggestions.push("Define project scope like 'Mobile iOS/Android app, web portal dashboard, integration with existing CRM system, user training program'");
+      } else if (currentContent.toLowerCase().includes('maybe') || currentContent.toLowerCase().includes('app and')) {
+        const example = businessBrief.title?.toLowerCase().includes('app') 
+          ? "mobile application with user authentication, data synchronization, offline capabilities, and push notifications" 
+          : "web-based platform with user management, reporting dashboard, API integrations, and data analytics";
+        suggestions.push(`Replace uncertain language like "maybe website" with definitive scope: "${example}"`);
+      }
+      break;
+      
+    case 'impactOfDoNothing':
+      if (!currentContent) {
+        suggestions.push("Quantify risks like 'Lose $100K monthly revenue, 20% customer churn, 40 hours weekly manual processing costs'");
+      } else if (currentContent.toLowerCase().includes('bad things')) {
+        suggestions.push(`Replace "bad things will happen" with specific business impacts: "Continue losing 15% customers annually due to poor user experience, $50K monthly in manual processing costs, and 25% competitive disadvantage"`);
+      }
+      break;
+      
+    case 'happyPath':
+      if (!currentContent) {
+        suggestions.push("Describe user journey: '1. User logs in via SSO, 2. Accesses personalized dashboard, 3. Completes task in <30 seconds, 4. Receives confirmation email'");
+      } else if (currentContent.toLowerCase().includes('users open app and use it')) {
+        suggestions.push(`Expand "users open app and use it" to detailed workflow: "User authenticates with biometrics → views personalized dashboard → selects desired function → completes action within 3 clicks → receives real-time confirmation"`);
+      }
+      break;
+      
+    default:
+      if (!currentContent) {
+        suggestions.push(`Provide detailed information for ${fieldType} with specific examples and measurable criteria`);
+      } else if (currentContent.length < 30) {
+        suggestions.push(`Expand "${currentContent}" with more specific details, examples, and quantifiable metrics`);
+      }
+  }
+  
+  return suggestions.length > 0 ? suggestions : [`Add more specific details and measurable metrics to this ${fieldType} section`];
+}
+
+function assessFieldQuality(content: string, fieldType: string, businessBrief?: any) {
   const length = (content || '').length;
   
   // Base assessment on content length and quality indicators
   let score = 1.0;
   let feedback = '';
-  let suggestions: string[] = [];
   
   if (!content || content.trim().length === 0) {
     score = 1.0;
     feedback = 'Field is empty or not provided';
-    suggestions = [`Please provide detailed information for this ${fieldType} field`];
   } else if (length < 20) {
     score = 2.0;
     feedback = 'Very brief response with minimal detail';
-    suggestions = [`Expand this ${fieldType} with more specific details and context`];
   } else if (length < 50) {
     score = 4.0;
     feedback = 'Basic information provided but lacks depth';
-    suggestions = [`Add more specific details and measurable metrics to this ${fieldType}`];
   } else if (length < 100) {
     score = 6.0;
     feedback = 'Good level of detail provided';
-    suggestions = [`Consider adding more quantifiable metrics or specific examples`];
   } else {
     score = 8.0;
     feedback = 'Comprehensive information provided';
-    suggestions = [`Review for clarity and ensure all aspects are covered`];
   }
   
   // Check for quality indicators
@@ -595,6 +668,9 @@ function assessFieldQuality(content: string, fieldType: string) {
   const grade: 'gold' | 'silver' | 'bronze' = 
     score >= 8.0 ? 'gold' : 
     score >= 5.0 ? 'silver' : 'bronze';
+  
+  // Generate contextual suggestions
+  const suggestions = generateContextualSuggestions(content, fieldType, businessBrief);
   
   return {
     grade,

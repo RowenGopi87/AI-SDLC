@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -72,7 +71,7 @@ export default function UseCasesPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingUseCase, setDeletingUseCase] = useState<any>(null);
-  const [acceptedSuggestions, setAcceptedSuggestions] = useState<{[fieldKey: string]: {[suggestionIndex: number]: boolean}}>({});
+  const [acceptedSuggestions, setAcceptedSuggestions] = useState<{[fieldKey: string]: {[suggestionIndex: number]: boolean | null}}>({});
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -143,13 +142,20 @@ export default function UseCasesPage() {
   };
 
   const toggleSuggestionAcceptance = (fieldKey: string, suggestionIndex: number, accepted: boolean) => {
-    setAcceptedSuggestions(prev => ({
-      ...prev,
-      [fieldKey]: {
-        ...prev[fieldKey],
-        [suggestionIndex]: accepted
-      }
-    }));
+    setAcceptedSuggestions(prev => {
+      const currentValue = prev[fieldKey]?.[suggestionIndex];
+      
+      // If clicking the same state, toggle it off (set to null)
+      const newValue = currentValue === accepted ? null : accepted;
+      
+      return {
+        ...prev,
+        [fieldKey]: {
+          ...prev[fieldKey],
+          [suggestionIndex]: newValue
+        }
+      };
+    });
   };
 
   const getAcceptedSuggestions = () => {
@@ -157,7 +163,7 @@ export default function UseCasesPage() {
     
     Object.entries(acceptedSuggestions).forEach(([fieldKey, suggestions]) => {
       const acceptedForField = Object.entries(suggestions)
-        .filter(([_, isAccepted]) => isAccepted)
+        .filter(([_, isAccepted]) => isAccepted === true) // Only explicitly accepted suggestions
         .map(([index, _]) => {
           if (qualityAssessment?.fieldAssessments[fieldKey]?.suggestions) {
             return qualityAssessment.fieldAssessments[fieldKey].suggestions[parseInt(index)];
@@ -176,7 +182,7 @@ export default function UseCasesPage() {
 
   const hasAcceptedSuggestions = () => {
     return Object.values(acceptedSuggestions).some(fieldSuggestions => 
-      Object.values(fieldSuggestions).some(accepted => accepted)
+      Object.values(fieldSuggestions).some(accepted => accepted === true)
     );
   };
 
@@ -1718,26 +1724,39 @@ export default function UseCasesPage() {
                         {assessment.suggestions.length > 0 && (
                           <div className="bg-gray-50 p-2 rounded text-xs">
                             <span className="font-medium">Suggestions:</span>
-                            <ul className="mt-1 space-y-2">
+                            <div className="mt-2 space-y-3">
                               {assessment.suggestions.map((suggestion: string, idx: number) => (
-                                <li key={idx} className="flex items-start space-x-2">
-                                  <Checkbox 
-                                    id={`suggestion-${field}-${idx}`}
-                                    checked={acceptedSuggestions[field]?.[idx] || false}
-                                    onCheckedChange={(checked) => 
-                                      toggleSuggestionAcceptance(field, idx, !!checked)
-                                    }
-                                    className="mt-0.5 flex-shrink-0"
-                                  />
-                                  <label 
-                                    htmlFor={`suggestion-${field}-${idx}`}
-                                    className="text-gray-600 cursor-pointer leading-relaxed"
-                                  >
-                                    {suggestion}
-                                  </label>
-                                </li>
+                                <div key={idx} className="bg-white p-3 rounded border">
+                                  <p className="text-gray-700 mb-2 leading-relaxed">{suggestion}</p>
+                                  <div className="flex items-center space-x-2">
+                                    <Button
+                                      size="sm"
+                                      variant={acceptedSuggestions[field]?.[idx] === true ? "default" : "outline"}
+                                      onClick={() => toggleSuggestionAcceptance(field, idx, true)}
+                                      className={`h-7 px-3 text-xs ${
+                                        acceptedSuggestions[field]?.[idx] === true 
+                                          ? "bg-green-600 hover:bg-green-700 text-white" 
+                                          : "border-green-300 text-green-700 hover:bg-green-50"
+                                      }`}
+                                    >
+                                      ✓ Accept
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant={acceptedSuggestions[field]?.[idx] === false ? "default" : "outline"}
+                                      onClick={() => toggleSuggestionAcceptance(field, idx, false)}
+                                      className={`h-7 px-3 text-xs ${
+                                        acceptedSuggestions[field]?.[idx] === false 
+                                          ? "bg-red-600 hover:bg-red-700 text-white" 
+                                          : "border-red-300 text-red-700 hover:bg-red-50"
+                                      }`}
+                                    >
+                                      ✗ Reject
+                                    </Button>
+                                  </div>
+                                </div>
                               ))}
-                            </ul>
+                            </div>
                           </div>
                         )}
                       </div>
