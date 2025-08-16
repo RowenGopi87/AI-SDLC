@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -37,7 +38,8 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 
 export default function UseCasesPage() {
@@ -48,6 +50,7 @@ export default function UseCasesPage() {
     selectUseCase, 
     selectedUseCase, 
     loadFromDatabase, 
+    deleteFromDatabase,
     isLoading: storeLoading, 
     error: storeError 
   } = useUseCaseStore();
@@ -67,6 +70,9 @@ export default function UseCasesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingUseCase, setDeletingUseCase] = useState<any>(null);
+  const [acceptedSuggestions, setAcceptedSuggestions] = useState<{[fieldKey: string]: {[suggestionIndex: number]: boolean}}>({});
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -111,6 +117,108 @@ export default function UseCasesPage() {
 
     initializeData();
   }, [loadFromDatabase, isInitialized]);
+
+  const handleDeleteUseCase = async (useCase: any) => {
+    setDeletingUseCase(useCase);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingUseCase) return;
+    
+    try {
+      await deleteFromDatabase(deletingUseCase.id);
+      notify.success('Business Brief Deleted', `"${deletingUseCase.title}" has been permanently deleted.`);
+      setDeleteConfirmOpen(false);
+      setDeletingUseCase(null);
+    } catch (error: any) {
+      console.error('Failed to delete business brief:', error);
+      notify.error('Delete Failed', error.message || 'Failed to delete business brief. Please try again.');
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmOpen(false);
+    setDeletingUseCase(null);
+  };
+
+  const toggleSuggestionAcceptance = (fieldKey: string, suggestionIndex: number, accepted: boolean) => {
+    setAcceptedSuggestions(prev => ({
+      ...prev,
+      [fieldKey]: {
+        ...prev[fieldKey],
+        [suggestionIndex]: accepted
+      }
+    }));
+  };
+
+  const getAcceptedSuggestions = () => {
+    const accepted: {[fieldKey: string]: string[]} = {};
+    
+    Object.entries(acceptedSuggestions).forEach(([fieldKey, suggestions]) => {
+      const acceptedForField = Object.entries(suggestions)
+        .filter(([_, isAccepted]) => isAccepted)
+        .map(([index, _]) => {
+          if (qualityAssessment?.fieldAssessments[fieldKey]?.suggestions) {
+            return qualityAssessment.fieldAssessments[fieldKey].suggestions[parseInt(index)];
+          }
+          return null;
+        })
+        .filter(Boolean) as string[];
+      
+      if (acceptedForField.length > 0) {
+        accepted[fieldKey] = acceptedForField;
+      }
+    });
+    
+    return accepted;
+  };
+
+  const hasAcceptedSuggestions = () => {
+    return Object.values(acceptedSuggestions).some(fieldSuggestions => 
+      Object.values(fieldSuggestions).some(accepted => accepted)
+    );
+  };
+
+  const applyAcceptedSuggestions = () => {
+    const acceptedSuggestionsData = getAcceptedSuggestions();
+    
+    // Apply suggestions by updating form data based on field mappings
+    const updatedFormData = { ...formData };
+    
+    Object.entries(acceptedSuggestionsData).forEach(([fieldKey, suggestions]) => {
+      const fieldValue = (formData as any)[fieldKey];
+      
+      if (typeof fieldValue === 'string') {
+        // For text fields, append suggestions as improvements
+        const improvementText = suggestions.map(s => `• ${s}`).join('\n');
+        updatedFormData[fieldKey as keyof typeof formData] = fieldValue + 
+          (fieldValue ? '\n\nSuggested Improvements:\n' : 'Suggested Improvements:\n') + 
+          improvementText;
+      }
+    });
+    
+    // Update form data with improvements
+    setFormData(updatedFormData);
+    
+    // Close quality assessment dialog
+    setQualityAssessment(null);
+    
+    notify.success(
+      'Suggestions Applied', 
+      `Applied ${Object.values(acceptedSuggestionsData).flat().length} accepted suggestions to the form.`
+    );
+  };
+
+  const handleManualImprovements = async () => {
+    // Close the quality assessment dialog 
+    setQualityAssessment(null);
+    
+    // Submit the current form as-is with 'submitted' status
+    await proceedWithSubmission();
+    
+    notify.info('Manual Improvements', 'Business brief submitted for manual review and improvements.');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,7 +319,7 @@ export default function UseCasesPage() {
         additionalBusinessUnits: formData.additionalBusinessUnits,
         otherDepartmentsImpacted: formData.otherDepartmentsImpacted,
         supportingDocuments: formData.supportingDocuments,
-        status: qualityAssessment?.overallGrade === 'green' ? 'approved' : 'submitted'
+        status: qualityAssessment?.overallGrade === 'gold' ? 'approved' : 'submitted'
       };
 
       console.log('💾 Saving business brief to database...', {
@@ -246,12 +354,10 @@ export default function UseCasesPage() {
         otherDepartmentsImpacted: formData.otherDepartmentsImpacted,
         supportingDocuments: formData.supportingDocuments,
         workflowStage: 'idea' as const,
-        completionPercentage: qualityAssessment?.overallGrade === 'green' ? 25 : 10,
+        completionPercentage: qualityAssessment?.overallGrade === 'gold' ? 25 : 10,
         status: businessBriefData.status,
         submittedAt: new Date().toISOString(),
-        // TODO: Add qualityAssessment and needsApproval to UseCase type
-        // qualityAssessment: qualityAssessment, // Add quality assessment to the use case
-        // needsApproval: qualityAssessment?.overallGrade !== 'green', // Flag for approval if not green
+        qualityAssessment: qualityAssessment, // Add quality assessment to the use case
       });
 
       console.log('✅ Business brief added to local store for UI updates');
@@ -494,10 +600,11 @@ export default function UseCasesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'in_review': return 'bg-blue-100 text-blue-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'approved': return 'bg-yellow-100 text-yellow-800 border-yellow-300'; // Gold for approved
+      case 'in_review': return 'bg-gray-100 text-gray-600 border-gray-300'; // Silver for in review
+      case 'rejected': return 'bg-orange-100 text-orange-800 border-orange-300'; // Bronze for rejected
+      case 'submitted': return 'bg-gray-100 text-gray-600 border-gray-300'; // Silver for submitted
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
@@ -521,13 +628,30 @@ export default function UseCasesPage() {
 
   const getStatusColorScheme = (status: string) => {
     switch (status) {
-      case 'approved': return { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' };
-      case 'in_review': return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' };
-      case 'draft': return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
-      case 'submitted': return { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' };
-      case 'rejected': return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' };
+      case 'approved': return { bg: 'bg-yellow-50', text: 'text-yellow-800', border: 'border-yellow-200' }; // Gold
+      case 'in_review': return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-300' }; // Silver
+      case 'submitted': return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-300' }; // Silver
+      case 'rejected': return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' }; // Bronze
+      case 'draft': return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
       default: return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
     }
+  };
+
+  const getQualityGradeColorScheme = (grade: 'gold' | 'silver' | 'bronze') => {
+    switch (grade) {
+      case 'gold': return { bg: 'bg-yellow-50', text: 'text-yellow-800', border: 'border-yellow-300' };
+      case 'silver': return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-300' };
+      case 'bronze': return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-300' };
+    }
+  };
+
+  const getCardColorScheme = (useCase: any) => {
+    // If we have a quality assessment, use that for coloring
+    if (useCase.qualityAssessment?.overallGrade) {
+      return getQualityGradeColorScheme(useCase.qualityAssessment.overallGrade);
+    }
+    // Otherwise fall back to status-based coloring
+    return getStatusColorScheme(useCase.status);
   };
 
   const getWorkflowStages = () => [
@@ -1183,8 +1307,8 @@ export default function UseCasesPage() {
         {filteredUseCases.map((useCase) => (
           <Card 
             key={useCase.id} 
-            className={`hover:shadow-lg transition-shadow cursor-pointer ${getStatusColorScheme(useCase.status).border} ${getStatusColorScheme(useCase.status).bg}`}
-            onClick={() => handleWorkflowView(useCase)}
+            className={`hover:shadow-lg transition-shadow cursor-pointer ${getCardColorScheme(useCase).border} ${getCardColorScheme(useCase).bg}`}
+            onClick={() => handleViewDetails(useCase)}
           >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -1306,6 +1430,17 @@ export default function UseCasesPage() {
                   >
                     View Details
                   </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteUseCase(useCase);
+                    }}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -1391,14 +1526,14 @@ export default function UseCasesPage() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center">
-              {qualityAssessment?.overallGrade === 'green' && (
-                <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
+              {qualityAssessment?.overallGrade === 'gold' && (
+                <CheckCircle className="w-6 h-6 text-yellow-600 mr-2" />
               )}
-              {qualityAssessment?.overallGrade === 'amber' && (
-                <AlertCircle className="w-6 h-6 text-amber-600 mr-2" />
+              {qualityAssessment?.overallGrade === 'silver' && (
+                <AlertCircle className="w-6 h-6 text-gray-600 mr-2" />
               )}
-              {qualityAssessment?.overallGrade === 'red' && (
-                <AlertCircle className="w-6 h-6 text-red-600 mr-2" />
+              {qualityAssessment?.overallGrade === 'bronze' && (
+                <AlertCircle className="w-6 h-6 text-orange-600 mr-2" />
               )}
               Business Brief Quality Assessment
             </DialogTitle>
@@ -1457,23 +1592,23 @@ export default function UseCasesPage() {
 
               {/* Overall Grade Card */}
               <Card className={`border-l-4 ${
-                qualityAssessment.overallGrade === 'green' ? 'border-l-green-500 bg-green-50' :
-                qualityAssessment.overallGrade === 'amber' ? 'border-l-amber-500 bg-amber-50' :
-                'border-l-red-500 bg-red-50'
+                qualityAssessment.overallGrade === 'gold' ? 'border-l-yellow-500 bg-yellow-50' :
+                qualityAssessment.overallGrade === 'silver' ? 'border-l-gray-500 bg-gray-50' :
+                'border-l-orange-500 bg-orange-50'
               }`}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className={`text-lg ${
-                      qualityAssessment.overallGrade === 'green' ? 'text-green-900' :
-                      qualityAssessment.overallGrade === 'amber' ? 'text-amber-900' :
-                      'text-red-900'
+                      qualityAssessment.overallGrade === 'gold' ? 'text-yellow-900' :
+                      qualityAssessment.overallGrade === 'silver' ? 'text-gray-900' :
+                      'text-orange-900'
                     }`}>
                       Overall Grade: {qualityAssessment.overallGrade.toUpperCase()}
                     </CardTitle>
                     <Badge variant="outline" className={`${
-                      qualityAssessment.overallGrade === 'green' ? 'bg-green-100 text-green-800 border-green-300' :
-                      qualityAssessment.overallGrade === 'amber' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                      'bg-red-100 text-red-800 border-red-300'
+                      qualityAssessment.overallGrade === 'gold' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                      qualityAssessment.overallGrade === 'silver' ? 'bg-gray-100 text-gray-800 border-gray-300' :
+                      'bg-orange-100 text-orange-800 border-orange-300'
                     }`}>
                       {qualityAssessment.overallScore}/10
                     </Badge>
@@ -1481,9 +1616,9 @@ export default function UseCasesPage() {
                 </CardHeader>
                 <CardContent>
                   <p className={`${
-                    qualityAssessment.overallGrade === 'green' ? 'text-green-800' :
-                    qualityAssessment.overallGrade === 'amber' ? 'text-amber-800' :
-                    'text-red-800'
+                    qualityAssessment.overallGrade === 'gold' ? 'text-yellow-800' :
+                    qualityAssessment.overallGrade === 'silver' ? 'text-gray-800' :
+                    'text-orange-800'
                   }`}>
                     {qualityAssessment.summary}
                   </p>
@@ -1570,9 +1705,9 @@ export default function UseCasesPage() {
                           </h5>
                           <div className="flex items-center space-x-2">
                             <Badge variant="outline" className={`text-xs ${
-                              assessment.grade === 'green' ? 'bg-green-100 text-green-800 border-green-300' :
-                              assessment.grade === 'amber' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                              'bg-red-100 text-red-800 border-red-300'
+                              assessment.grade === 'gold' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                              assessment.grade === 'silver' ? 'bg-gray-100 text-gray-800 border-gray-300' :
+                              'bg-orange-100 text-orange-800 border-orange-300'
                             }`}>
                               {assessment.grade}
                             </Badge>
@@ -1583,9 +1718,24 @@ export default function UseCasesPage() {
                         {assessment.suggestions.length > 0 && (
                           <div className="bg-gray-50 p-2 rounded text-xs">
                             <span className="font-medium">Suggestions:</span>
-                            <ul className="mt-1 space-y-1">
+                            <ul className="mt-1 space-y-2">
                               {assessment.suggestions.map((suggestion: string, idx: number) => (
-                                <li key={idx} className="text-gray-600">• {suggestion}</li>
+                                <li key={idx} className="flex items-start space-x-2">
+                                  <Checkbox 
+                                    id={`suggestion-${field}-${idx}`}
+                                    checked={acceptedSuggestions[field]?.[idx] || false}
+                                    onCheckedChange={(checked) => 
+                                      toggleSuggestionAcceptance(field, idx, !!checked)
+                                    }
+                                    className="mt-0.5 flex-shrink-0"
+                                  />
+                                  <label 
+                                    htmlFor={`suggestion-${field}-${idx}`}
+                                    className="text-gray-600 cursor-pointer leading-relaxed"
+                                  >
+                                    {suggestion}
+                                  </label>
+                                </li>
                               ))}
                             </ul>
                           </div>
@@ -1619,52 +1769,107 @@ export default function UseCasesPage() {
               {/* Action Buttons */}
               <div className="flex justify-between pt-4 border-t">
                 <div className="text-sm text-gray-600">
-                  {qualityAssessment.approvalRequired ? (
-                    <div className="flex items-center text-amber-700">
-                      <Clock className="w-4 h-4 mr-1" />
-                      Approval required before proceeding to next phase
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-green-700">
+                  {qualityAssessment.overallGrade === 'gold' ? (
+                    <div className="flex items-center text-yellow-700">
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Ready for next phase implementation
+                    </div>
+                  ) : qualityAssessment.overallGrade === 'silver' ? (
+                    <div className="flex items-center text-gray-700">
+                      <Clock className="w-4 h-4 mr-1" />
+                      Review required before proceeding to next phase
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-orange-700">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      Improvements required before approval
                     </div>
                   )}
                 </div>
                 <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleMakeImprovements}
-                  >
-                    Make Improvements
-                  </Button>
-                  {qualityAssessment.overallGrade === 'green' ? (
-                    <Button
-                      onClick={async () => {
-                        await proceedWithSubmission();
-                        // Success notification is now handled inside proceedWithSubmission()
-                      }}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Approve & Submit
-                    </Button>
+                  {qualityAssessment.overallGrade === 'gold' ? (
+                    // For gold grade, offer direct approval or improvements
+                    <>
+                      {hasAcceptedSuggestions() && (
+                        <Button
+                          onClick={applyAcceptedSuggestions}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Automatically Apply Improvements
+                        </Button>
+                      )}
+                      <Button
+                        onClick={async () => {
+                          await proceedWithSubmission();
+                        }}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-yellow-50"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Approve & Submit
+                      </Button>
+                    </>
                   ) : (
-                    <Button
-                      onClick={async () => {
-                        await proceedWithSubmission();
-                        // Success notification is now handled inside proceedWithSubmission()
-                      }}
-                      className="bg-amber-600 hover:bg-amber-700"
-                    >
-                      <Clock className="w-4 h-4 mr-1" />
-                      Submit for Review
-                    </Button>
+                    // For silver/bronze grades, offer improvement options
+                    <>
+                      {hasAcceptedSuggestions() && (
+                        <Button
+                          onClick={applyAcceptedSuggestions}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Automatically Apply Improvements
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        onClick={handleManualImprovements}
+                      >
+                        <AlertCircle className="w-4 h-4 mr-1" />
+                        Manually Make Improvements
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-red-600">
+              <Trash2 className="w-5 h-5 mr-2" />
+              Delete Business Brief
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete this business brief? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deletingUseCase && (
+            <div className="py-4">
+              <div className="bg-gray-50 p-3 rounded border">
+                <p className="font-medium text-gray-900">{deletingUseCase.title}</p>
+                <p className="text-sm text-gray-600 mt-1">{deletingUseCase.businessBriefId}</p>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={cancelDelete}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Delete Permanently
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

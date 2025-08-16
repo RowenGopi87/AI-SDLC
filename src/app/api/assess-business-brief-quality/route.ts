@@ -38,7 +38,7 @@ const BusinessBriefAssessmentSchema = z.object({
 });
 
 interface QualityAssessment {
-  overallGrade: 'green' | 'amber' | 'red';
+  overallGrade: 'gold' | 'silver' | 'bronze';
   overallScore: number;
   summary: string;
   improvements: {
@@ -48,7 +48,7 @@ interface QualityAssessment {
   };
   fieldAssessments: {
     [key: string]: {
-      grade: 'green' | 'amber' | 'red';
+      grade: 'gold' | 'silver' | 'bronze';
       score: number;
       feedback: string;
       suggestions: string[];
@@ -176,7 +176,7 @@ RESPONSE FORMAT:
 Provide your assessment as a JSON object with the following structure:
 
 {
-  "overallGrade": "green|amber|red",
+  "overallGrade": "gold|silver|bronze",
   "overallScore": 7.5,
   "summary": "Brief overall assessment of the business brief quality",
   "improvements": {
@@ -186,7 +186,7 @@ Provide your assessment as a JSON object with the following structure:
   },
   "fieldAssessments": {
     "businessObjective": {
-      "grade": "green|amber|red",
+      "grade": "gold|silver|bronze",
       "score": 8.0,
       "feedback": "Specific feedback on this field",
       "suggestions": ["Specific improvement suggestions"]
@@ -268,7 +268,7 @@ Business Value: ${businessBrief.businessValue || 'Not provided'}
 
 ASSESSMENT REQUEST:
 Please evaluate this business brief according to the established criteria and provide:
-1. An overall quality grade (green/amber/red)
+1. An overall quality grade (gold/silver/bronze)
 2. Specific feedback on each major section
 3. Actionable improvement suggestions
 4. Recommendations for next steps
@@ -522,9 +522,9 @@ async function getMockAssessment(businessBrief: any): Promise<QualityAssessment>
     (5.0 * 0.15) // Default score for other fields
   );
   
-  const overallGrade: 'green' | 'amber' | 'red' = 
-    overallScore >= 8.0 ? 'green' : 
-    overallScore >= 5.0 ? 'amber' : 'red';
+  const overallGrade: 'gold' | 'silver' | 'bronze' = 
+    overallScore >= 8.0 ? 'gold' : 
+    overallScore >= 5.0 ? 'silver' : 'bronze';
   
   const mockAssessment: QualityAssessment = {
     overallGrade,
@@ -542,7 +542,7 @@ async function getMockAssessment(businessBrief: any): Promise<QualityAssessment>
       exceptions: assessFieldQuality(businessBrief.exceptions, 'exceptions'),
       acceptanceCriteria: assessFieldQuality(businessBrief.acceptanceCriteria, 'criteria')
     },
-    approvalRequired: overallGrade !== 'green',
+    approvalRequired: overallGrade !== 'gold',
     nextSteps: generateNextSteps(overallGrade, businessBrief),
     assessmentMode: 'mock',
     requestedMode: 'mock'
@@ -592,9 +592,9 @@ function assessFieldQuality(content: string, fieldType: string) {
     score = Math.min(score + 0.5, 10.0);
   }
   
-  const grade: 'green' | 'amber' | 'red' = 
-    score >= 8.0 ? 'green' : 
-    score >= 5.0 ? 'amber' : 'red';
+  const grade: 'gold' | 'silver' | 'bronze' = 
+    score >= 8.0 ? 'gold' : 
+    score >= 5.0 ? 'silver' : 'bronze';
   
   return {
     grade,
@@ -604,18 +604,18 @@ function assessFieldQuality(content: string, fieldType: string) {
   };
 }
 
-function generateSummary(grade: 'green' | 'amber' | 'red', score: number): string {
+function generateSummary(grade: 'gold' | 'silver' | 'bronze', score: number): string {
   switch (grade) {
-    case 'green':
+    case 'gold':
       return `Excellent business brief with comprehensive details and clear objectives. Score: ${score}/10. Ready for approval and next phase implementation.`;
-    case 'amber':
+    case 'silver':
       return `Good foundation for a business brief but requires improvements in key areas. Score: ${score}/10. Address highlighted issues before proceeding.`;
-    case 'red':
+    case 'bronze':
       return `Business brief needs significant improvement with multiple critical gaps. Score: ${score}/10. Substantial rework required before approval.`;
   }
 }
 
-function generateImprovements(grade: 'green' | 'amber' | 'red', businessBrief: any) {
+function generateImprovements(grade: 'gold' | 'silver' | 'bronze', businessBrief: any) {
   const improvements = {
     critical: [] as string[],
     important: [] as string[],
@@ -663,22 +663,22 @@ function generateImprovements(grade: 'green' | 'amber' | 'red', businessBrief: a
   return improvements;
 }
 
-function generateNextSteps(grade: 'green' | 'amber' | 'red', businessBrief: any): string[] {
+function generateNextSteps(grade: 'gold' | 'silver' | 'bronze', businessBrief: any): string[] {
   const steps: string[] = [];
   
   switch (grade) {
-    case 'green':
+    case 'gold':
       steps.push('Business brief approved - proceed to initiative planning phase');
       steps.push('Schedule stakeholder alignment meeting');
       steps.push('Begin technical feasibility assessment');
       break;
-    case 'amber':
+    case 'silver':
       steps.push('Address highlighted improvements before final approval');
       steps.push('Schedule review meeting with business owner');
       steps.push('Resubmit for quality assessment after improvements');
       steps.push('Consider stakeholder consultation for unclear areas');
       break;
-    case 'red':
+    case 'bronze':
       steps.push('Substantial rework required - consult with business analyst');
       steps.push('Conduct additional research and stakeholder interviews');
       steps.push('Review similar successful business cases for reference');

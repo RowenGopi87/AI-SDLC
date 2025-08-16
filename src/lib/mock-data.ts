@@ -38,6 +38,28 @@ export interface UseCase {
   // Workflow tracking
   workflowStage?: "idea" | "discovery" | "design" | "execution";
   completionPercentage?: number;
+  // Quality Assessment
+  qualityAssessment?: {
+    overallGrade: 'gold' | 'silver' | 'bronze';
+    overallScore: number;
+    summary: string;
+    improvements: {
+      critical: string[];
+      important: string[];
+      suggested: string[];
+    };
+    fieldAssessments: {
+      [key: string]: {
+        grade: 'gold' | 'silver' | 'bronze';
+        score: number;
+        feedback: string;
+        suggestions: string[];
+      };
+    };
+    assessmentMode?: 'real-llm' | 'mock' | 'mock-fallback';
+    approvalRequired: boolean;
+    nextSteps: string[];
+  };
 }
 
 export interface Requirement {

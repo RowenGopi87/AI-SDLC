@@ -237,6 +237,17 @@ class AuraDatabaseService implements DatabaseService {
     return results.map(row => this.mapBusinessBrief(row));
   }
 
+  public async deleteBusinessBrief(id: string): Promise<boolean> {
+    try {
+      const result = await db.execute('DELETE FROM business_briefs WHERE id = ?', [id]);
+      // Check if any rows were affected (deleted)
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error('Failed to delete business brief:', error);
+      return false;
+    }
+  }
+
   public async updateBusinessBrief(id: string, updates: Partial<BusinessBrief>): Promise<BusinessBrief> {
     const fields: string[] = [];
     const values: any[] = [];
@@ -263,11 +274,6 @@ class AuraDatabaseService implements DatabaseService {
     }
     
     return updated;
-  }
-
-  public async deleteBusinessBrief(id: string): Promise<boolean> {
-    const result = await db.execute('DELETE FROM business_briefs WHERE id = ?', [id]);
-    return (result as any).affectedRows > 0;
   }
 
   // Initiatives

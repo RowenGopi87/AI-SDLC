@@ -15,6 +15,7 @@ interface UseCaseStore {
   getUseCaseById: (id: string) => UseCase | undefined;
   getUseCasesByStatus: (status: UseCase['status']) => UseCase[];
   loadFromDatabase: () => Promise<void>;
+  deleteFromDatabase: (id: string) => Promise<void>;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
 }
@@ -119,6 +120,38 @@ export const useUseCaseStore = create<UseCaseStore>()(
 
   setLoading: (loading) => {
     set({ isLoading: loading });
+  },
+
+  deleteFromDatabase: async (id: string) => {
+    try {
+      console.log('🗑️ Deleting business brief from database:', id);
+      
+      const response = await fetch(`/api/business-briefs/delete?id=${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete business brief');
+      }
+      
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to delete business brief');
+      }
+      
+      console.log('✅ Business brief deleted from database successfully');
+      
+      // Remove from local store
+      set((state) => ({
+        useCases: state.useCases.filter((useCase) => useCase.id !== id),
+        selectedUseCase: state.selectedUseCase?.id === id ? null : state.selectedUseCase,
+      }));
+      
+    } catch (error: any) {
+      console.error('❌ Failed to delete business brief from database:', error);
+      throw error; // Re-throw so calling component can handle the error
+    }
   },
 }),
 {
