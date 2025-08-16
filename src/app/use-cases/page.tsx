@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUseCaseStore } from '@/store/use-case-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useRequirementStore } from '@/store/requirement-store';
@@ -41,7 +41,16 @@ import {
 } from 'lucide-react';
 
 export default function UseCasesPage() {
-  const { useCases, addUseCase, updateUseCase, selectUseCase, selectedUseCase } = useUseCaseStore();
+  const { 
+    useCases, 
+    addUseCase, 
+    updateUseCase, 
+    selectUseCase, 
+    selectedUseCase, 
+    loadFromDatabase, 
+    isLoading: storeLoading, 
+    error: storeError 
+  } = useUseCaseStore();
   const { llmSettings, validateSettings } = useSettingsStore();
   const { addGeneratedRequirements, addGeneratedRequirementsFromJSON, deleteRequirement } = useRequirementStore();
   const { addGeneratedInitiatives } = useInitiativeStore();
@@ -57,6 +66,7 @@ export default function UseCasesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -88,6 +98,19 @@ export default function UseCasesPage() {
     otherTechnologyInfo: '',
     supportingDocuments: [] as string[],
   });
+
+  // Load business briefs from database on component mount
+  useEffect(() => {
+    const initializeData = async () => {
+      if (!isInitialized) {
+        console.log('🔄 Initializing use cases page - loading from database...');
+        await loadFromDatabase();
+        setIsInitialized(true);
+      }
+    };
+
+    initializeData();
+  }, [loadFromDatabase, isInitialized]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,6 +258,9 @@ export default function UseCasesPage() {
 
       // Reset form only after successful submission
       resetForm();
+      
+      // Reload data from database to ensure UI is up to date
+      await loadFromDatabase();
       
       notify.success(
         'Business Brief Saved', 
@@ -518,6 +544,47 @@ export default function UseCasesPage() {
     const matchesStatus = filterStatus === 'all' || useCase.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  // Show loading state while initializing
+  if (storeLoading && !isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="flex flex-col items-center space-y-4">
+          <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+          <p className="text-gray-600">Loading business briefs...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if there's an error and no data
+  if (storeError && useCases.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="flex flex-col items-center space-y-4 text-center">
+          <AlertCircle className="w-8 h-8 text-red-600" />
+          <div>
+            <p className="text-gray-900 font-medium">Failed to load business briefs</p>
+            <p className="text-gray-600 text-sm mt-1">{storeError}</p>
+            <Button 
+              onClick={() => loadFromDatabase()} 
+              className="mt-4"
+              disabled={storeLoading}
+            >
+              {storeLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                'Retry'
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -1335,8 +1402,10 @@ export default function UseCasesPage() {
               )}
               Business Brief Quality Assessment
             </DialogTitle>
-                          <DialogDescription>
-                AI-powered quality evaluation with improvement recommendations
+                          <div>
+                <DialogDescription>
+                  AI-powered quality evaluation with improvement recommendations
+                </DialogDescription>
                 {qualityAssessment?.assessmentMode && (
                   <div className="mt-2 text-xs">
                     {qualityAssessment.assessmentMode === 'real-llm' && (
@@ -1356,7 +1425,7 @@ export default function UseCasesPage() {
                     )}
                   </div>
                 )}
-              </DialogDescription>
+              </div>
           </DialogHeader>
 
           {qualityAssessment && (

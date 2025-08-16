@@ -5,6 +5,8 @@ import { UseCase, mockUseCases } from '@/lib/mock-data';
 interface UseCaseStore {
   useCases: UseCase[];
   selectedUseCase: UseCase | null;
+  isLoading: boolean;
+  error: string | null;
   addUseCase: (useCase: Omit<UseCase, 'id' | 'businessBriefId' | 'submittedAt'>) => void;
   updateUseCase: (id: string, updates: Partial<UseCase>) => void;
   deleteUseCase: (id: string) => void;
@@ -12,13 +14,18 @@ interface UseCaseStore {
   clearSelection: () => void;
   getUseCaseById: (id: string) => UseCase | undefined;
   getUseCasesByStatus: (status: UseCase['status']) => UseCase[];
+  loadFromDatabase: () => Promise<void>;
+  setError: (error: string | null) => void;
+  setLoading: (loading: boolean) => void;
 }
 
 export const useUseCaseStore = create<UseCaseStore>()(
   persist(
     (set, get) => ({
-  useCases: mockUseCases,
+  useCases: [],
   selectedUseCase: null,
+  isLoading: false,
+  error: null,
 
   addUseCase: (useCase) => {
     const existingIds = get().useCases.map(uc => uc.businessBriefId || '');
@@ -71,6 +78,47 @@ export const useUseCaseStore = create<UseCaseStore>()(
 
   getUseCasesByStatus: (status) => {
     return get().useCases.filter((useCase) => useCase.status === status);
+  },
+
+  loadFromDatabase: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      console.log('📋 Loading business briefs from database...');
+      
+      const response = await fetch('/api/business-briefs/list');
+      if (!response.ok) {
+        throw new Error(`Failed to load business briefs: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to load business briefs');
+      }
+      
+      console.log('✅ Loaded business briefs from database:', result.data.length);
+      set({ 
+        useCases: result.data, 
+        isLoading: false, 
+        error: null 
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Failed to load business briefs from database:', error);
+      set({ 
+        error: error.message, 
+        isLoading: false,
+        // Keep existing mock data as fallback if database load fails
+        useCases: get().useCases.length === 0 ? mockUseCases : get().useCases
+      });
+    }
+  },
+
+  setError: (error) => {
+    set({ error });
+  },
+
+  setLoading: (loading) => {
+    set({ isLoading: loading });
   },
 }),
 {

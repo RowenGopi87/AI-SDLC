@@ -10,6 +10,7 @@ export interface DatabaseService {
   createBusinessBrief(brief: Partial<BusinessBrief>): Promise<BusinessBrief>;
   getBusinessBrief(id: string): Promise<BusinessBrief | null>;
   getAllBusinessBriefs(): Promise<BusinessBrief[]>;
+  getBusinessBriefs(options?: { status?: string; limit?: number; offset?: number }): Promise<BusinessBrief[]>;
   updateBusinessBrief(id: string, updates: Partial<BusinessBrief>): Promise<BusinessBrief>;
   deleteBusinessBrief(id: string): Promise<boolean>;
   
@@ -199,6 +200,40 @@ class AuraDatabaseService implements DatabaseService {
 
   public async getAllBusinessBriefs(): Promise<BusinessBrief[]> {
     const results = await db.execute<any>('SELECT * FROM business_briefs ORDER BY created_at DESC');
+    return results.map(row => this.mapBusinessBrief(row));
+  }
+
+  public async getBusinessBriefs(options?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<BusinessBrief[]> {
+    let query = 'SELECT * FROM business_briefs';
+    const values: any[] = [];
+    const conditions: string[] = [];
+
+    if (options?.status) {
+      conditions.push('status = ?');
+      values.push(options.status);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    if (options?.limit) {
+      query += ' LIMIT ?';
+      values.push(options.limit);
+      
+      if (options?.offset) {
+        query += ' OFFSET ?';
+        values.push(options.offset);
+      }
+    }
+
+    const results = await db.execute<any>(query, values);
     return results.map(row => this.mapBusinessBrief(row));
   }
 
