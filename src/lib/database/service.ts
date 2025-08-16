@@ -120,8 +120,8 @@ class AuraDatabaseService implements DatabaseService {
         impact_to_other_departments, other_departments_impacted,
         impacts_existing_technology, technology_solutions, relevant_business_owners,
         other_technology_info, supporting_documents, submitted_by, submitted_at,
-        status, priority, workflow_stage, completion_percentage
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        status, priority, workflow_stage, completion_percentage, quality_assessment
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -152,7 +152,8 @@ class AuraDatabaseService implements DatabaseService {
       brief.status || 'draft',
       brief.priority || 'medium',
       brief.workflowStage || 'idea',
-      brief.completionPercentage || 0
+      brief.completionPercentage || 0,
+      brief.qualityAssessment ? JSON.stringify(brief.qualityAssessment) : null
     ];
 
     await db.execute(query, values);
@@ -1075,6 +1076,7 @@ class AuraDatabaseService implements DatabaseService {
       priority: row.priority,
       workflowStage: row.workflow_stage,
       completionPercentage: row.completion_percentage,
+      qualityAssessment: row.quality_assessment ? JSON.parse(row.quality_assessment) : undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

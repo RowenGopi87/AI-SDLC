@@ -189,18 +189,44 @@ export default function UseCasesPage() {
   const applyAcceptedSuggestions = () => {
     const acceptedSuggestionsData = getAcceptedSuggestions();
     
-    // Apply suggestions by updating form data based on field mappings
+    // Apply suggestions by replacing form field values directly
     const updatedFormData = { ...formData };
     
     Object.entries(acceptedSuggestionsData).forEach(([fieldKey, suggestions]) => {
-      const fieldValue = (formData as any)[fieldKey];
-      
-      if (typeof fieldValue === 'string') {
-        // For text fields, append suggestions as improvements
-        const improvementText = suggestions.map(s => `• ${s}`).join('\n');
-        updatedFormData[fieldKey as keyof typeof formData] = fieldValue + 
-          (fieldValue ? '\n\nSuggested Improvements:\n' : 'Suggested Improvements:\n') + 
-          improvementText;
+      if (suggestions.length > 0) {
+        // For contextual suggestions, they should contain the exact replacement text
+        // Extract the replacement text from suggestions that contain quotes or specific examples
+        let replacementValue = '';
+        
+        suggestions.forEach(suggestion => {
+          // Look for quoted text or "Replace X with Y" patterns
+          const replaceMatch = suggestion.match(/Replace "([^"]*)" with "([^"]*)"/);
+          const quoteMatch = suggestion.match(/"([^"]*)"/);
+          
+          if (replaceMatch) {
+            replacementValue = replaceMatch[2]; // Use the "with" part
+          } else if (quoteMatch) {
+            replacementValue = quoteMatch[1]; // Use the quoted text
+          } else if (suggestion.includes('e.g.,') || suggestion.includes('like ')) {
+            // Extract example text after "e.g.," or "like "
+            const exampleMatch = suggestion.match(/(?:e\.g\.,|like )'([^']*)'|(?:e\.g\.,|like )"([^"]*)"/);
+            if (exampleMatch) {
+              replacementValue = exampleMatch[1] || exampleMatch[2];
+            }
+          } else {
+            // If no specific pattern, use the suggestion as guidance to improve the existing content
+            // For now, use the first meaningful sentence as replacement
+            const sentences = suggestion.split('.').filter(s => s.trim().length > 10);
+            if (sentences.length > 0) {
+              replacementValue = sentences[0].trim();
+            }
+          }
+        });
+        
+        // If we found a replacement value, use it; otherwise keep the original
+        if (replacementValue && replacementValue.length > 0) {
+          (updatedFormData as any)[fieldKey] = replacementValue;
+        }
       }
     });
     
@@ -210,9 +236,12 @@ export default function UseCasesPage() {
     // Close quality assessment dialog
     setQualityAssessment(null);
     
+    // Reset accepted suggestions
+    setAcceptedSuggestions({});
+    
     notify.success(
       'Suggestions Applied', 
-      `Applied ${Object.values(acceptedSuggestionsData).flat().length} accepted suggestions to the form.`
+      `Applied ${Object.values(acceptedSuggestionsData).flat().length} accepted suggestions to the form. Form fields have been updated with improved content.`
     );
   };
 
@@ -634,20 +663,20 @@ export default function UseCasesPage() {
 
   const getStatusColorScheme = (status: string) => {
     switch (status) {
-      case 'approved': return { bg: 'bg-yellow-50', text: 'text-yellow-800', border: 'border-yellow-200' }; // Gold
-      case 'in_review': return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-300' }; // Silver
-      case 'submitted': return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-300' }; // Silver
-      case 'rejected': return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' }; // Bronze
-      case 'draft': return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
-      default: return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
+      case 'approved': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300' }; // Gold - more visible
+      case 'in_review': return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' }; // Blue instead of gray
+      case 'submitted': return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' }; // Slightly more visible gray
+      case 'rejected': return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' }; // Red instead of orange for clarity
+      case 'draft': return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-300' }; // More visible slate
+      default: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' }; // Ensure default isn't too light
     }
   };
 
   const getQualityGradeColorScheme = (grade: 'gold' | 'silver' | 'bronze') => {
     switch (grade) {
-      case 'gold': return { bg: 'bg-yellow-50', text: 'text-yellow-800', border: 'border-yellow-300' };
-      case 'silver': return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-300' };
-      case 'bronze': return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-300' };
+      case 'gold': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400' }; // More vibrant gold
+      case 'silver': return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-400' }; // More visible silver
+      case 'bronze': return { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-400' }; // More vibrant bronze
     }
   };
 
@@ -656,8 +685,15 @@ export default function UseCasesPage() {
     if (useCase.qualityAssessment?.overallGrade) {
       return getQualityGradeColorScheme(useCase.qualityAssessment.overallGrade);
     }
-    // Otherwise fall back to status-based coloring
-    return getStatusColorScheme(useCase.status);
+    // Otherwise fall back to status-based coloring with enhanced styling
+    const statusColors = getStatusColorScheme(useCase.status);
+    // Ensure all cards have proper shadows and backgrounds, not just outlines
+    return {
+      ...statusColors,
+      // Add shadow and ensure solid background
+      shadow: 'shadow-sm hover:shadow-lg',
+      bg: statusColors.bg || 'bg-white'
+    };
   };
 
   const getWorkflowStages = () => [
@@ -1313,7 +1349,7 @@ export default function UseCasesPage() {
         {filteredUseCases.map((useCase) => (
           <Card 
             key={useCase.id} 
-            className={`hover:shadow-lg transition-shadow cursor-pointer ${getCardColorScheme(useCase).border} ${getCardColorScheme(useCase).bg}`}
+            className={`transition-all cursor-pointer shadow-sm hover:shadow-lg ${getCardColorScheme(useCase).border} ${getCardColorScheme(useCase).bg || 'bg-white'}`}
             onClick={() => handleViewDetails(useCase)}
           >
             <CardHeader className="pb-3">
