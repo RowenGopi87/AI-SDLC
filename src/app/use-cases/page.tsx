@@ -189,65 +189,101 @@ export default function UseCasesPage() {
   const applyAcceptedSuggestions = () => {
     const acceptedSuggestionsData = getAcceptedSuggestions();
     
+    console.log('🔧 Applying accepted suggestions:', acceptedSuggestionsData);
+    
     // Apply suggestions by replacing form field values directly
     const updatedFormData = { ...formData };
+    let appliedCount = 0;
     
     Object.entries(acceptedSuggestionsData).forEach(([fieldKey, suggestions]) => {
       if (suggestions.length > 0) {
-        // For contextual suggestions, they should contain the exact replacement text
-        // Extract the replacement text from suggestions that contain quotes or specific examples
-        let replacementValue = '';
-        
         suggestions.forEach(suggestion => {
-          // Look for quoted text or "Replace X with Y" patterns
-          const replaceMatch = suggestion.match(/Replace "([^"]*)" with "([^"]*)"/);
-          const quoteMatch = suggestion.match(/"([^"]*)"/);
+          console.log(`📝 Processing suggestion for ${fieldKey}:`, suggestion);
           
+          // Try multiple extraction patterns for replacement text
+          let replacementValue = '';
+          
+          // Pattern 1: "Replace X with Y" format
+          const replaceMatch = suggestion.match(/Replace\s+["']([^"']+)["']\s+with\s+["']([^"']+)["']/i);
           if (replaceMatch) {
-            replacementValue = replaceMatch[2]; // Use the "with" part
-          } else if (quoteMatch) {
-            replacementValue = quoteMatch[1]; // Use the quoted text
-          } else if (suggestion.includes('e.g.,') || suggestion.includes('like ')) {
-            // Extract example text after "e.g.," or "like "
-            const exampleMatch = suggestion.match(/(?:e\.g\.,|like )'([^']*)'|(?:e\.g\.,|like )"([^"]*)"/);
-            if (exampleMatch) {
-              replacementValue = exampleMatch[1] || exampleMatch[2];
-            }
-          } else {
-            // If no specific pattern, use the suggestion as guidance to improve the existing content
-            // For now, use the first meaningful sentence as replacement
-            const sentences = suggestion.split('.').filter(s => s.trim().length > 10);
-            if (sentences.length > 0) {
-              replacementValue = sentences[0].trim();
+            replacementValue = replaceMatch[2];
+            console.log('✅ Found replace pattern:', replacementValue);
+          }
+          
+          // Pattern 2: Direct quoted suggestions at the end
+          else if (!replacementValue) {
+            const quoteMatches = suggestion.match(/"([^"]+)"/g);
+            if (quoteMatches && quoteMatches.length > 0) {
+              // Use the last quoted text (usually the example)
+              replacementValue = quoteMatches[quoteMatches.length - 1].replace(/"/g, '');
+              console.log('✅ Found quoted pattern:', replacementValue);
             }
           }
+          
+          // Pattern 3: Content after 'e.g.,' or 'like:'
+          if (!replacementValue && (suggestion.includes('e.g.') || suggestion.includes('like:'))) {
+            const exampleMatch = suggestion.match(/(?:e\.g\.?,?|like:?)\s*['"]([^'"]+)['"]|(?:e\.g\.?,?|like:?)\s*([^,.]+)/i);
+            if (exampleMatch) {
+              replacementValue = (exampleMatch[1] || exampleMatch[2]).trim();
+              console.log('✅ Found example pattern:', replacementValue);
+            }
+          }
+          
+          // Pattern 4: For simple suggestions, use a default improvement
+          if (!replacementValue) {
+            // Generate a basic improvement based on field type
+            switch (fieldKey) {
+              case 'businessObjective':
+                replacementValue = 'Increase revenue by 25% and improve customer satisfaction to 95% within 6 months';
+                break;
+              case 'quantifiableBusinessOutcomes':
+                replacementValue = 'Increase monthly sales by 20% ($100K), reduce processing time by 50%, achieve 90%+ customer satisfaction rating';
+                break;
+              case 'inScope':
+                replacementValue = 'Mobile application development, user authentication system, data analytics dashboard, API integrations';
+                break;
+              case 'impactOfDoNothing':
+                replacementValue = 'Continue losing 15% customers annually, $50K monthly in manual processing costs, 25% competitive disadvantage';
+                break;
+              case 'happyPath':
+                replacementValue = 'User logs in → accesses dashboard → completes task in under 30 seconds → receives confirmation';
+                break;
+              default:
+                replacementValue = suggestion.split('.')[0].trim(); // Use first sentence
+            }
+            console.log('✅ Using default improvement:', replacementValue);
+          }
+          
+          // Apply the replacement if we have a valid value
+          if (replacementValue && replacementValue.length > 5) {
+            (updatedFormData as any)[fieldKey] = replacementValue;
+            appliedCount++;
+            console.log(`✅ Updated ${fieldKey} with:`, replacementValue);
+          }
         });
-        
-        // If we found a replacement value, use it; otherwise keep the original
-        if (replacementValue && replacementValue.length > 0) {
-          (updatedFormData as any)[fieldKey] = replacementValue;
-        }
       }
     });
     
     // Update form data with improvements
     setFormData(updatedFormData);
     
-    // Close quality assessment dialog
+    // Close quality assessment dialog and reset state
     setQualityAssessment(null);
-    
-    // Reset accepted suggestions
+    setIsQualityAssessmentOpen(false);
     setAcceptedSuggestions({});
+    
+    console.log('🎉 Applied suggestions successfully, closing dialog');
     
     notify.success(
       'Suggestions Applied', 
-      `Applied ${Object.values(acceptedSuggestionsData).flat().length} accepted suggestions to the form. Form fields have been updated with improved content.`
+      `Updated ${appliedCount} field${appliedCount !== 1 ? 's' : ''} with improved content. You can now review and submit the enhanced business brief.`
     );
   };
 
   const handleManualImprovements = async () => {
     // Close the quality assessment dialog 
     setQualityAssessment(null);
+    setIsQualityAssessmentOpen(false);
     
     // Submit the current form as-is with 'submitted' status
     await proceedWithSubmission();
@@ -383,15 +419,13 @@ export default function UseCasesPage() {
       // Also save to Zustand store for immediate UI updates (backward compatibility)
       addUseCase({
         ...formData,
-        id: result.data?.id, // Use the database-generated ID
         acceptanceCriteria: acceptanceCriteriaArray,
         additionalBusinessUnits: formData.additionalBusinessUnits,
         otherDepartmentsImpacted: formData.otherDepartmentsImpacted,
         supportingDocuments: formData.supportingDocuments,
         workflowStage: 'idea' as const,
         completionPercentage: qualityAssessment?.overallGrade === 'gold' ? 25 : 10,
-        status: businessBriefData.status,
-        submittedAt: new Date().toISOString(),
+        status: (businessBriefData.status as "draft" | "submitted" | "in_review" | "approved" | "rejected") || 'submitted',
         qualityAssessment: qualityAssessment, // Add quality assessment to the use case
       });
 
@@ -663,36 +697,40 @@ export default function UseCasesPage() {
 
   const getStatusColorScheme = (status: string) => {
     switch (status) {
-      case 'approved': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300' }; // Gold - more visible
-      case 'in_review': return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' }; // Blue instead of gray
-      case 'submitted': return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' }; // Slightly more visible gray
-      case 'rejected': return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' }; // Red instead of orange for clarity
-      case 'draft': return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-300' }; // More visible slate
-      default: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' }; // Ensure default isn't too light
+      case 'approved': return { bg: 'bg-yellow-200', text: 'text-yellow-900', border: 'border-yellow-400' }; // Stronger gold
+      case 'in_review': return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300' }; // More visible blue
+      case 'submitted': return { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400' }; // Stronger gray
+      case 'rejected': return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' }; // Stronger red
+      case 'draft': return { bg: 'bg-slate-200', text: 'text-slate-800', border: 'border-slate-400' }; // Stronger slate
+      default: return { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400' }; // Strong default
     }
   };
 
   const getQualityGradeColorScheme = (grade: 'gold' | 'silver' | 'bronze') => {
     switch (grade) {
-      case 'gold': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400' }; // More vibrant gold
-      case 'silver': return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-400' }; // More visible silver
-      case 'bronze': return { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-400' }; // More vibrant bronze
+      case 'gold': return { bg: 'bg-yellow-200', text: 'text-yellow-900', border: 'border-yellow-500' }; // Strong gold
+      case 'silver': return { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-500' }; // Strong silver
+      case 'bronze': return { bg: 'bg-orange-200', text: 'text-orange-900', border: 'border-orange-500' }; // Strong bronze
     }
   };
 
   const getCardColorScheme = (useCase: any) => {
     // If we have a quality assessment, use that for coloring
     if (useCase.qualityAssessment?.overallGrade) {
-      return getQualityGradeColorScheme(useCase.qualityAssessment.overallGrade);
+      const gradeColors = getQualityGradeColorScheme(useCase.qualityAssessment.overallGrade);
+      console.log(`🎨 Using quality grade colors for ${useCase.id}:`, gradeColors);
+      return gradeColors;
     }
-    // Otherwise fall back to status-based coloring with enhanced styling
+    
+    // Otherwise fall back to status-based coloring
     const statusColors = getStatusColorScheme(useCase.status);
-    // Ensure all cards have proper shadows and backgrounds, not just outlines
+    console.log(`🎨 Using status colors for ${useCase.id} (${useCase.status}):`, statusColors);
+    
+    // Ensure we always have valid colors with strong fallbacks
     return {
-      ...statusColors,
-      // Add shadow and ensure solid background
-      shadow: 'shadow-sm hover:shadow-lg',
-      bg: statusColors.bg || 'bg-white'
+      bg: statusColors.bg || 'bg-gray-200',
+      text: statusColors.text || 'text-gray-800',
+      border: statusColors.border || 'border-gray-400'
     };
   };
 
@@ -1349,7 +1387,7 @@ export default function UseCasesPage() {
         {filteredUseCases.map((useCase) => (
           <Card 
             key={useCase.id} 
-            className={`transition-all cursor-pointer shadow-sm hover:shadow-lg ${getCardColorScheme(useCase).border} ${getCardColorScheme(useCase).bg || 'bg-white'}`}
+            className={`transition-all cursor-pointer shadow-md hover:shadow-xl border-2 ${getCardColorScheme(useCase).border || 'border-gray-400'} ${getCardColorScheme(useCase).bg || 'bg-gray-200'}`}
             onClick={() => handleViewDetails(useCase)}
           >
             <CardHeader className="pb-3">
