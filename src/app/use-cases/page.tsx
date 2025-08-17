@@ -283,7 +283,10 @@ export default function UseCasesPage() {
     );
   };
 
-  const handleManualImprovements = () => {
+  const handleManualImprovements = async () => {
+    // First save the current business brief
+    await proceedWithSubmission();
+    
     // Close the quality assessment dialog and reopen the form for manual editing
     setQualityAssessment(null);
     setIsQualityAssessmentOpen(false);
@@ -294,7 +297,7 @@ export default function UseCasesPage() {
     
     notify.info(
       'Manual Improvements Mode', 
-      'Review the suggestions and make manual improvements to your business brief. Submit when ready.'
+      'Business brief saved. Now make manual improvements and re-submit when ready.'
     );
   };
 
@@ -370,11 +373,10 @@ export default function UseCasesPage() {
       const assessment = await response.json();
       setQualityAssessment(assessment.data);
       
-      // SAVE the business brief immediately after quality assessment
-      await proceedWithSubmission();
-      
-      // Now show the quality assessment dialog
+      // Show the quality assessment dialog FIRST - don't save until user takes action
       setIsQualityAssessmentOpen(true);
+      
+      // Auto-save will happen when user selects their preferred action
       
     } catch (error) {
       console.error('Error assessing business brief:', error);
@@ -709,12 +711,12 @@ export default function UseCasesPage() {
 
   const getStatusColorScheme = (status: string) => {
     switch (status) {
-      case 'approved': return { bg: 'bg-yellow-200', text: 'text-yellow-900', border: 'border-yellow-400' }; // Stronger gold
-      case 'in_review': return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300' }; // More visible blue
-      case 'submitted': return { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400' }; // Stronger gray
-      case 'rejected': return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' }; // Stronger red
-      case 'draft': return { bg: 'bg-slate-200', text: 'text-slate-800', border: 'border-slate-400' }; // Stronger slate
-      default: return { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400' }; // Strong default
+      case 'approved': return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300' }; // Subtle green for approved
+      case 'in_review': return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300' }; // Subtle blue
+      case 'submitted': return { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400' }; // Subtle gray
+      case 'rejected': return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' }; // Subtle red
+      case 'draft': return { bg: 'bg-slate-200', text: 'text-slate-800', border: 'border-slate-400' }; // Subtle slate
+      default: return { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400' }; // Default
     }
   };
 
@@ -1487,7 +1489,7 @@ export default function UseCasesPage() {
                   </SelectContent>
                 </Select>
                 
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                   {useCase.status === 'approved' && (
                     <Button 
                       variant="default" 
@@ -1497,17 +1499,19 @@ export default function UseCasesPage() {
                         handleGenerateInitiatives(useCase.id);
                       }}
                       disabled={isGeneratingRequirements === useCase.id}
-                      className="flex items-center space-x-1"
+                      className="flex items-center space-x-1 min-w-[120px]"
                     >
                       {isGeneratingRequirements === useCase.id ? (
                         <>
                           <RefreshCw size={14} className="animate-spin" />
-                          <span>Generating...</span>
+                          <span className="hidden sm:inline">Generating...</span>
+                          <span className="sm:hidden">Gen...</span>
                         </>
                       ) : (
                         <>
                           <Lightbulb size={14} />
-                          <span>Generate Initiatives</span>
+                          <span className="hidden sm:inline">Generate Initiatives</span>
+                          <span className="sm:hidden">Generate</span>
                         </>
                       )}
                     </Button>
@@ -1519,8 +1523,10 @@ export default function UseCasesPage() {
                       e.stopPropagation();
                       handleViewDetails(useCase);
                     }}
+                    className="min-w-[80px]"
                   >
-                    View Details
+                    <span className="hidden sm:inline">View Details</span>
+                    <span className="sm:hidden">View</span>
                   </Button>
                   <Button 
                     variant="outline" 
@@ -1529,7 +1535,7 @@ export default function UseCasesPage() {
                       e.stopPropagation();
                       handleDeleteUseCase(useCase);
                     }}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -1905,7 +1911,8 @@ export default function UseCasesPage() {
                         </Button>
                       )}
                       <Button
-                        onClick={() => {
+                        onClick={async () => {
+                          await proceedWithSubmission();
                           setQualityAssessment(null);
                           setIsQualityAssessmentOpen(false);
                           setAcceptedSuggestions({});
@@ -1913,7 +1920,7 @@ export default function UseCasesPage() {
                         className="bg-green-600 hover:bg-green-700"
                       >
                         <CheckCircle className="w-4 h-4 mr-1" />
-                        Business Brief Saved - Continue
+                        Save & Continue
                       </Button>
                     </>
                   ) : (
@@ -1937,13 +1944,14 @@ export default function UseCasesPage() {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => {
+                        onClick={async () => {
+                          await proceedWithSubmission();
                           setQualityAssessment(null);
                           setIsQualityAssessmentOpen(false);
                           setAcceptedSuggestions({});
                         }}
                       >
-                        Continue As-Is
+                        Save As-Is & Continue
                       </Button>
                     </>
                   )}
