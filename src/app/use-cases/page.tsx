@@ -267,28 +267,35 @@ export default function UseCasesPage() {
     // Update form data with improvements
     setFormData(updatedFormData);
     
-    // Close quality assessment dialog and reset state
+    // Close quality assessment dialog and reset state - then reopen form with improvements
     setQualityAssessment(null);
     setIsQualityAssessmentOpen(false);
     setAcceptedSuggestions({});
     
-    console.log('🎉 Applied suggestions successfully, closing dialog');
+    // Reopen the business brief form with the improved data
+    setIsDialogOpen(true);
+    
+    console.log('🎉 Applied suggestions successfully, reopening form with improvements');
     
     notify.success(
       'Suggestions Applied', 
-      `Updated ${appliedCount} field${appliedCount !== 1 ? 's' : ''} with improved content. You can now review and submit the enhanced business brief.`
+      `Updated ${appliedCount} field${appliedCount !== 1 ? 's' : ''} with improved content. Review the enhanced business brief and submit when ready.`
     );
   };
 
-  const handleManualImprovements = async () => {
-    // Close the quality assessment dialog 
+  const handleManualImprovements = () => {
+    // Close the quality assessment dialog and reopen the form for manual editing
     setQualityAssessment(null);
     setIsQualityAssessmentOpen(false);
+    setAcceptedSuggestions({});
     
-    // Submit the current form as-is with 'submitted' status
-    await proceedWithSubmission();
+    // Reopen the business brief form so user can make manual improvements
+    setIsDialogOpen(true);
     
-    notify.info('Manual Improvements', 'Business brief submitted for manual review and improvements.');
+    notify.info(
+      'Manual Improvements Mode', 
+      'Review the suggestions and make manual improvements to your business brief. Submit when ready.'
+    );
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -362,6 +369,11 @@ export default function UseCasesPage() {
 
       const assessment = await response.json();
       setQualityAssessment(assessment.data);
+      
+      // SAVE the business brief immediately after quality assessment
+      await proceedWithSubmission();
+      
+      // Now show the quality assessment dialog
       setIsQualityAssessmentOpen(true);
       
     } catch (error) {
@@ -1881,7 +1893,7 @@ export default function UseCasesPage() {
                 </div>
                 <div className="flex space-x-2">
                   {qualityAssessment.overallGrade === 'gold' ? (
-                    // For gold grade, offer direct approval or improvements
+                    // For gold grade, business brief is already saved and ready
                     <>
                       {hasAcceptedSuggestions() && (
                         <Button
@@ -1889,17 +1901,19 @@ export default function UseCasesPage() {
                           className="bg-blue-600 hover:bg-blue-700"
                         >
                           <CheckCircle className="w-4 h-4 mr-1" />
-                          Automatically Apply Improvements
+                          Apply Selected Improvements
                         </Button>
                       )}
                       <Button
-                        onClick={async () => {
-                          await proceedWithSubmission();
+                        onClick={() => {
+                          setQualityAssessment(null);
+                          setIsQualityAssessmentOpen(false);
+                          setAcceptedSuggestions({});
                         }}
-                        className="bg-yellow-600 hover:bg-yellow-700 text-yellow-50"
+                        className="bg-green-600 hover:bg-green-700"
                       >
                         <CheckCircle className="w-4 h-4 mr-1" />
-                        Approve & Submit
+                        Business Brief Saved - Continue
                       </Button>
                     </>
                   ) : (
@@ -1911,15 +1925,25 @@ export default function UseCasesPage() {
                           className="bg-blue-600 hover:bg-blue-700"
                         >
                           <CheckCircle className="w-4 h-4 mr-1" />
-                          Automatically Apply Improvements
+                          Apply Selected Improvements
                         </Button>
                       )}
                       <Button
-                        variant="outline"
                         onClick={handleManualImprovements}
+                        className="bg-orange-600 hover:bg-orange-700"
                       >
                         <AlertCircle className="w-4 h-4 mr-1" />
-                        Manually Make Improvements
+                        Make Manual Improvements
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setQualityAssessment(null);
+                          setIsQualityAssessmentOpen(false);
+                          setAcceptedSuggestions({});
+                        }}
+                      >
+                        Continue As-Is
                       </Button>
                     </>
                   )}

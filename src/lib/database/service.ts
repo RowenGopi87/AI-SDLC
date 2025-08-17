@@ -120,8 +120,8 @@ class AuraDatabaseService implements DatabaseService {
         impact_to_other_departments, other_departments_impacted,
         impacts_existing_technology, technology_solutions, relevant_business_owners,
         other_technology_info, supporting_documents, submitted_by, submitted_at,
-        status, priority, workflow_stage, completion_percentage, quality_assessment
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        status, priority, workflow_stage, completion_percentage
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -152,8 +152,7 @@ class AuraDatabaseService implements DatabaseService {
       brief.status || 'draft',
       brief.priority || 'medium',
       brief.workflowStage || 'idea',
-      brief.completionPercentage || 0,
-      brief.qualityAssessment ? JSON.stringify(brief.qualityAssessment) : null
+      brief.completionPercentage || 0
     ];
 
     await db.execute(query, values);
@@ -163,28 +162,27 @@ class AuraDatabaseService implements DatabaseService {
       id: brief.id || `BB-${Date.now().toString(36)}`,
       title: brief.title || '',
       description: brief.description || '',
-      businessOwner: brief.businessOwner || null,
-      leadBusinessUnit: brief.leadBusinessUnit || null,
-      additionalBusinessUnits: brief.additionalBusinessUnits || null,
-      primaryStrategicTheme: brief.primaryStrategicTheme || null,
-      businessObjective: brief.businessObjective || null,
-      quantifiableBusinessOutcomes: brief.quantifiableBusinessOutcomes || null,
-      inScope: brief.inScope || null,
-      outOfScope: brief.outOfScope || null,
-      impactOfDoNothing: brief.impactOfDoNothing || null,
-      happyPath: brief.happyPath || null,
-      exceptions: brief.exceptions || null,
-      impactedEndUsers: brief.impactedEndUsers || null,
-      changeImpactExpected: brief.changeImpactExpected || null,
-      impactToOtherDepartments: brief.impactToOtherDepartments || null,
-      otherDepartmentsImpacted: brief.otherDepartmentsImpacted || null,
-      impactsExistingTechnology: brief.impactsExistingTechnology || null,
-      technologySolutions: brief.technologySolutions || null,
-      relevantBusinessOwners: brief.relevantBusinessOwners || null,
-      otherTechnologyInfo: brief.otherTechnologyInfo || null,
-      supportingDocuments: brief.supportingDocuments || null,
-      submittedBy: brief.submittedBy || null,
-      submittedAt: brief.submittedAt || null,
+      businessOwner: brief.businessOwner || undefined,
+      leadBusinessUnit: brief.leadBusinessUnit || undefined,
+      additionalBusinessUnits: brief.additionalBusinessUnits || undefined,
+      primaryStrategicTheme: brief.primaryStrategicTheme || undefined,
+      businessObjective: brief.businessObjective || undefined,
+      quantifiableBusinessOutcomes: brief.quantifiableBusinessOutcomes || undefined,
+      inScope: brief.inScope || undefined,
+      impactOfDoNothing: brief.impactOfDoNothing || undefined,
+      happyPath: brief.happyPath || undefined,
+      exceptions: brief.exceptions || undefined,
+      impactedEndUsers: brief.impactedEndUsers || undefined,
+      changeImpactExpected: brief.changeImpactExpected || undefined,
+      impactToOtherDepartments: brief.impactToOtherDepartments || undefined,
+      otherDepartmentsImpacted: brief.otherDepartmentsImpacted || undefined,
+      impactsExistingTechnology: brief.impactsExistingTechnology || undefined,
+      technologySolutions: brief.technologySolutions || undefined,
+      relevantBusinessOwners: brief.relevantBusinessOwners || undefined,
+      otherTechnologyInfo: brief.otherTechnologyInfo || undefined,
+      supportingDocuments: brief.supportingDocuments || undefined,
+      submittedBy: brief.submittedBy || undefined,
+      submittedAt: brief.submittedAt || undefined,
       status: brief.status || 'draft',
       priority: brief.priority || 'medium',
       workflowStage: brief.workflowStage || 'idea',
@@ -1076,7 +1074,7 @@ class AuraDatabaseService implements DatabaseService {
       priority: row.priority,
       workflowStage: row.workflow_stage,
       completionPercentage: row.completion_percentage,
-      qualityAssessment: row.quality_assessment ? JSON.parse(row.quality_assessment) : undefined,
+      // qualityAssessment: row.quality_assessment ? JSON.parse(row.quality_assessment) : undefined, // TODO: Uncomment after migration
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
