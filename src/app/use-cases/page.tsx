@@ -281,32 +281,23 @@ export default function UseCasesPage() {
     
     notify.success(
       'Suggestions Applied', 
-      `Updated ${appliedCount} field${appliedCount !== 1 ? 's' : ''} with improved content. Review the enhanced business brief and submit when ready.`
+      `Updated ${appliedCount} field${appliedCount !== 1 ? 's' : ''} with improved content. Review and click "Create Use Case" to save when ready.`
     );
   };
 
-  const handleManualImprovements = async () => {
-    // Store the current form data before any operations
-    const currentFormData = { ...formData };
-    
-    // Close the quality assessment dialog first  
+  const handleManualImprovements = () => {
+    // Close the quality assessment dialog and reopen form for editing
+    // NO DATABASE SAVE - user will save explicitly when ready
     setQualityAssessment(null);
     setIsQualityAssessmentOpen(false);
     setAcceptedSuggestions({});
     
-    // Show saving feedback
-    notify.info('Saving...', 'Saving current business brief for manual editing...');
-    
-    // Save the current business brief
-    await proceedWithSubmission();
-    
-    // Restore the form data and reopen the form for editing
-    setFormData(currentFormData);
+    // Reopen the form for editing (form data is already preserved)
     setIsDialogOpen(true);
     
-    notify.success(
-      'Ready for Manual Improvements', 
-      'Business brief saved! Make your improvements and submit when ready.'
+    notify.info(
+      'Edit Mode', 
+      'Make your improvements and click "Create Use Case" when ready to save.'
     );
   };
 
@@ -1931,20 +1922,18 @@ export default function UseCasesPage() {
                       <span className="sm:hidden">Edit</span>
                     </Button>
                     <Button
-                      variant="outline"
                       onClick={async () => {
-                        notify.info('Saving...', 'Saving business brief as-is...');
+                        notify.info('Saving...', 'Saving business brief to database...');
                         await proceedWithSubmission();
                         setQualityAssessment(null);
                         setIsQualityAssessmentOpen(false);
                         setAcceptedSuggestions({});
                         notify.success('Saved!', 'Business brief saved successfully.');
                       }}
-                      className="border-green-300 text-green-700 hover:bg-green-50"
+                      className="bg-green-600 hover:bg-green-700"
                     >
                       <Save className="w-4 h-4 mr-1" />
-                      <span className="hidden sm:inline">Save As-Is</span>
-                      <span className="sm:hidden">Save</span>
+                      Save
                     </Button>
                   </div>
                 </div>
