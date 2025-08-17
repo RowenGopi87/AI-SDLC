@@ -38,7 +38,9 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Trash2
+  Trash2,
+  Edit3,
+  Save
 } from 'lucide-react';
 
 export default function UseCasesPage() {
@@ -284,20 +286,27 @@ export default function UseCasesPage() {
   };
 
   const handleManualImprovements = async () => {
-    // First save the current business brief
-    await proceedWithSubmission();
+    // Store the current form data before any operations
+    const currentFormData = { ...formData };
     
-    // Close the quality assessment dialog and reopen the form for manual editing
+    // Close the quality assessment dialog first  
     setQualityAssessment(null);
     setIsQualityAssessmentOpen(false);
     setAcceptedSuggestions({});
     
-    // Reopen the business brief form so user can make manual improvements
+    // Show saving feedback
+    notify.info('Saving...', 'Saving current business brief for manual editing...');
+    
+    // Save the current business brief
+    await proceedWithSubmission();
+    
+    // Restore the form data and reopen the form for editing
+    setFormData(currentFormData);
     setIsDialogOpen(true);
     
-    notify.info(
-      'Manual Improvements Mode', 
-      'Business brief saved. Now make manual improvements and re-submit when ready.'
+    notify.success(
+      'Ready for Manual Improvements', 
+      'Business brief saved! Make your improvements and submit when ready.'
     );
   };
 
@@ -1897,64 +1906,47 @@ export default function UseCasesPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex space-x-2">
-                  {qualityAssessment.overallGrade === 'gold' ? (
-                    // For gold grade, business brief is already saved and ready
-                    <>
-                      {hasAcceptedSuggestions() && (
-                        <Button
-                          onClick={applyAcceptedSuggestions}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Apply Selected Improvements
-                        </Button>
-                      )}
+                <div className="space-y-3">
+                  {/* Top Row - Apply Improvements (if available) */}
+                  {hasAcceptedSuggestions() && (
+                    <div className="flex justify-center">
                       <Button
-                        onClick={async () => {
-                          await proceedWithSubmission();
-                          setQualityAssessment(null);
-                          setIsQualityAssessmentOpen(false);
-                          setAcceptedSuggestions({});
-                        }}
-                        className="bg-green-600 hover:bg-green-700"
+                        onClick={applyAcceptedSuggestions}
+                        className="bg-blue-600 hover:bg-blue-700 w-full"
                       >
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Save & Continue
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Apply Selected Improvements
                       </Button>
-                    </>
-                  ) : (
-                    // For silver/bronze grades, offer improvement options
-                    <>
-                      {hasAcceptedSuggestions() && (
-                        <Button
-                          onClick={applyAcceptedSuggestions}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Apply Selected Improvements
-                        </Button>
-                      )}
-                      <Button
-                        onClick={handleManualImprovements}
-                        className="bg-orange-600 hover:bg-orange-700"
-                      >
-                        <AlertCircle className="w-4 h-4 mr-1" />
-                        Make Manual Improvements
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={async () => {
-                          await proceedWithSubmission();
-                          setQualityAssessment(null);
-                          setIsQualityAssessmentOpen(false);
-                          setAcceptedSuggestions({});
-                        }}
-                      >
-                        Save As-Is & Continue
-                      </Button>
-                    </>
+                    </div>
                   )}
+                  
+                  {/* Bottom Row - Core Actions (always available) */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      onClick={handleManualImprovements}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      <Edit3 className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">Edit Manually</span>
+                      <span className="sm:hidden">Edit</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        notify.info('Saving...', 'Saving business brief as-is...');
+                        await proceedWithSubmission();
+                        setQualityAssessment(null);
+                        setIsQualityAssessmentOpen(false);
+                        setAcceptedSuggestions({});
+                        notify.success('Saved!', 'Business brief saved successfully.');
+                      }}
+                      className="border-green-300 text-green-700 hover:bg-green-50"
+                    >
+                      <Save className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">Save As-Is</span>
+                      <span className="sm:hidden">Save</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
