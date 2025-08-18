@@ -9,13 +9,13 @@ export default function TestChatPage() {
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-xl font-semibold mb-4">🤖 Chat Assistant Features</h2>
             <p className="text-gray-600 mb-4">
-              The Aura Assistant should be visible in the bottom-right corner of this page.
+              The Aura Assistant is integrated into the right panel. Click the Bot icon in the header to open it.
             </p>
             
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <span className="text-green-500">✓</span>
-                <span>Global floating chat widget</span>
+                <span>Integrated assistant panel</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="text-green-500">✓</span>

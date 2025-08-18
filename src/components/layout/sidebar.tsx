@@ -5,7 +5,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
+import { useRoleStore } from '@/store/role-store';
+import { ResizeHandle } from '@/components/ui/resize-handle';
 import { MODULES, WORKFLOW_STEPS, APP_NAME } from '@/lib/config';
+import { APP_CONFIG } from '@/lib/config/app-config';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +37,10 @@ import {
   TrendingUp,
   Palette,
   Code2,
+  Workflow,
+  Lightbulb,
+  Search,
+  ListOrdered,
 } from 'lucide-react';
 
 // Global state for selected item traceability
@@ -49,7 +56,17 @@ export function setSelectedItem(id: string, type: string, data: any) {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarOpen, sidebarCollapsed, toggleSidebar, toggleSidebarCollapsed, currentWorkflowStep, getWorkflowProgress } = useAppStore();
+  const { 
+    sidebarOpen, 
+    sidebarCollapsed, 
+    toggleSidebar, 
+    toggleSidebarCollapsed, 
+    currentWorkflowStep, 
+    getWorkflowProgress,
+    getSidebarWidth,
+    setSidebarWidth 
+  } = useAppStore();
+  const { hasAccess, isRoleSelected } = useRoleStore();
   const [selectedItem, setSelectedItemLocal] = useState(selectedItemState);
 
   const workflowProgress = getWorkflowProgress();
@@ -65,6 +82,69 @@ export function Sidebar() {
     return () => clearInterval(interval);
   }, [selectedItem]);
 
+  // AuraV2 modules with role permissions
+  const AURAV2_MODULES = [
+    {
+      id: 'aurav2-dashboard',
+      name: `${APP_CONFIG.APP_NAME} Dashboard`,
+      path: '/aurav2',
+      description: 'Enhanced workflow dashboard',
+      permission: 'dashboard'
+    },
+    {
+      id: 'aurav2-idea',
+      name: 'Idea Stage',
+      path: '/aurav2/idea',
+      description: 'Capture business ideas',
+      permission: 'idea_stage'
+    },
+    {
+      id: 'aurav2-qualify',
+      name: 'Qualify Ideas',
+      path: '/aurav2/qualify',
+      description: 'Research and assess ideas',
+      permission: 'qualify_stage'
+    },
+    {
+      id: 'aurav2-prioritize',
+      name: 'Prioritize',
+      path: '/aurav2/prioritize',
+      description: 'Portfolio prioritization',
+      permission: 'prioritize_stage'
+    }
+  ];
+
+  // Filter AuraV2 modules based on role permissions
+  const accessibleAuraV2Modules = AURAV2_MODULES.filter(module => 
+    !isRoleSelected || hasAccess('aurav2', module.permission)
+  );
+
+  // Map legacy modules to role permissions and filter them
+  const getModulePermission = (moduleId: string): string => {
+    const permissionMap: Record<string, string> = {
+      'use-cases': 'use_cases',
+      'requirements': 'requirements', 
+      'design': 'design',
+      'decomposition': 'decomposition',
+      'test-cases': 'test_cases',
+      'execution': 'execution',
+      'defects': 'defects',
+      'traceability': 'traceability',
+      'dashboard': 'dashboard',
+      'code': 'code',
+      'migrate-data': 'migrate_data'
+    };
+    return permissionMap[moduleId] || moduleId.replace('-', '_');
+  };
+
+  // Only show legacy modules for System Administrator role
+  const currentRole = useRoleStore.getState().getCurrentRole();
+  const isSystemAdmin = currentRole?.name === 'System Administrator';
+  
+  const accessibleLegacyModules = isSystemAdmin ? MODULES.filter(module => 
+    !isRoleSelected || hasAccess('legacy', getModulePermission(module.id))
+  ) : [];
+
   const getModuleIcon = (moduleId: string) => {
     const icons = {
       'use-cases': FileText,
@@ -77,6 +157,11 @@ export function Sidebar() {
       'traceability': GitBranch,
       'dashboard': BarChart3,
       'code': Code2,
+      // AuraV2 icons
+      'aurav2-dashboard': Workflow,
+      'aurav2-idea': Lightbulb,
+      'aurav2-qualify': Search,
+      'aurav2-prioritize': ListOrdered,
     };
     return icons[moduleId as keyof typeof icons] || Home;
   };
@@ -407,23 +492,51 @@ export function Sidebar() {
     );
   };
 
-  // Always render on desktop, handle mobile via CSS classes
+  const handleResize = (delta: number) => {
+    if (sidebarCollapsed) return;
+    const currentWidth = getSidebarWidth();
+    setSidebarWidth(currentWidth + delta);
+  };
 
+  // Don't render sidebar for Version 1 routes - they have their own sidebar
+  if (pathname.startsWith('/v1')) {
+    return null;
+  }
+
+  // Always render on desktop, handle mobile via CSS classes
   return (
-    <div className={cn(
-      "fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ease-in-out overflow-y-auto",
-      "md:block",
-      sidebarCollapsed ? "w-16" : "w-80",
-      !sidebarOpen && "md:block hidden"
-    )}>
-      {/* Header */}
+    <>
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r-2 border-gray-300 shadow-sm transition-all duration-300 ease-in-out overflow-y-auto",
+        "md:block",
+        sidebarCollapsed && "w-20", // Increased from w-16 to w-20 for better icon spacing
+        !sidebarOpen && "md:block hidden"
+      )}
+      style={{
+        width: sidebarOpen ? `${getSidebarWidth()}px` : '0px'
+      }}>
+        {/* Header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 flex-shrink-0">
         {!sidebarCollapsed && (
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">A</span>
             </div>
-            <span className="font-semibold text-gray-900">{APP_NAME}</span>
+            <div>
+              <div className="font-semibold text-gray-900">{APP_NAME}</div>
+              {isRoleSelected && (
+                <div className="text-xs text-gray-500">
+                  Role: {useRoleStore.getState().getCurrentRole()?.name || 'None'}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {sidebarCollapsed && isRoleSelected && (
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-xs">
+              {useRoleStore.getState().getCurrentRole()?.name.charAt(0) || 'U'}
+            </span>
           </div>
         )}
         <Button
@@ -432,7 +545,7 @@ export function Sidebar() {
           onClick={toggleSidebarCollapsed}
           className="p-2"
         >
-                      {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </Button>
       </div>
 
@@ -453,26 +566,100 @@ export function Sidebar() {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
-        {MODULES.map((module) => {
-          const Icon = getModuleIcon(module.id);
-          const isActive = pathname === module.path;
-          
-          return (
-            <Link key={module.id} href={module.path}>
-              <Button
-                variant={isActive ? "default" : "ghost"}
-                className={cn(
-                  "w-full justify-start h-10 px-3",
-                  sidebarCollapsed && "justify-center px-2"
-                )}
-              >
-                <Icon size={18} />
-                {!sidebarCollapsed && <span className="ml-3">{module.name}</span>}
-              </Button>
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto">
+        {/* AuraV2 Enhanced Modules */}
+        {accessibleAuraV2Modules.length > 0 && (
+          <>
+            {!sidebarCollapsed && (
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              </div>
+            )}
+            <div className="space-y-1">
+              {accessibleAuraV2Modules.map((module) => {
+                const Icon = getModuleIcon(module.id);
+                const isActive = pathname === module.path;
+                
+                return (
+                  <Link key={module.id} href={module.path}>
+                    <Button
+                      variant={isActive ? "default" : "ghost"}
+                      className={cn(
+                        "w-full justify-start h-10 px-3",
+                        sidebarCollapsed && "justify-center px-2",
+                        isActive && "bg-blue-600 text-white hover:bg-blue-700"
+                      )}
+                    >
+                      <Icon size={18} />
+                      {!sidebarCollapsed && <span className="ml-3">{module.name}</span>}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Separator */}
+        {accessibleAuraV2Modules.length > 0 && accessibleLegacyModules.length > 0 && !sidebarCollapsed && (
+          <div className="border-t border-gray-200 my-4">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4 mb-2">
+              Legacy AURA
+            </div>
+          </div>
+        )}
+
+        {/* Legacy AURA Modules */}
+        {accessibleLegacyModules.length > 0 && (
+          <>
+            {accessibleAuraV2Modules.length === 0 && !sidebarCollapsed && (
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Legacy AURA
+              </div>
+            )}
+            <div className="space-y-1">
+              {accessibleLegacyModules.map((module) => {
+                const Icon = getModuleIcon(module.id);
+                const isActive = pathname === module.path;
+                
+                return (
+                  <Link key={module.id} href={module.path}>
+                    <Button
+                      variant={isActive ? "default" : "ghost"}
+                      className={cn(
+                        "w-full justify-start h-10 px-3",
+                        sidebarCollapsed && "justify-center px-2",
+                        "text-gray-600 hover:text-gray-900"
+                      )}
+                    >
+                      <Icon size={18} />
+                      {!sidebarCollapsed && <span className="ml-3">{module.name}</span>}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* No Access Message */}
+        {isRoleSelected && accessibleAuraV2Modules.length === 0 && accessibleLegacyModules.length === 0 && !sidebarCollapsed && (
+          <div className="text-center py-8">
+            <div className="text-sm text-gray-500 mb-2">No modules available</div>
+            <div className="text-xs text-gray-400">Your current role doesn't have access to any modules</div>
+          </div>
+        )}
+
+        {/* Legacy Access Info */}
+        {isRoleSelected && !isSystemAdmin && accessibleAuraV2Modules.length > 0 && !sidebarCollapsed && (
+          <div className="text-center py-4 border-t border-gray-200">
+            <div className="text-xs text-gray-400 italic">
+              Legacy AURA access restricted to System Administrator
+            </div>
+            <div className="text-xs text-gray-300 mt-1">
+              Focus on {APP_CONFIG.APP_NAME} Enhanced features
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Selected Item Info */}
@@ -505,43 +692,7 @@ export function Sidebar() {
       {/* Traceability Section */}
       {renderTraceabilitySection()}
 
-      {/* Workflow Steps */}
-      {!sidebarCollapsed && (
-        <div className="border-t border-gray-200 p-4 flex-shrink-0">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">
-            {selectedItem.id ? `${selectedItem.type} Workflow` : 'Workflow Steps'}
-          </h3>
-          <div className="space-y-2">
-            {getItemSpecificWorkflowSteps().map((step) => {
-              const status = selectedItem.id ? getItemSpecificStepStatus(step.id) : getStepStatus(step.id);
-              const StatusIcon = getStatusIcon(status);
-              
-              return (
-                <div key={step.id} className="flex items-center space-x-3 text-sm">
-                  <StatusIcon size={16} className={getStatusColor(status)} />
-                  <span className={cn(
-                    "flex-1",
-                    status === 'completed' && "line-through text-gray-500",
-                    status === 'current' && "font-medium text-blue-600"
-                  )}>
-                    {step.name}
-                  </span>
-                  {status === 'completed' && (
-                    <Badge variant="secondary" className="text-xs">
-                      Done
-                    </Badge>
-                  )}
-                  {status === 'current' && (
-                    <Badge variant="default" className="text-xs">
-                      Active
-                    </Badge>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+
 
       {/* Mobile Close Button */}
       <div className="md:hidden absolute top-4 right-4">
@@ -555,6 +706,19 @@ export function Sidebar() {
         </Button>
       </div>
     </div>
+      
+      {/* Resize Handle */}
+      {sidebarOpen && !sidebarCollapsed && (
+        <div className="fixed top-0 bottom-0 z-50 flex items-center" 
+             style={{ left: `${getSidebarWidth()}px` }}>
+          <ResizeHandle
+            direction="horizontal"
+            onResize={handleResize}
+            className="h-full border-r-2 border-gray-300"
+          />
+        </div>
+      )}
+    </>
   );
 }
 

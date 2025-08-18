@@ -6,13 +6,23 @@ interface AppStore {
   currentWorkflowStep: number;
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
+  sidebarWidth: number;
+  rightPanelOpen: boolean;
+  rightPanelCollapsed: boolean;
+  rightPanelWidth: number;
   isLoading: boolean;
   setCurrentModule: (module: string) => void;
   setCurrentWorkflowStep: (step: number) => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  setSidebarWidth: (width: number) => void;
+  setRightPanelOpen: (open: boolean) => void;
+  setRightPanelCollapsed: (collapsed: boolean) => void;
+  setRightPanelWidth: (width: number) => void;
   toggleSidebar: () => void;
   toggleSidebarCollapsed: () => void;
+  toggleRightPanel: () => void;
+  toggleRightPanelCollapsed: () => void;
   setLoading: (loading: boolean) => void;
   getModuleById: (id: string) => typeof MODULES[number] | undefined;
   getWorkflowStepById: (id: number) => typeof WORKFLOW_STEPS[number] | undefined;
@@ -20,6 +30,7 @@ interface AppStore {
   getPreviousWorkflowStep: () => typeof WORKFLOW_STEPS[number] | undefined;
   getWorkflowProgress: () => number;
   getSidebarWidth: () => number;
+  getRightPanelWidth: () => number;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -27,6 +38,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   currentWorkflowStep: 1,
   sidebarOpen: true,
   sidebarCollapsed: false,
+  sidebarWidth: 320, // Default expanded width
+  rightPanelOpen: false,
+  rightPanelCollapsed: false,
+  rightPanelWidth: 400, // Default right panel width
   isLoading: false,
 
   setCurrentModule: (module) => {
@@ -45,12 +60,40 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ sidebarCollapsed: collapsed });
   },
 
+  setSidebarWidth: (width) => {
+    // Constrain width between 200px and 600px
+    const constrainedWidth = Math.max(200, Math.min(600, width));
+    set({ sidebarWidth: constrainedWidth });
+  },
+
+  setRightPanelOpen: (open) => {
+    set({ rightPanelOpen: open });
+  },
+
+  setRightPanelCollapsed: (collapsed) => {
+    set({ rightPanelCollapsed: collapsed });
+  },
+
+  setRightPanelWidth: (width) => {
+    // Constrain width between 300px and 800px
+    const constrainedWidth = Math.max(300, Math.min(800, width));
+    set({ rightPanelWidth: constrainedWidth });
+  },
+
   toggleSidebar: () => {
     set((state) => ({ sidebarOpen: !state.sidebarOpen }));
   },
 
   toggleSidebarCollapsed: () => {
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
+  },
+
+  toggleRightPanel: () => {
+    set((state) => ({ rightPanelOpen: !state.rightPanelOpen }));
+  },
+
+  toggleRightPanelCollapsed: () => {
+    set((state) => ({ rightPanelCollapsed: !state.rightPanelCollapsed }));
   },
 
   setLoading: (loading) => {
@@ -81,8 +124,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   getSidebarWidth: () => {
-    const { sidebarOpen, sidebarCollapsed } = get();
+    const { sidebarOpen, sidebarCollapsed, sidebarWidth } = get();
     if (!sidebarOpen) return 0;
-    return sidebarCollapsed ? 64 : 320; // 16 * 4 = 64px (w-16), 80 * 4 = 320px (w-80)
+    return sidebarCollapsed ? 80 : sidebarWidth; // Changed from 64 to 80 (w-20)
+  },
+
+  getRightPanelWidth: () => {
+    const { rightPanelOpen, rightPanelCollapsed, rightPanelWidth } = get();
+    if (!rightPanelOpen) return 0;
+    return rightPanelCollapsed ? 80 : rightPanelWidth; // Changed from 64 to 80 (w-20)
   },
 })); 

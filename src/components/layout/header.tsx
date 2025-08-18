@@ -8,14 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { NotificationDropdown } from '@/components/ui/notification-dropdown';
 import { MobileSidebarToggle } from './sidebar';
-import { Search, Settings, User } from 'lucide-react';
+import { Search, Settings, User, MessageSquare, Bot } from 'lucide-react';
 
 export function Header() {
   const pathname = usePathname();
-  const { currentWorkflowStep, getWorkflowStepById } = useAppStore();
+  const { rightPanelOpen, toggleRightPanel } = useAppStore();
   
   const currentModule = MODULES.find(module => module.path === pathname);
-  const currentStep = getWorkflowStepById(currentWorkflowStep);
   
   return (
     <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -28,11 +27,7 @@ export function Header() {
               {currentModule?.name || APP_NAME}
             </h1>
             
-            {currentStep && (
-              <Badge variant="outline" className="whitespace-nowrap">
-                Step {currentStep.id}: {currentStep.name}
-              </Badge>
-            )}
+
           </div>
         </div>
         
@@ -46,6 +41,24 @@ export function Header() {
           <Link href="/settings">
             <Button variant="ghost" size="sm" className="p-2">
               <Settings size={18} />
+            </Button>
+          </Link>
+          
+          <Button 
+            variant={rightPanelOpen ? "default" : "ghost"} 
+            size="sm" 
+            className="p-2"
+            onClick={toggleRightPanel}
+            title="Toggle Aura Assistant"
+          >
+            <Bot size={18} />
+          </Button>
+          
+          <div className="h-4 w-px bg-gray-300"></div>
+          
+          <Link href="/">
+            <Button variant="outline" size="sm" className="flex items-center space-x-2">
+              <span>Switch Version</span>
             </Button>
           </Link>
           

@@ -120,6 +120,13 @@ export const useSettingsStore = create<SettingsStore>()(
       },
 
       setAPIKey: (apiKey: string) => {
+        // Validate API key format and reject file paths
+        if (apiKey && (apiKey.includes('\\') || apiKey.includes('/') || apiKey.includes(':'))) {
+          console.error('❌ Invalid API key format detected (contains file path characters)');
+          console.log('💡 API key should start with sk- for OpenAI or AI for Google');
+          return;
+        }
+        
         set((state) => ({
           llmSettings: {
             ...state.llmSettings,
@@ -159,15 +166,15 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'aura-settings',
-      // Only persist non-sensitive data
+      // Persist all settings including API key (user responsibility for security)
       partialize: (state) => ({
         llmSettings: {
           provider: state.llmSettings.provider,
           model: state.llmSettings.model,
           temperature: state.llmSettings.temperature,
           maxTokens: state.llmSettings.maxTokens,
-          // Don't persist API key for security
-          apiKey: ''
+          // Persist API key for convenience (user should secure their environment)
+          apiKey: state.llmSettings.apiKey
         }
       })
     }

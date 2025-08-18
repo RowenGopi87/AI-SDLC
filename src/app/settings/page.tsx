@@ -103,6 +103,8 @@ export default function SettingsPage() {
     setTempTemperature('0.7');
     setTempMaxTokens('4000');
     setSaveStatus('idle');
+    // Clear any cached settings that might have file paths
+    localStorage.removeItem('aura-settings');
   };
 
   const getProviderDescription = (providerId: string) => {

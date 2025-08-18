@@ -116,7 +116,83 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
+  html, body {
     @apply bg-background text-foreground;
+    height: 100%;
+    overflow: hidden;
   }
+  #__next {
+    height: 100%;
+  }
+}
+
+/* Custom scroll bar styles for chat assistant */
+.chat-scroll {
+  /* Force scroll bars to show when content overflows */
+  overflow-y: auto !important;
+  
+  /* Firefox */
+  scrollbar-width: auto;
+  scrollbar-color: #6b7280 #e5e7eb;
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+.chat-scroll::-webkit-scrollbar {
+  width: 18px;
+  background: #f9fafb;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 9px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 9px;
+  border: 2px solid #f3f4f6;
+  min-height: 40px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: #1f2937;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb:active {
+  background: #111827;
+}
+
+/* Ensure scroll bar is always visible when needed */
+.chat-scroll::-webkit-scrollbar-thumb {
+  background-clip: content-box;
+}
+
+.chat-scroll::-webkit-scrollbar-corner {
+  background: #e5e7eb;
+}
+
+/* Specific targeting for chat messages area */
+#chat-messages-area {
+  overflow-y: auto !important;
+}
+
+#chat-messages-area::-webkit-scrollbar {
+  width: 20px !important;
+  background: #f9fafb !important;
+}
+
+#chat-messages-area::-webkit-scrollbar-track {
+  background: #e5e7eb !important;
+  border-radius: 10px;
+}
+
+#chat-messages-area::-webkit-scrollbar-thumb {
+  background: #1f2937 !important;
+  border-radius: 10px;
+  border: 3px solid #e5e7eb;
+  min-height: 50px;
+}
+
+#chat-messages-area::-webkit-scrollbar-thumb:hover {
+  background: #111827 !important;
 }
