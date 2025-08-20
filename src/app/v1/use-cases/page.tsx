@@ -634,7 +634,8 @@ export default function Version1IdeasPage() {
     setDeletingUseCase(null);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // General file upload handler for the main upload button
+  const handleGeneralFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       notify.success('File Uploaded', `File "${files[0].name}" uploaded successfully.`);
@@ -760,7 +761,7 @@ export default function Version1IdeasPage() {
               id="file-upload"
               className="hidden"
               accept=".pdf,.doc,.docx,.ppt,.pptx"
-              onChange={handleFileUpload}
+              onChange={handleGeneralFileUpload}
             />
             <Button 
               variant="outline" 
