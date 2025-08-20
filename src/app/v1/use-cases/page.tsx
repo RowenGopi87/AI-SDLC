@@ -1639,7 +1639,7 @@ export default function Version1IdeasPage() {
         {filteredUseCases.map((useCase) => (
           <Card 
             key={useCase.id} 
-            className="hover:shadow-lg transition-all duration-200 border border-gray-400 bg-white shadow-md hover:border-blue-500 cursor-pointer"
+            className="hover:shadow-lg transition-all duration-200 border border-gray-400 bg-white shadow-md hover:border-blue-500 cursor-pointer overflow-hidden"
             onClick={() => handleViewDetails(useCase)}
           >
             <CardHeader className="pb-3">
@@ -1684,7 +1684,7 @@ export default function Version1IdeasPage() {
                 </div>
               )}
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="p-4 space-y-3">
               <p className="text-sm text-gray-600 line-clamp-2">{useCase.businessObjective || useCase.description}</p>
               
               <div className="space-y-2">
@@ -1710,27 +1710,32 @@ export default function Version1IdeasPage() {
                 </div>
               </div>
               
-              <div className="flex items-center justify-between pt-2" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-medium text-gray-700">Status:</span>
-                  <Select
-                    value={useCase.status}
-                    onValueChange={(value) => handleStatusChange(useCase.id, value)}
-                  >
-                    <SelectTrigger className="h-6 w-32 text-xs border-gray-300">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="submitted">Submitted</SelectItem>
-                      <SelectItem value="in_review">In Review</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="pt-3 mt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                {/* Status Selector Row */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-medium text-gray-700">Status:</span>
+                    <Select
+                      value={useCase.status}
+                      onValueChange={(value) => handleStatusChange(useCase.id, value)}
+                    >
+                      <SelectTrigger className="h-6 w-32 text-xs border-gray-300">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="submitted">Submitted</SelectItem>
+                        <SelectItem value="in_review">In Review</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
-                <div className="flex flex-wrap gap-2">
+                {/* Action Buttons Section */}
+                <div className="space-y-2">
+                  {/* Generate Button - Full Width When Available */}
                   {useCase.status === 'approved' && (
                     <Button 
                       variant="default" 
@@ -1740,60 +1745,62 @@ export default function Version1IdeasPage() {
                         handleGenerateInitiatives(useCase.id);
                       }}
                       disabled={generatingInitiatives[useCase.id]}
-                      className="flex items-center space-x-1 h-7 px-3 text-xs"
+                      className="w-full h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700 border-0 flex items-center justify-center space-x-1"
                       title="Generate initiatives in background - multiple generations can run simultaneously"
                     >
                       {generatingInitiatives[useCase.id] ? (
                         <>
-                          <RefreshCw size={14} className="animate-spin" />
-                          <span className="hidden sm:inline">Generating...</span>
-                          <span className="sm:hidden">Gen...</span>
+                          <RefreshCw size={12} className="animate-spin" />
+                          <span className="ml-1">Generating Initiatives...</span>
                         </>
                       ) : (
                         <>
-                          <Lightbulb size={14} />
-                          <span className="hidden sm:inline">Generate Initiatives</span>
-                          <span className="sm:hidden">Generate</span>
+                          <Lightbulb size={12} />
+                          <span className="ml-1">Generate Initiatives</span>
                         </>
                       )}
                     </Button>
                   )}
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewDetails(useCase);
-                    }}
-                    className="h-6 w-6 p-0"
-                    title="View Details"
-                  >
-                    <Eye size={12} />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditUseCase(useCase);
-                    }}
-                    className="h-6 w-6 p-0"
-                    title="Edit Business Brief"
-                  >
-                    <Edit3 size={12} />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteUseCase(useCase);
-                    }}
-                    className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-60 hover:opacity-100"
-                    title="Delete Brief"
-                  >
-                    <Trash2 size={10} />
-                  </Button>
+                  
+                  {/* Action Icons Row */}
+                  <div className="flex items-center justify-center gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewDetails(useCase);
+                      }}
+                      className="h-6 w-6 p-0 hover:bg-gray-100"
+                      title="View Details"
+                    >
+                      <Eye size={12} />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditUseCase(useCase);
+                      }}
+                      className="h-6 w-6 p-0 hover:bg-gray-100"
+                      title="Edit Business Brief"
+                    >
+                      <Edit3 size={12} />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteUseCase(useCase);
+                      }}
+                      className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                      title="Delete Brief"
+                    >
+                      <Trash2 size={10} />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
