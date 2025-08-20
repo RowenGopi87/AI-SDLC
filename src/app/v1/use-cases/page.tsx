@@ -57,6 +57,8 @@ export default function Version1IdeasPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssessing, setIsAssessing] = useState(false);
+  const [isAiProgressModalOpen, setIsAiProgressModalOpen] = useState(false);
+  const [aiProgressMessage, setAiProgressMessage] = useState('');
   const [useRealLLM, setUseRealLLM] = useState(false);
   const [viewingUseCase, setViewingUseCase] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -124,14 +126,18 @@ export default function Version1IdeasPage() {
     // IMMEDIATELY close the business brief modal for clean UX
     setIsDialogOpen(false);
     
-    // Show loading notification for better UX feedback
-    const assessmentMode = useRealLLM ? '🧠 AI is evaluating' : '🎭 Mock system is evaluating';
-    notify.info('Assessing Quality', `${assessmentMode} your business brief...`);
+    // Show AI progress modal with thinking animation
+    const assessmentMode = useRealLLM ? 'AI is analyzing' : 'Mock system is evaluating';
+    setAiProgressMessage(`${assessmentMode} your business brief...`);
+    setIsAiProgressModalOpen(true);
     
     // Brief delay to ensure smooth modal transition
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     try {
+      // Update progress message to show active processing
+      setAiProgressMessage(useRealLLM ? 'AI is thinking deeply about your business brief...' : 'Processing with mock assessment...');
+      
       const response = await fetch('/api/assess-business-brief-quality', {
         method: 'POST',
         headers: {
@@ -151,11 +157,20 @@ export default function Version1IdeasPage() {
       const assessment = await response.json();
       setQualityAssessment(assessment.data);
       
-      // Show the quality assessment dialog FIRST - don't save until user takes action
+      // Update progress message to show completion
+      setAiProgressMessage('Analysis complete! Preparing results...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Close progress modal and show quality assessment dialog
+      setIsAiProgressModalOpen(false);
       setIsQualityAssessmentOpen(true);
       
     } catch (error) {
       console.error('Error assessing business brief:', error);
+      
+      // Close progress modal first
+      setIsAiProgressModalOpen(false);
+      
       notify.error('Assessment Failed', 'Could not assess quality. Proceeding with submission.');
       // Fallback - proceed with normal submission if assessment fails
       await proceedWithSubmission();
@@ -1256,6 +1271,43 @@ export default function Version1IdeasPage() {
               <Trash2 className="w-4 h-4 mr-1" />
               Delete Permanently
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Progress Modal */}
+      <Dialog open={isAiProgressModalOpen} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-center text-lg">
+              <Brain className="w-6 h-6 text-blue-600 mr-2" />
+              AI Assessment in Progress
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-6 py-6">
+            {/* Animated thinking icon */}
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+              <Brain className="w-8 h-8 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+            </div>
+            
+            {/* Progress message */}
+            <div className="text-center space-y-2">
+              <p className="text-gray-800 font-medium">{aiProgressMessage}</p>
+              <div className="flex items-center justify-center space-x-1">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              </div>
+            </div>
+            
+            {/* Information text */}
+            <p className="text-sm text-gray-600 text-center max-w-xs">
+              {useRealLLM ? 
+                "Our AI is carefully reviewing your business brief and generating quality insights..." :
+                "Processing your business brief using our mock assessment system..."
+              }
+            </p>
           </div>
         </DialogContent>
       </Dialog>
