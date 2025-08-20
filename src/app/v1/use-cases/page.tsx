@@ -339,7 +339,7 @@ export default function Version1IdeasPage() {
     setAcceptedSuggestions({});
     
     // Reopen the business brief form with the improved data
-    setIsDialogOpen(true);
+    handleDialogOpen();
     
     console.log('🎉 Applied suggestions successfully, reopening form with improvements');
     
@@ -357,7 +357,7 @@ export default function Version1IdeasPage() {
     setAcceptedSuggestions({});
     
     // Reopen the form for editing (form data is already preserved)
-    setIsDialogOpen(true);
+    handleDialogOpen();
     
     notify.info(
       'Edit Mode', 
@@ -367,8 +367,22 @@ export default function Version1IdeasPage() {
 
   // Document upload functions
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📂 File input changed, processing file selection');
     const file = event.target.files?.[0];
-    if (!file) return;
+    
+    if (!file) {
+      console.log('❌ No file selected, resetting upload section');
+      resetUploadSection(); // Reset states if no file selected
+      return;
+    }
+
+    console.log('📄 File selected:', { name: file.name, size: file.size, type: file.type });
+
+    // Prevent multiple simultaneous uploads
+    if (isUploading || isParsing) {
+      console.log('📋 Upload already in progress, ignoring duplicate request');
+      return;
+    }
 
     // Validate file type
     const allowedTypes = [
@@ -379,12 +393,20 @@ export default function Version1IdeasPage() {
 
     if (!allowedTypes.includes(file.type)) {
       setParseError('Please upload a PDF or Word document (.pdf, .docx, .doc)');
+      // Reset after showing error briefly
+      setTimeout(() => {
+        resetUploadSection();
+      }, 3000);
       return;
     }
 
     // Validate file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
       setParseError('File size must be less than 10MB');
+      // Reset after showing error briefly
+      setTimeout(() => {
+        resetUploadSection();
+      }, 3000);
       return;
     }
 
@@ -503,7 +525,7 @@ export default function Version1IdeasPage() {
         
         // Auto-open the business brief dialog with populated data
         setTimeout(() => {
-          setIsDialogOpen(true);
+          handleDialogOpen();
           notify.success('Document Parsed Successfully!', 
             `Extracted ${result.metadata?.fieldsExtracted || 'multiple'} fields from ${file.name}. Review and submit when ready.`);
         }, 300);
@@ -519,16 +541,46 @@ export default function Version1IdeasPage() {
       
       setParseError(error instanceof Error ? error.message : 'Failed to parse document');
       notify.error('Parse Failed', 'Could not extract fields from document. You can still fill the form manually.');
+      
+      // Reset upload states to allow retry
+      setTimeout(() => {
+        resetUploadSection();
+      }, 2000); // Reset after 2 seconds to show error briefly
     } finally {
       setIsParsing(false);
     }
   };
 
   const resetUploadSection = () => {
+    console.log('🔄 Resetting upload section - clearing all upload states');
     setUploadedFile(null);
     setParseError(null);
     setIsUploadProgressModalOpen(false);
     setUploadProgressMessage('');
+    setIsUploading(false);
+    setIsParsing(false);
+    
+    // Clear the file input
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+      console.log('✅ File input cleared');
+    } else {
+      console.log('⚠️ File input element not found during reset');
+    }
+  };
+
+  // Handle dialog close and reset all states
+  const handleDialogClose = () => {
+    console.log('🔒 Closing business brief dialog and resetting upload states');
+    setIsDialogOpen(false);
+    resetUploadSection();
+  };
+
+  // Handle dialog open with clean states
+  const handleDialogOpen = () => {
+    resetUploadSection(); // Ensure clean state for new uploads
+    setIsDialogOpen(true);
   };
 
   const proceedWithSubmission = async () => {
@@ -632,6 +684,9 @@ export default function Version1IdeasPage() {
     });
     setQualityAssessment(null);
     setAcceptedSuggestions({});
+    
+    // Reset all upload states for fresh start
+    resetUploadSection();
   };
 
   const handleStatusChange = (id: string, newStatus: any) => {
@@ -853,7 +908,18 @@ export default function Version1IdeasPage() {
             <Button 
               variant="outline" 
               className="flex items-center space-x-2"
-              onClick={() => document.getElementById('file-upload')?.click()}
+              onClick={() => {
+                console.log('📤 Upload Document button clicked');
+                // Reset any previous upload states before opening file picker
+                resetUploadSection();
+                const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                if (fileInput) {
+                  console.log('📎 Opening file picker');
+                  fileInput.click();
+                } else {
+                  console.error('❌ File input element not found');
+                }
+              }}
               disabled={isUploading || isParsing}
             >
               <Upload size={16} />
@@ -861,7 +927,7 @@ export default function Version1IdeasPage() {
             </Button>
           </div>
           
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button className="flex items-center space-x-2">
                 <Plus size={16} />
@@ -1109,7 +1175,7 @@ export default function Version1IdeasPage() {
                 </div>
                 
                 <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={handleDialogClose}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={isAssessing}>
