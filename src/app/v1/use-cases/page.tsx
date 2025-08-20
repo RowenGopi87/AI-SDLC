@@ -991,15 +991,18 @@ export default function Version1IdeasPage() {
       const savedInitiatives = addGeneratedInitiatives(useCaseId, initiatives);
       
       // Success notification without redirect
+      const generatedCount = result.metadata?.generated || initiatives.length;
+      const savedCount = result.metadata?.saved || initiatives.length;
+      
       notify.success(
-        'Initiatives Generated!', 
-        `✅ Successfully generated ${initiatives.length} initiative${initiatives.length !== 1 ? 's' : ''} from "${useCase.title}". View them in Work Items when ready.`
+        'Initiatives Generated & Saved!', 
+        `✅ Generated ${generatedCount} and saved ${savedCount} initiative${savedCount !== 1 ? 's' : ''} from "${useCase.title}" to database. View them in Work Items.`
       );
 
       // Add persistent notification to bell
       addNotification({
-        title: 'Initiatives Generated Successfully!',
-        message: `Generated ${initiatives.length} initiative${initiatives.length !== 1 ? 's' : ''} from "${useCase.title}". Check Work Items to view them.`,
+        title: 'Initiatives Saved to Database!',
+        message: `Generated and saved ${savedCount} initiative${savedCount !== 1 ? 's' : ''} from "${useCase.title}". They will persist across sessions. Check Work Items to view them.`,
         type: 'success',
         autoClose: false
       });
