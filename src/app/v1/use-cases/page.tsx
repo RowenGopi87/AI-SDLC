@@ -533,7 +533,7 @@ export default function Version1IdeasPage() {
       submittedBy: 'John Doe',
       priority: 'high',
       status: 'draft',
-      businessOwner: 'joshua-payne',
+      businessOwner: 'John Doe',
       leadBusinessUnit: 'technology',
       additionalBusinessUnits: [],
       primaryStrategicTheme: 'growth',

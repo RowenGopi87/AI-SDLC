@@ -43,7 +43,7 @@ import {
   Clock,
   TestTube,
   ExternalLink,
-
+  Settings
 } from 'lucide-react';
 import { MockLLMService } from '@/lib/mock-data';
 import { mockInitiatives, mockFeatures, mockEpics, mockStories } from '@/lib/mock-data'; // Import mock data
@@ -59,8 +59,8 @@ export default function RequirementsPage() {
   const { stories, addGeneratedStories, getStoriesByEpic } = useStoryStore();
   const { llmSettings, validateSettings } = useSettingsStore();
   
-  // State management
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  // State management - Start with everything collapsed
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set()); // Empty = all collapsed
   const [collapsedLevels, setCollapsedLevels] = useState<Set<string>>(new Set()); // For collapsible hierarchy
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
@@ -73,9 +73,12 @@ export default function RequirementsPage() {
   const [generatingItems, setGeneratingItems] = useState<Record<string, boolean>>({});
   const [creatingInJira, setCreatingInJira] = useState<Record<string, boolean>>({});
   
-  // Development mode toggle for testing without LLM costs
-  const [useMockLLM, setUseMockLLM] = useState(process.env.NODE_ENV === 'development');
-  const [useMockData, setUseMockData] = useState(process.env.NODE_ENV === 'development');
+  // Debug mode toggles (hidden by default, accessible via debug menu)
+  const [useMockLLM, setUseMockLLM] = useState(false);
+  const [useMockData, setUseMockData] = useState(false);
+  const [showDebugControls, setShowDebugControls] = useState(false);
+  const [isLoadingFromDatabase, setIsLoadingFromDatabase] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   
   // Helper to set loading state for specific item
   const setItemLoading = (itemId: string, isLoading: boolean) => {
@@ -88,6 +91,172 @@ export default function RequirementsPage() {
   // Helper to check if item is loading
   const isItemLoading = (itemId: string) => {
     return loadingStates[itemId] || false;
+  };
+
+    // Load work items from database
+  const loadWorkItemsFromDatabase = async () => {
+    // Multiple guards to prevent ANY duplicate loading
+    if (isLoadingFromDatabase || hasLoadedOnce) {
+      console.log('🔄 Database load already done or in progress, skipping...');
+      return;
+    }
+    
+    // Set a session flag to prevent loading on tab switches
+    if (typeof window !== 'undefined' && (window as any).auraDataLoaded) {
+      console.log('🔄 Data already loaded in this session, skipping...');
+      return;
+    }
+    
+    setIsLoadingFromDatabase(true);
+    if (typeof window !== 'undefined') {
+      (window as any).auraDataLoaded = true;
+    }
+    
+    try {
+      console.log('📊 Loading work items from database (SINGLE LOAD)...');
+      
+      // Get fresh store instances and clear them COMPLETELY first
+      const currentInitiativeStore = useInitiativeStore.getState();
+      const currentFeatureStore = useFeatureStore.getState();
+      const currentEpicStore = useEpicStore.getState();
+      const currentStoryStore = useStoryStore.getState();
+      
+      // COMPLETE store clearing to prevent any duplicates
+      console.log('🧹 Clearing all store data completely...');
+      currentInitiativeStore.initiatives = [];
+      currentFeatureStore.features = [];
+      currentEpicStore.epics = [];
+      currentStoryStore.stories = [];
+      
+      // Load business briefs first
+      const useCaseStore = useUseCaseStore.getState();
+      await useCaseStore.loadFromDatabase();
+      
+
+
+      // Load initiatives from database
+      const initiativeResponse = await fetch('/api/initiatives/list');
+      const initiativeData = await initiativeResponse.json();
+      if (initiativeData.success) {
+        initiativeData.data.forEach((init: any) => {
+          currentInitiativeStore.addInitiative({
+            id: init.id,
+            businessBriefId: init.business_brief_id,
+            title: init.title,
+            description: init.description,
+            category: 'business',
+            priority: init.priority,
+            rationale: init.description,
+            acceptanceCriteria: JSON.parse(init.acceptance_criteria || '[]'),
+            businessValue: init.business_value,
+            workflowLevel: 'initiative',
+            status: init.status,
+            createdAt: new Date(init.created_at),
+            updatedAt: new Date(init.updated_at),
+            createdBy: init.assigned_to || 'System',
+            assignedTo: init.assigned_to || 'Team'
+          });
+        });
+        console.log(`✅ Loaded ${initiativeData.data.length} initiatives from database`);
+      }
+
+      // Load features from database
+      const featureResponse = await fetch('/api/features/list');
+      const featureData = await featureResponse.json();
+      if (featureData.success) {
+        featureData.data.forEach((feat: any) => {
+          // Find the business brief ID from the initiative
+          const linkedInitiative = currentInitiativeStore.initiatives.find((init: any) => init.id === feat.initiative_id);
+          currentFeatureStore.addFeature({
+            id: feat.id,
+            initiativeId: feat.initiative_id,
+            businessBriefId: linkedInitiative?.businessBriefId || '',
+            title: feat.title,
+            description: feat.description,
+            category: 'functional',
+            priority: feat.priority,
+            rationale: feat.description,
+            acceptanceCriteria: JSON.parse(feat.acceptance_criteria || '[]'),
+            businessValue: feat.business_value,
+            workflowLevel: 'feature',
+            status: feat.status,
+            createdAt: new Date(feat.created_at),
+            updatedAt: new Date(feat.updated_at),
+            createdBy: feat.assigned_to || 'System'
+          });
+        });
+        console.log(`✅ Loaded ${featureData.data.length} features from database`);
+      }
+
+      // Load epics from database
+      const epicResponse = await fetch('/api/epics/list');
+      const epicData = await epicResponse.json();
+      if (epicData.success) {
+        epicData.data.forEach((epic: any) => {
+          // Find the initiative and business brief IDs from the feature
+          const linkedFeature = currentFeatureStore.features.find((feat: any) => feat.id === epic.feature_id);
+          currentEpicStore.addEpic({
+            id: epic.id,
+            featureId: epic.feature_id,
+            initiativeId: linkedFeature?.initiativeId || '',
+            businessBriefId: linkedFeature?.businessBriefId || '',
+            title: epic.title,
+            description: epic.description,
+            category: 'technical',
+            priority: epic.priority,
+            rationale: epic.description,
+            acceptanceCriteria: JSON.parse(epic.acceptance_criteria || '[]'),
+            businessValue: epic.business_value,
+            workflowLevel: 'epic',
+            sprintEstimate: epic.story_points || 3,
+            estimatedEffort: 'Medium',
+            status: epic.status,
+            createdAt: new Date(epic.created_at),
+            updatedAt: new Date(epic.updated_at),
+            createdBy: epic.assigned_to || 'System'
+          });
+        });
+        console.log(`✅ Loaded ${epicData.data.length} epics from database`);
+      }
+
+      // Load stories from database
+      const storyResponse = await fetch('/api/stories/list');
+      const storyData = await storyResponse.json();
+      if (storyData.success) {
+        storyData.data.forEach((story: any) => {
+          // Find the feature, initiative, and business brief IDs from the epic
+          const linkedEpic = currentEpicStore.epics.find((epic: any) => epic.id === story.epic_id);
+          currentStoryStore.addStory({
+            id: story.id,
+            epicId: story.epic_id,
+            featureId: linkedEpic?.featureId || '',
+            initiativeId: linkedEpic?.initiativeId || '',
+            businessBriefId: linkedEpic?.businessBriefId || '',
+            title: story.title,
+            description: story.description,
+            category: 'functional',
+            priority: story.priority,
+            rationale: story.description,
+            acceptanceCriteria: JSON.parse(story.acceptance_criteria || '[]'),
+            businessValue: story.business_value || '',
+            workflowLevel: 'story',
+            storyPoints: story.story_points || 3,
+            labels: [],
+            testingNotes: '',
+            status: story.status,
+            createdAt: new Date(story.created_at),
+            updatedAt: new Date(story.updated_at),
+            createdBy: story.assigned_to || 'System'
+          });
+        });
+        console.log(`✅ Loaded ${storyData.data.length} stories from database`);
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to load work items from database:', error);
+    } finally {
+      setIsLoadingFromDatabase(false);
+    }
   };
   
   // Form state - using Initiative interface types
@@ -1345,57 +1514,48 @@ export default function RequirementsPage() {
     );
   };
 
+  // Load data ONCE on mount - no dependencies to prevent re-triggers
   useEffect(() => {
-    const initiativeStore = useInitiativeStore.getState();
-    const featureStore = useFeatureStore.getState();
-    const epicStore = useEpicStore.getState();
-    const storyStore = useStoryStore.getState();
-    const useCaseStore = useUseCaseStore.getState();
-
-    if (useMockData) {
-      console.log('🔧 Loading mock data...');
-      // Only add mock data if the stores are empty to avoid duplication
-      if (initiativeStore.initiatives.length === 0) {
-        mockInitiatives.forEach(init => initiativeStore.addInitiative(init));
-      }
-      if (featureStore.features.length === 0) {
-        mockFeatures.forEach(feat => featureStore.addFeature(feat as any));
-      }
-      if (epicStore.epics.length === 0) {
-        mockEpics.forEach(epic => epicStore.addEpic(epic as any));
-      }
-      if (storyStore.stories.length === 0) {
-        mockStories.forEach(story => storyStore.addStory(story as any));
-      }
-    } else {
-      // When toggled off, remove ONLY the mock data by their specific IDs
-      console.log('🧹 Clearing mock data and loading from database...');
-      mockInitiatives.forEach(init => initiativeStore.deleteInitiative(init.id));
-      mockFeatures.forEach(feat => featureStore.deleteFeature(feat.id));
-      mockEpics.forEach(epic => epicStore.deleteEpic(epic.id));
-      mockStories.forEach(story => storyStore.deleteStory(story.id));
-      
-      // Load real data from database
-      console.log('📊 Loading business briefs from database...');
-      useCaseStore.loadFromDatabase().catch(error => {
-        console.error('❌ Failed to load business briefs from database:', error);
-      });
-      
-      // Note: Other stores (initiatives, features, epics, stories) don't have loadFromDatabase
-      // They are typically generated from business briefs via the "Generate" buttons
-      console.log('📊 Real data mode enabled - use Generate buttons to create work items from business briefs');
+    if (!hasLoadedOnce && !isLoadingFromDatabase) {
+      console.log('🚀 ONE-TIME load from database...');
+      setHasLoadedOnce(true);
+      loadWorkItemsFromDatabase();
     }
-  }, [useMockData]);
+  }, []); // Empty dependencies - runs exactly once
+
+  // Initial load is handled by the main useEffect above
 
   return (
     <div className="space-y-4">
 
 
-      {/* Debug controls (only in development) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="font-semibold text-yellow-800 mb-2">Debug Controls</h3>
-          <div className="space-x-2 mb-2">
+      {/* Hidden Debug Menu */}
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowDebugControls(!showDebugControls)}
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Debug Controls Dropdown */}
+      {showDebugControls && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-gray-800">Debug Mode Controls</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDebugControls(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </Button>
+          </div>
+          <div className="space-y-2">
             <label className="flex items-center space-x-2">
               <input 
                 type="checkbox" 
@@ -1403,7 +1563,7 @@ export default function RequirementsPage() {
                 onChange={(e) => setUseMockLLM(e.target.checked)}
                 className="rounded"
               />
-              <span className="text-sm text-yellow-700">Use Mock LLM (no API costs)</span>
+              <span className="text-sm text-gray-600">Use Mock LLM (no API costs)</span>
             </label>
             <label className="flex items-center space-x-2">
               <input 
@@ -1412,14 +1572,14 @@ export default function RequirementsPage() {
                 onChange={(e) => setUseMockData(e.target.checked)}
                 className="rounded"
               />
-              <span className="text-sm text-yellow-700">Use Mock Data</span>
+              <span className="text-sm text-gray-600">Use Mock Data (vs Database)</span>
             </label>
           </div>
-          <div className="text-xs text-gray-600 mt-2">
+          <div className="text-xs text-gray-600 mb-3">
             <div>📊 Data Status: Business Briefs: {useCases.length} | Initiatives: {initiatives.length} | Features: {features.length} | Epics: {epics.length} | Stories: {stories.length}</div>
             <div>🔗 Business Brief Groups: {Object.keys(initiativesByBusinessBrief).length} groups</div>
           </div>
-          <div className="space-x-2">
+          <div className="grid grid-cols-2 gap-2">
             <button 
               onClick={() => {
                 if (window.confirm('Clear all features from store?')) {
@@ -1429,13 +1589,13 @@ export default function RequirementsPage() {
               }}
               className="px-3 py-1 bg-red-500 text-white rounded text-sm"
             >
-              Clear All Features
+              Clear Features
             </button>
             <button 
               onClick={() => (window as any).debugFeatureDisplay()}
               className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
             >
-              Debug Feature Display
+              Debug Display
             </button>
             <button 
               onClick={() => {
@@ -1452,6 +1612,36 @@ export default function RequirementsPage() {
               className="px-3 py-1 bg-purple-500 text-white rounded text-sm"
             >
               Debug Associations
+            </button>
+            <button 
+              onClick={async () => {
+                if (window.confirm('🗑️ CLEAR DATABASE & POPULATE COMPLETE MOCK DATA?\n\nThis will:\n• Clear ALL existing business briefs, initiatives, features, epics, and stories\n• Populate with complete V1 mock data including Emirates scenario\n• Perfect for demo setup\n\nContinue?')) {
+                  try {
+                    console.log('🚀 Clearing database and populating with complete mock data...');
+                    
+                    // Call the migrate API to clear and populate all mock data  
+                    const response = await fetch('/api/migrate/mock-data', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                      const result = await response.json();
+                      alert(`✅ Database cleared and populated successfully!\n\n📊 Added:\n• ${result.data.totalMigrated} total items\n• Complete Emirates booking hierarchy\n• All 4 business brief scenarios\n\nRefreshing page...`);
+                      window.location.reload();
+                    } else {
+                      const error = await response.json();
+                      alert('❌ Failed to populate data: ' + error.message);
+                    }
+                  } catch (error: any) {
+                    console.error('❌ Error populating demo data:', error);
+                    alert('❌ Error: ' + error.message);
+                  }
+                }
+              }}
+              className="px-3 py-1 bg-green-500 text-white rounded text-sm font-medium"
+            >
+              🗑️ Populate DB
             </button>
           </div>
         </div>

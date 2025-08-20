@@ -136,10 +136,65 @@ export default function TestCasesPage() {
   const [executingTestCases, setExecutingTestCases] = useState<Record<string, boolean>>({});
   const [testExecutionResults, setTestExecutionResults] = useState<Record<string, any>>({});
 
-  // Development mode toggle for testing without LLM costs
-  const [useMockLLM, setUseMockLLM] = useState(process.env.NODE_ENV === 'development');
+  // Debug mode toggle (hidden by default, accessible via debug menu)
+  const [useMockLLM, setUseMockLLM] = useState(false);
+  const [showDebugControls, setShowDebugControls] = useState(false);
+  const [isLoadingTestCases, setIsLoadingTestCases] = useState(false);
 
-  // Initialize with some sample test cases for demonstration (only if store is empty)
+  // Load test cases from database when component mounts
+  const loadTestCasesFromDatabase = async () => {
+    if (isLoadingTestCases) return;
+    
+    setIsLoadingTestCases(true);
+    try {
+      console.log('📊 Loading test cases from database...');
+      
+      const response = await fetch('/api/test-cases/list');
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        // Clear existing test cases first
+        testCases.forEach(tc => deleteTestCase(tc.id));
+        
+        // Add test cases from database
+        data.data.forEach((tc: any) => {
+          addTestCase({
+            id: tc.id,
+            workItemId: tc.work_item_id,
+            workItemType: tc.work_item_type as 'feature' | 'epic' | 'story',
+            title: tc.description, // Use description as title
+            summary: tc.description,
+            description: tc.description,
+            type: tc.test_type as 'positive' | 'negative' | 'edge',
+            testPyramidType: 'system' as const,
+            status: tc.status === 'pass' ? 'passed' : tc.status === 'fail' ? 'failed' : 'not_run' as const,
+            priority: 'medium' as const,
+            preconditions: [],
+            steps: JSON.parse(tc.steps || '[]'),
+            expectedResult: tc.expected_result,
+            assignee: tc.assigned_to || 'Team',
+            createdBy: 'Database',
+            estimatedTime: 5,
+            tags: ['database']
+          });
+        });
+        
+        console.log(`✅ Loaded ${data.data.length} test cases from database`);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load test cases from database:', error);
+    } finally {
+      setIsLoadingTestCases(false);
+    }
+  };
+
+  // Initialize with database test cases (replace sample data logic)
+  React.useEffect(() => {
+    loadTestCasesFromDatabase();
+  }, []); // Run once on mount
+
+  // Original sample data initialization (commented out)
+  /*
   React.useEffect(() => {
     // Add a small delay to ensure store hydration is complete
     const timer = setTimeout(() => {

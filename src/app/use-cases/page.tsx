@@ -318,7 +318,7 @@ export default function UseCasesPage() {
       priority: 'high',
       status: 'draft',
       // Business Brief fields with poor quality data
-      businessOwner: 'joshua-payne',
+      businessOwner: 'John-Doe',
       leadBusinessUnit: 'technology',
       additionalBusinessUnits: [],
       primaryStrategicTheme: 'growth',
