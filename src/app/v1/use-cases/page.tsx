@@ -852,7 +852,7 @@ export default function Version1IdeasPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <DialogTitle>Business Brief</DialogTitle>
-                    <DialogDescription>NEW IDEA REQUEST BY Joshua Payne</DialogDescription>
+                    <DialogDescription>Submit your business idea for review</DialogDescription>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-50 rounded-lg border">
