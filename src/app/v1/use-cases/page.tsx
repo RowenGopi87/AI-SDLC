@@ -42,6 +42,235 @@ import {
 } from 'lucide-react';
 import Link from "next/link";
 
+// Edit Business Brief Form Component
+function EditBusinessBriefForm({ useCase, onSave, onCancel }: { 
+  useCase: any; 
+  onSave: (updatedUseCase: any) => void; 
+  onCancel: () => void; 
+}) {
+  const [editFormData, setEditFormData] = useState({
+    title: useCase.title || '',
+    submittedBy: useCase.submittedBy || '',
+    businessObjective: useCase.businessObjective || '',
+    quantifiableBusinessOutcomes: useCase.quantifiableBusinessOutcomes || '',
+    businessOwner: useCase.businessOwner || '',
+    leadBusinessUnit: useCase.leadBusinessUnit || '',
+    primaryStrategicTheme: useCase.primaryStrategicTheme || '',
+    inScope: useCase.inScope || '',
+    impactOfDoNothing: useCase.impactOfDoNothing || '',
+    happyPath: useCase.happyPath || '',
+    exceptions: useCase.exceptions || '',
+    impactedEndUsers: useCase.impactedEndUsers || '',
+    technologySolutions: useCase.technologySolutions || '',
+    priority: useCase.priority || 'medium',
+    status: useCase.status || 'draft',
+    impactsExistingTechnology: useCase.impactsExistingTechnology || false,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updatedUseCase = {
+      ...useCase,
+      ...editFormData,
+    };
+    onSave(updatedUseCase);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Idea Name *</label>
+          <Input
+            value={editFormData.title}
+            onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+            placeholder="Enter idea name"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Submitted By *</label>
+          <Input
+            value={editFormData.submittedBy}
+            onChange={(e) => setEditFormData({ ...editFormData, submittedBy: e.target.value })}
+            placeholder="Your name"
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Business Objective & Description of Change *</label>
+        <Textarea
+          value={editFormData.businessObjective}
+          onChange={(e) => setEditFormData({ ...editFormData, businessObjective: e.target.value })}
+          placeholder="Describe the business change, challenges/opportunities, and objective..."
+          rows={4}
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Quantifiable Business Outcomes *</label>
+        <Textarea
+          value={editFormData.quantifiableBusinessOutcomes}
+          onChange={(e) => setEditFormData({ ...editFormData, quantifiableBusinessOutcomes: e.target.value })}
+          placeholder="Identify quantifiable/tangible benefits..."
+          rows={3}
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Business Owner *</label>
+          <Input
+            value={editFormData.businessOwner}
+            onChange={(e) => setEditFormData({ ...editFormData, businessOwner: e.target.value })}
+            placeholder="Business owner name"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Lead Business Unit *</label>
+          <Input
+            value={editFormData.leadBusinessUnit}
+            onChange={(e) => setEditFormData({ ...editFormData, leadBusinessUnit: e.target.value })}
+            placeholder="Primary business unit"
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Primary Strategic Theme *</label>
+        <Input
+          value={editFormData.primaryStrategicTheme}
+          onChange={(e) => setEditFormData({ ...editFormData, primaryStrategicTheme: e.target.value })}
+          placeholder="Key strategic theme or initiative"
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">In Scope</label>
+          <Textarea
+            value={editFormData.inScope}
+            onChange={(e) => setEditFormData({ ...editFormData, inScope: e.target.value })}
+            placeholder="What is included in this initiative"
+            rows={3}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Impact of Do Nothing</label>
+          <Textarea
+            value={editFormData.impactOfDoNothing}
+            onChange={(e) => setEditFormData({ ...editFormData, impactOfDoNothing: e.target.value })}
+            placeholder="Consequences of not proceeding"
+            rows={3}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Happy Path</label>
+          <Textarea
+            value={editFormData.happyPath}
+            onChange={(e) => setEditFormData({ ...editFormData, happyPath: e.target.value })}
+            placeholder="Ideal user journey or process flow"
+            rows={2}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Exceptions</label>
+          <Textarea
+            value={editFormData.exceptions}
+            onChange={(e) => setEditFormData({ ...editFormData, exceptions: e.target.value })}
+            placeholder="Error scenarios and edge cases"
+            rows={2}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Impacted End Users</label>
+        <Input
+          value={editFormData.impactedEndUsers}
+          onChange={(e) => setEditFormData({ ...editFormData, impactedEndUsers: e.target.value })}
+          placeholder="Who will be affected by this change"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Technology Solutions</label>
+        <Textarea
+          value={editFormData.technologySolutions}
+          onChange={(e) => setEditFormData({ ...editFormData, technologySolutions: e.target.value })}
+          placeholder="Proposed technology stack, platforms, tools"
+          rows={2}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Priority *</label>
+          <Select value={editFormData.priority} onValueChange={(value: any) => setEditFormData({ ...editFormData, priority: value })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <Select value={editFormData.status} onValueChange={(value: any) => setEditFormData({ ...editFormData, status: value })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="in_review">In Review</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          id="impactsExistingTechnology"
+          checked={editFormData.impactsExistingTechnology}
+          onChange={(e) => setEditFormData({ ...editFormData, impactsExistingTechnology: e.target.checked })}
+          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-200"
+        />
+        <label htmlFor="impactsExistingTechnology" className="text-sm font-medium text-gray-700">
+          Impacts Existing Technology
+        </label>
+      </div>
+
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+          <Save size={16} className="mr-2" />
+          Save Changes
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function Version1IdeasPage() {
   const { 
     useCases, 
@@ -58,11 +287,13 @@ export default function Version1IdeasPage() {
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAssessing, setIsAssessing] = useState(false);
   const [isAiProgressModalOpen, setIsAiProgressModalOpen] = useState(false);
   const [aiProgressMessage, setAiProgressMessage] = useState('');
   const [useRealLLM, setUseRealLLM] = useState(false);
   const [viewingUseCase, setViewingUseCase] = useState<any>(null);
+  const [editingUseCase, setEditingUseCase] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
@@ -803,6 +1034,46 @@ export default function Version1IdeasPage() {
     setSelectedItem(useCase.id, 'useCase', useCase);
   };
 
+  const handleEditUseCase = (useCase: any) => {
+    setEditingUseCase(useCase);
+    setIsEditDialogOpen(true);
+    setSelectedItem(useCase.id, 'useCase', useCase);
+  };
+
+  const handleSaveEditedUseCase = async (updatedUseCase: any) => {
+    try {
+      // Update in local store
+      updateUseCase(updatedUseCase.id, updatedUseCase);
+      
+      // Update in database if it exists there
+      try {
+        const response = await fetch(`/api/business-briefs/${updatedUseCase.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedUseCase)
+        });
+
+        if (response.ok) {
+          notify.success('Business Brief Updated', `Successfully updated "${updatedUseCase.title}"`);
+        } else {
+          console.log('Database update failed, local update applied');
+          notify.success('Business Brief Updated', `Updated "${updatedUseCase.title}" locally`);
+        }
+      } catch (dbError) {
+        console.log('Database update failed, local update applied');
+        notify.success('Business Brief Updated', `Updated "${updatedUseCase.title}" locally`);
+      }
+
+      // Close edit dialog
+      setIsEditDialogOpen(false);
+      setEditingUseCase(null);
+      
+    } catch (error) {
+      console.error('Error updating business brief:', error);
+      notify.error('Update Failed', 'Could not update business brief. Please try again.');
+    }
+  };
+
   const handleDeleteUseCase = async (useCase: any) => {
     setDeletingUseCase(useCase);
     setDeleteConfirmOpen(true);
@@ -1501,6 +1772,18 @@ export default function Version1IdeasPage() {
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
+                      handleEditUseCase(useCase);
+                    }}
+                    className="h-6 w-6 p-0"
+                    title="Edit Business Brief"
+                  >
+                    <Edit3 size={12} />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleDeleteUseCase(useCase);
                     }}
                     className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-60 hover:opacity-100"
@@ -1532,11 +1815,42 @@ export default function Version1IdeasPage() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{viewingUseCase?.title}</DialogTitle>
-            <DialogDescription>Business Brief Details</DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Eye size={20} className="text-blue-600" />
+                  <span>{viewingUseCase?.title}</span>
+                </DialogTitle>
+                <DialogDescription>Business Brief Details • {viewingUseCase?.businessBriefId}</DialogDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsViewDialogOpen(false);
+                  handleEditUseCase(viewingUseCase);
+                }}
+                className="flex items-center space-x-2"
+              >
+                <Edit3 size={16} />
+                <span>Edit</span>
+              </Button>
+            </div>
           </DialogHeader>
           {viewingUseCase && (
             <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Business Brief ID</label>
+                  <p className="text-sm text-gray-600 font-mono">{viewingUseCase.businessBriefId || 'Not assigned'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Submitted By</label>
+                  <p className="text-sm text-gray-600">{viewingUseCase.submittedBy || 'Not specified'}</p>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700">Business Owner</label>
@@ -1547,17 +1861,110 @@ export default function Version1IdeasPage() {
                   <p className="text-sm text-gray-600">{viewingUseCase.leadBusinessUnit || 'Not specified'}</p>
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Priority</label>
+                  <Badge variant="outline" className={`text-xs w-fit ${
+                    viewingUseCase.priority === 'critical' ? 'text-red-600 border-red-300' :
+                    viewingUseCase.priority === 'high' ? 'text-orange-600 border-orange-300' :
+                    viewingUseCase.priority === 'medium' ? 'text-blue-600 border-blue-300' :
+                    'text-gray-600 border-gray-300'
+                  }`}>
+                    {viewingUseCase.priority?.toUpperCase() || 'NOT SET'}
+                  </Badge>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Status</label>
+                  <Badge variant="outline" className="text-xs w-fit">
+                    {viewingUseCase.status?.replace('_', ' ').toUpperCase() || 'DRAFT'}
+                  </Badge>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Primary Strategic Theme</label>
+                <p className="text-sm text-gray-600 mt-1">{viewingUseCase.primaryStrategicTheme || 'Not specified'}</p>
+              </div>
               
               <div>
-                <label className="text-sm font-medium text-gray-700">Business Objective</label>
-                <p className="text-sm text-gray-600 mt-1">{viewingUseCase.businessObjective || 'Not specified'}</p>
+                <label className="text-sm font-medium text-gray-700">Business Objective & Description of Change</label>
+                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{viewingUseCase.businessObjective || 'Not specified'}</p>
               </div>
               
               <div>
                 <label className="text-sm font-medium text-gray-700">Quantifiable Business Outcomes</label>
-                <p className="text-sm text-gray-600 mt-1">{viewingUseCase.quantifiableBusinessOutcomes || 'Not specified'}</p>
+                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{viewingUseCase.quantifiableBusinessOutcomes || 'Not specified'}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">In Scope</label>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{viewingUseCase.inScope || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Impact of Do Nothing</label>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{viewingUseCase.impactOfDoNothing || 'Not specified'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Happy Path</label>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{viewingUseCase.happyPath || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Exceptions</label>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{viewingUseCase.exceptions || 'Not specified'}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Impacted End Users</label>
+                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{viewingUseCase.impactedEndUsers || 'Not specified'}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Technology Solutions</label>
+                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{viewingUseCase.technologySolutions || 'Not specified'}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Submitted Date</label>
+                  <p className="text-sm text-gray-600">{formatDateForDisplay(viewingUseCase.submittedAt)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Impacts Existing Technology</label>
+                  <Badge variant="outline" className={`text-xs w-fit ${viewingUseCase.impactsExistingTechnology ? 'text-orange-600 border-orange-300' : 'text-green-600 border-green-300'}`}>
+                    {viewingUseCase.impactsExistingTechnology ? 'YES' : 'NO'}
+                  </Badge>
+                </div>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Business Brief Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Edit3 size={20} />
+              <span>Edit Business Brief</span>
+            </DialogTitle>
+            <DialogDescription>Update business brief details</DialogDescription>
+          </DialogHeader>
+          {editingUseCase && (
+            <EditBusinessBriefForm
+              useCase={editingUseCase}
+              onSave={handleSaveEditedUseCase}
+              onCancel={() => {
+                setIsEditDialogOpen(false);
+                setEditingUseCase(null);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
