@@ -523,21 +523,26 @@ async function callAnthropic(
 async function getMockAssessment(businessBrief: any): Promise<QualityAssessment> {
   // This is the existing mock logic, extracted into a separate function
   
-  // Analyze the brief quality based on content length and specificity
+  // Analyze only fields that exist in V1 form UI
   const titleQuality = assessFieldQuality(businessBrief.title, 'title', businessBrief);
   const objectiveQuality = assessFieldQuality(businessBrief.businessObjective, 'businessObjective', businessBrief);
   const outcomesQuality = assessFieldQuality(businessBrief.quantifiableBusinessOutcomes, 'quantifiableOutcomes', businessBrief);
   const usersQuality = assessFieldQuality(businessBrief.impactedEndUsers, 'impactedEndUsers', businessBrief);
-  const changeQuality = assessFieldQuality(businessBrief.changeImpactExpected, 'changeImpactExpected', businessBrief);
+  const businessOwnerQuality = assessFieldQuality(businessBrief.businessOwner, 'businessOwner', businessBrief);
+  const leadUnitQuality = assessFieldQuality(businessBrief.leadBusinessUnit, 'leadBusinessUnit', businessBrief);
+  const themeQuality = assessFieldQuality(businessBrief.primaryStrategicTheme, 'primaryStrategicTheme', businessBrief);
+  const scopeQuality = assessFieldQuality(businessBrief.inScope, 'inScope', businessBrief);
   
-  // Calculate overall score (weighted average)
+  // Calculate overall score focusing on key visible fields (weighted average)
   const overallScore = (
-    (titleQuality.score * 0.1) +
+    (titleQuality.score * 0.12) +
     (objectiveQuality.score * 0.25) +
-    (outcomesQuality.score * 0.2) +
-    (usersQuality.score * 0.15) +
-    (changeQuality.score * 0.15) +
-    (5.0 * 0.15) // Default score for other fields
+    (outcomesQuality.score * 0.20) +
+    (businessOwnerQuality.score * 0.10) +
+    (leadUnitQuality.score * 0.10) +
+    (themeQuality.score * 0.08) +
+    (scopeQuality.score * 0.10) +
+    (usersQuality.score * 0.05)
   );
   
   const overallGrade: 'gold' | 'silver' | 'bronze' = 
@@ -550,15 +555,18 @@ async function getMockAssessment(businessBrief: any): Promise<QualityAssessment>
     summary: generateSummary(overallGrade, overallScore),
     improvements: generateImprovements(overallGrade, businessBrief),
     fieldAssessments: {
+      title: titleQuality,
       businessObjective: objectiveQuality,
       quantifiableBusinessOutcomes: outcomesQuality,
+      businessOwner: businessOwnerQuality,
+      leadBusinessUnit: leadUnitQuality,
+      primaryStrategicTheme: assessFieldQuality(businessBrief.primaryStrategicTheme, 'primaryStrategicTheme', businessBrief),
       impactedEndUsers: usersQuality,
-      changeImpactExpected: changeQuality,
-      inScope: assessFieldQuality(businessBrief.inScope, 'inScope', businessBrief),
+      inScope: scopeQuality,
       impactOfDoNothing: assessFieldQuality(businessBrief.impactOfDoNothing, 'impactOfDoNothing', businessBrief),
       happyPath: assessFieldQuality(businessBrief.happyPath, 'happyPath', businessBrief),
       exceptions: assessFieldQuality(businessBrief.exceptions, 'exceptions', businessBrief),
-      acceptanceCriteria: assessFieldQuality(businessBrief.acceptanceCriteria, 'acceptanceCriteria', businessBrief)
+      technologySolutions: assessFieldQuality(businessBrief.technologySolutions, 'technologySolutions', businessBrief)
     },
     approvalRequired: overallGrade !== 'gold',
     nextSteps: generateNextSteps(overallGrade, businessBrief),
@@ -617,6 +625,44 @@ function generateContextualSuggestions(content: string, fieldType: string, busin
         suggestions.push("Describe user journey: '1. User logs in via SSO, 2. Accesses personalized dashboard, 3. Completes task in <30 seconds, 4. Receives confirmation email'");
       } else if (currentContent.toLowerCase().includes('users open app and use it')) {
         suggestions.push(`Expand "users open app and use it" to detailed workflow: "User authenticates with biometrics → views personalized dashboard → selects desired function → completes action within 3 clicks → receives real-time confirmation"`);
+      }
+      break;
+
+    case 'businessOwner':
+      if (!currentContent) {
+        suggestions.push("Assign a specific business owner, e.g., 'Sarah Khan, Head of Digital Transformation'");
+      } else if (currentContent.toLowerCase().includes('john doe') || currentContent.toLowerCase().includes('business people')) {
+        suggestions.push(`Replace "${currentContent}" with a specific person and their role, like "Sarah Khan, Head of Digital Transformation"`);
+      }
+      break;
+
+    case 'leadBusinessUnit':
+      if (!currentContent) {
+        suggestions.push("Specify the lead business unit, e.g., 'IT & Digital Services' or 'Customer Experience'");
+      } else if (currentContent.toLowerCase().includes('technology')) {
+        suggestions.push(`Replace "${currentContent}" with a more specific unit name like "IT & Digital Services" or "Digital Transformation"`);
+      }
+      break;
+
+    case 'primaryStrategicTheme':
+      if (!currentContent) {
+        suggestions.push("Define strategic alignment, e.g., 'Data-Driven Decision Making & Customer-Centricity'");
+      }
+      break;
+
+    case 'technologySolutions':
+      if (!currentContent) {
+        suggestions.push("Specify technology stack, e.g., 'Azure Data Lake, Python ML Models, Power BI, API Gateway'");
+      } else if (currentContent.toLowerCase().includes('old system')) {
+        suggestions.push(`Replace "${currentContent}" with specific technologies like "Azure Data Lake, Snowflake, Python ML Models, Power BI integration"`);
+      }
+      break;
+
+    case 'title':
+      if (!currentContent) {
+        suggestions.push("Provide a clear, descriptive title, e.g., 'AI-Powered Customer Insights Dashboard'");
+      } else if (currentContent.toLowerCase().includes('make an app')) {
+        suggestions.push(`Replace "${currentContent}" with a specific, professional title like "AI-Powered Customer Insights Dashboard"`);
       }
       break;
       
@@ -720,8 +766,12 @@ function generateImprovements(grade: 'gold' | 'silver' | 'bronze', businessBrief
     improvements.important.push('Define project scope more clearly with specific boundaries and deliverables');
   }
   
-  if (!businessBrief.acceptanceCriteria || businessBrief.acceptanceCriteria.length < 30) {
-    improvements.important.push('Provide detailed, testable acceptance criteria');
+  if (!businessBrief.businessOwner || businessBrief.businessOwner.length < 3) {
+    improvements.important.push('Assign a specific business owner responsible for this initiative');
+  }
+
+  if (!businessBrief.leadBusinessUnit || businessBrief.leadBusinessUnit.length < 3) {
+    improvements.important.push('Specify the lead business unit responsible for this initiative');
   }
   
   // Suggested improvements
@@ -731,6 +781,14 @@ function generateImprovements(grade: 'gold' | 'silver' | 'bronze', businessBrief
   
   if (!businessBrief.exceptions || businessBrief.exceptions.length < 30) {
     improvements.suggested.push('Include exception handling and alternative scenarios');
+  }
+
+  if (!businessBrief.technologySolutions || businessBrief.technologySolutions.length < 20) {
+    improvements.suggested.push('Specify the technology solutions and platforms to be used');
+  }
+
+  if (!businessBrief.primaryStrategicTheme || businessBrief.primaryStrategicTheme.length < 10) {
+    improvements.suggested.push('Define the primary strategic theme this initiative aligns with');
   }
   
   improvements.suggested.push('Consider adding supporting documentation or research data');

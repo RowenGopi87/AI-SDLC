@@ -276,22 +276,43 @@ export default function Version1IdeasPage() {
           
           // Pattern 4: For simple suggestions, use a default improvement
           if (!replacementValue) {
-            // Generate a basic improvement based on field type
+            // Generate improvements for V1 visible fields only
             switch (fieldKey) {
+              case 'title':
+                replacementValue = 'AI-Powered Customer Insights Dashboard';
+                break;
               case 'businessObjective':
-                replacementValue = 'Increase revenue by 25% and improve customer satisfaction to 95% within 6 months';
+                replacementValue = 'Enhance customer experience by providing real-time insights and predictive engagement models for front-line staff and decision-makers';
                 break;
               case 'quantifiableBusinessOutcomes':
-                replacementValue = 'Increase monthly sales by 20% ($100K), reduce processing time by 50%, achieve 90%+ customer satisfaction rating';
+                replacementValue = '20% reduction in customer complaints, 15% increase in cross-sell opportunities, 30% reduction in manual reporting time';
+                break;
+              case 'businessOwner':
+                replacementValue = 'Sarah Khan, Head of Digital Transformation';
+                break;
+              case 'leadBusinessUnit':
+                replacementValue = 'IT & Digital Services';
+                break;
+              case 'primaryStrategicTheme':
+                replacementValue = 'Data-Driven Decision Making & Customer-Centricity';
                 break;
               case 'inScope':
-                replacementValue = 'Mobile application development, user authentication system, data analytics dashboard, API integrations';
+                replacementValue = 'AI-based dashboard design & deployment, Integration with CRM/ERP and customer support tools, User training and adoption sessions';
                 break;
               case 'impactOfDoNothing':
-                replacementValue = 'Continue losing 15% customers annually, $50K monthly in manual processing costs, 25% competitive disadvantage';
+                replacementValue = 'Continue losing competitive edge, increased customer churn, higher operational costs from manual processes';
                 break;
               case 'happyPath':
-                replacementValue = 'User logs in → accesses dashboard → completes task in under 30 seconds → receives confirmation';
+                replacementValue = 'Agent logs into dashboard → views consolidated customer profile → AI suggests best action → executes recommendation';
+                break;
+              case 'exceptions':
+                replacementValue = 'Data integration failures, AI model inaccuracies, connectivity/latency issues impacting real-time updates';
+                break;
+              case 'impactedEndUsers':
+                replacementValue = 'Customer Service Agents, Relationship Managers, Sales Teams, Marketing & Analytics Teams';
+                break;
+              case 'technologySolutions':
+                replacementValue = 'Azure Data Lake, Snowflake, Azure Cognitive Services, Python ML Models, Power BI, Tableau integration';
                 break;
               default:
                 replacementValue = suggestion.split('.')[0].trim(); // Use first sentence
@@ -1485,7 +1506,7 @@ export default function Version1IdeasPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-center text-lg">
               <Brain className="w-6 h-6 text-blue-600 mr-2" />
-              AI Assessment in Progress
+              AI Grading in Progress
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center space-y-6 py-6">
