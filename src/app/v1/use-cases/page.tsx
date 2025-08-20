@@ -77,7 +77,6 @@ export default function Version1IdeasPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [showUploadSection, setShowUploadSection] = useState(true);
   const [isUploadProgressModalOpen, setIsUploadProgressModalOpen] = useState(false);
   const [uploadProgressMessage, setUploadProgressMessage] = useState('');
 
@@ -447,7 +446,6 @@ export default function Version1IdeasPage() {
 
         // Close progress modal and show success
         setIsUploadProgressModalOpen(false);
-        setShowUploadSection(false);
         
         // Auto-open the business brief dialog with populated data
         setTimeout(() => {
@@ -475,7 +473,6 @@ export default function Version1IdeasPage() {
   const resetUploadSection = () => {
     setUploadedFile(null);
     setParseError(null);
-    setShowUploadSection(true);
     setIsUploadProgressModalOpen(false);
     setUploadProgressMessage('');
   };
@@ -676,13 +673,7 @@ export default function Version1IdeasPage() {
     setDeletingUseCase(null);
   };
 
-  // General file upload handler for the main upload button
-  const handleGeneralFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      notify.success('File Uploaded', `File "${files[0].name}" uploaded successfully.`);
-    }
-  };
+
 
   const populateBadSampleData = () => {
     setFormData({
@@ -802,13 +793,14 @@ export default function Version1IdeasPage() {
               type="file"
               id="file-upload"
               className="hidden"
-              accept=".pdf,.doc,.docx,.ppt,.pptx"
-              onChange={handleGeneralFileUpload}
+              accept=".pdf,.docx,.doc"
+              onChange={handleFileUpload}
             />
             <Button 
               variant="outline" 
               className="flex items-center space-x-2"
               onClick={() => document.getElementById('file-upload')?.click()}
+              disabled={isUploading || isParsing}
             >
               <Upload size={16} />
               <span>Upload Document</span>
@@ -859,99 +851,6 @@ export default function Version1IdeasPage() {
                 </div>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Document Upload Section */}
-                {showUploadSection && (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="mt-4">
-                        <label htmlFor="file-upload" className="cursor-pointer">
-                          <span className="mt-2 block text-sm font-medium text-gray-900">
-                            Upload Business Brief Document
-                          </span>
-                          <span className="mt-1 block text-sm text-gray-500">
-                            PDF or Word document (.pdf, .docx, .doc)
-                          </span>
-                        </label>
-                        <input
-                          id="file-upload"
-                          name="file-upload"
-                          type="file"
-                          className="sr-only"
-                          accept=".pdf,.docx,.doc"
-                          onChange={handleFileUpload}
-                          disabled={isUploading || isParsing}
-                        />
-                      </div>
-                      <div className="mt-4">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => document.getElementById('file-upload')?.click()}
-                          disabled={isUploading || isParsing}
-                          className="bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
-                        >
-                          {isParsing ? (
-                            <>
-                              <RefreshCw className="animate-spin w-4 h-4 mr-2" />
-                              Parsing Document...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2" />
-                              Choose File
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Upload Status */}
-                {uploadedFile && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                        <div>
-                          <p className="text-sm font-medium text-green-800">
-                            Document uploaded: {uploadedFile.name}
-                          </p>
-                          {!isParsing && (
-                            <p className="text-sm text-green-600">
-                              Fields have been automatically populated below. Review and adjust as needed.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={resetUploadSection}
-                        className="text-gray-600 hover:text-gray-800"
-                      >
-                        <Upload className="w-4 h-4 mr-1" />
-                        Upload Different File
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Parse Error */}
-                {parseError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                      <div>
-                        <p className="text-sm font-medium text-red-800">Upload Error</p>
-                        <p className="text-sm text-red-600">{parseError}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
