@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/app-store';
 import { cn } from '@/lib/utils';
 import { Version1Sidebar } from './components/v1-sidebar';
 import { Version1Header } from './components/v1-header';
+import { RightPanel } from '@/components/layout/right-panel';
 
 interface Version1LayoutProps {
   children: ReactNode;
@@ -40,6 +41,9 @@ export default function Version1Layout({ children }: Version1LayoutProps) {
           </div>
         </main>
       </div>
+      
+      {/* Right Panel - Assistant */}
+      <RightPanel />
       
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (

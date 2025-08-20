@@ -30,9 +30,8 @@ import {
   Code2
 } from 'lucide-react';
 
-// Version 1 specific modules (legacy SDLC modules) - matching original config
+// Version 1 specific modules (legacy SDLC modules) - dashboard moved to bottom
 const V1_MODULES = [
-  { id: "dashboard", name: "Dashboard", path: "/v1/dashboard", icon: BarChart3 },
   { id: "use-cases", name: "Idea", path: "/v1/use-cases", icon: FileText },
   { id: "requirements", name: "Work Items", path: "/v1/requirements", icon: Settings },
   { id: "design", name: "Design", path: "/v1/design", icon: Palette },
@@ -41,6 +40,7 @@ const V1_MODULES = [
   { id: "execution", name: "Execution", path: "/v1/execution", icon: Play },
   { id: "defects", name: "Defects", path: "/v1/defects", icon: Bug },
   { id: "traceability", name: "Traceability", path: "/v1/traceability", icon: GitBranch },
+  { id: "dashboard", name: "Dashboard", path: "/v1/dashboard", icon: BarChart3 },
 ];
 
 export function Version1Sidebar() {

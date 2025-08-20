@@ -30,7 +30,19 @@ export const ragService = new RAGService();
 
 // Utility functions
 export function isRagEnabled(): boolean {
-  return !!(process.env.OPENAI_API_KEY || process.env.AURA_EMBEDDING_API_KEY);
+  // Check multiple possible environment variable names for API keys
+  const hasOpenAI = !!(process.env.OPENAI_API_KEY || process.env.OPENAI_KEY);
+  const hasGoogle = !!(process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  const hasAuraEmbedding = !!process.env.AURA_EMBEDDING_API_KEY;
+  
+  console.log('🔍 RAG Enablement Check:', {
+    hasOpenAI,
+    hasGoogle, 
+    hasAuraEmbedding,
+    enabled: hasOpenAI || hasGoogle || hasAuraEmbedding
+  });
+  
+  return hasOpenAI || hasGoogle || hasAuraEmbedding;
 }
 
 export function getRagStatus() {
