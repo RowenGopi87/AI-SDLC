@@ -32,20 +32,20 @@ export async function POST(request: NextRequest) {
     const validatedData = createInitiativeSchema.parse(body);
     console.log('✅ Request validation passed');
 
-    // Prepare initiative data for database
+    // Prepare initiative data for database - match exact database service expectations
     const initiativeData = {
       id: `INIT-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`,
       businessBriefId: validatedData.businessBriefId,
       title: validatedData.title,
       description: validatedData.description || '',
       businessValue: validatedData.businessValue || validatedData.rationale || '',
-      acceptanceCriteria: JSON.stringify(validatedData.acceptanceCriteria || []),
+      acceptanceCriteria: JSON.stringify(validatedData.acceptanceCriteria || []), // Must be JSON string
       priority: validatedData.priority,
       status: validatedData.status,
-      assignedTo: validatedData.assignedTo || 'Unassigned',
-      estimatedValue: 0,
+                assignedTo: validatedData.assignedTo || 'Unassigned', // Use string for database VARCHAR field
+      estimatedValue: null, // Database expects null for optional numeric fields
       workflowStage: 'planning',
-      completionPercentage: 0,
+      completionPercentage: 0
     };
 
     console.log('💾 Saving initiative to database...');

@@ -52,30 +52,37 @@ export async function POST(request: NextRequest) {
     for (const initiative of result.initiatives) {
       try {
         const initiativeData = {
+          id: `INIT-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 4)}`,
           businessBriefId: businessBriefId,
           title: initiative.title,
           description: initiative.description,
           businessValue: initiative.businessValue || initiative.rationale || '',
-          rationale: initiative.rationale || initiative.businessValue || '',
-          acceptanceCriteria: initiative.acceptanceCriteria || [],
+          acceptanceCriteria: JSON.stringify(initiative.acceptanceCriteria || []), // Convert array to JSON string for database
           priority: initiative.priority || 'medium',
           status: 'planning',
-          category: initiative.category || 'business',
-          workflowStage: 'planning',
           assignedTo: businessBriefData.businessOwner || 'Unassigned',
-          estimatedEffort: initiative.estimatedEffort || 'TBD',
-          businessImpact: initiative.businessImpact || 'medium',
-          technicalComplexity: initiative.technicalComplexity || 'medium',
-          dependencies: initiative.dependencies || [],
-          risks: initiative.risks || [],
-          successMetrics: initiative.successMetrics || []
+          estimatedValue: null, // Database expects null, not 0
+          workflowStage: 'planning',
+          completionPercentage: 0
         };
+
+        console.log(`💾 Saving initiative "${initiative.title}" with data:`, {
+          id: initiativeData.id,
+          businessBriefId: initiativeData.businessBriefId,
+          title: initiativeData.title,
+          priority: initiativeData.priority,
+          status: initiativeData.status,
+          assignedTo: initiativeData.assignedTo,
+          acceptanceCriteriaType: typeof initiativeData.acceptanceCriteria,
+          acceptanceCriteriaLength: initiativeData.acceptanceCriteria.length
+        });
 
         const savedInitiative = await databaseService.createInitiative(initiativeData);
         savedInitiatives.push(savedInitiative);
         console.log(`✅ Saved initiative: ${savedInitiative.title} (ID: ${savedInitiative.id})`);
       } catch (saveError) {
         console.error(`❌ Failed to save initiative: ${initiative.title}`, saveError);
+        console.error('Initiative data that failed:', initiative);
         // Continue with other initiatives even if one fails
       }
     }
