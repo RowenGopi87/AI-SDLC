@@ -322,8 +322,7 @@ export default function RequirementsPage() {
     console.log('🔍 Requirements page - Initiatives count:', initiatives.length);
     if (initiatives.length > 0) {
       console.log('🔍 Requirements page - First initiative:', initiatives[0]);
-      const businessBriefIds = [...new Set(initiatives.map(init => init.businessBriefId))];
-      setExpandedItems(new Set(businessBriefIds));
+      // Keep all items collapsed by default - users can expand manually
     }
   }, [initiatives]);
 
