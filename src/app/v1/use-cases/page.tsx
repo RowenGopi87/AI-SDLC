@@ -547,17 +547,30 @@ export default function Version1IdeasPage() {
               case 'technologySolutions':
                 replacementValue = 'Azure Data Lake, Snowflake, Azure Cognitive Services, Python ML Models, Power BI, Tableau integration';
                 break;
+              case 'submittedBy':
+                replacementValue = 'Rowen Gopi';
+                break;
               default:
+                // Skip fields that don't exist in V1 form
+                if (['acceptanceCriteria', 'changeImpactExpected'].includes(fieldKey)) {
+                  console.log(`⚠️ Skipping non-existent field: ${fieldKey}`);
+                  return; // Skip this field entirely
+                }
                 replacementValue = suggestion.split('.')[0].trim(); // Use first sentence
             }
             console.log('✅ Using default improvement:', replacementValue);
           }
           
-          // Apply the replacement if we have a valid value
+          // Apply the replacement if we have a valid value and field exists in V1 form
           if (replacementValue && replacementValue.length > 5) {
-            (updatedFormData as any)[fieldKey] = replacementValue;
-            appliedCount++;
-            console.log(`✅ Updated ${fieldKey} with:`, replacementValue);
+            // Only apply to fields that actually exist in the V1 form
+            if (formData.hasOwnProperty(fieldKey)) {
+              (updatedFormData as any)[fieldKey] = replacementValue;
+              appliedCount++;
+              console.log(`✅ Updated ${fieldKey} with:`, replacementValue);
+            } else {
+              console.log(`⚠️ Skipping non-existent form field: ${fieldKey}`);
+            }
           }
         });
       }
@@ -804,16 +817,27 @@ export default function Version1IdeasPage() {
   };
 
   // Handle dialog close and reset all states
-  const handleDialogClose = () => {
-    console.log('🔒 Closing business brief dialog and resetting upload states');
-    setIsDialogOpen(false);
-    resetUploadSection();
+  const handleDialogClose = (open: boolean) => {
+    console.log('🔒 Dialog state changing to:', open);
+    if (!open) {
+      console.log('🔒 Closing business brief dialog and resetting upload states');
+      setIsDialogOpen(false);
+      resetUploadSection();
+    } else {
+      setIsDialogOpen(true);
+    }
   };
 
   // Handle dialog open with clean states
   const handleDialogOpen = () => {
     resetUploadSection(); // Ensure clean state for new uploads
     setIsDialogOpen(true);
+  };
+
+  // Handle cancel button click
+  const handleCancelDialog = () => {
+    console.log('❌ Cancel button clicked');
+    handleDialogClose(false);
   };
 
   const proceedWithSubmission = async () => {
@@ -1261,7 +1285,13 @@ export default function Version1IdeasPage() {
           
           <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
-              <Button className="flex items-center space-x-2">
+              <Button 
+                className="flex items-center space-x-2"
+                onClick={() => {
+                  console.log('📝 New Business Brief button clicked');
+                  resetUploadSection(); // Ensure clean state
+                }}
+              >
                 <Plus size={16} />
                 <span>New Business Brief</span>
               </Button>
@@ -1507,7 +1537,7 @@ export default function Version1IdeasPage() {
                 </div>
                 
                 <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={handleDialogClose}>
+                  <Button type="button" variant="outline" onClick={handleCancelDialog}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={isAssessing}>

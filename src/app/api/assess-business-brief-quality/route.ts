@@ -15,7 +15,7 @@ const BusinessBriefAssessmentSchema = z.object({
     happyPath: z.string().optional(),
     exceptions: z.string().optional(),
     impactedEndUsers: z.string(),
-    changeImpactExpected: z.string(),
+
     impactToOtherDepartments: z.string().optional(),
     impactsExistingTechnology: z.boolean(),
     technologySolutions: z.string().optional(),
@@ -23,7 +23,7 @@ const BusinessBriefAssessmentSchema = z.object({
     otherTechnologyInfo: z.string().optional(),
     submittedBy: z.string(),
     priority: z.string(),
-    acceptanceCriteria: z.string().optional(),
+
     description: z.string().optional(),
     businessValue: z.string().optional(),
   }),
@@ -193,12 +193,11 @@ Provide your assessment as a JSON object with the following structure:
     },
     "quantifiableBusinessOutcomes": { ... },
     "impactedEndUsers": { ... },
-    "changeImpactExpected": { ... },
     "inScope": { ... },
     "impactOfDoNothing": { ... },
     "happyPath": { ... },
     "exceptions": { ... },
-    "acceptanceCriteria": { ... }
+    "technologySolutions": { ... }
   },
   "approvalRequired": true,
   "nextSteps": [
@@ -247,12 +246,8 @@ Happy Path: ${businessBrief.happyPath || 'Not specified'}
 
 Exceptions: ${businessBrief.exceptions || 'Not specified'}
 
-Acceptance Criteria: ${businessBrief.acceptanceCriteria || 'Not provided'}
-
 STAKEHOLDER IMPACT:
 Impacted End-Users: ${businessBrief.impactedEndUsers || 'Not specified'}
-
-Change Impact Expected: ${businessBrief.changeImpactExpected || 'Not specified'}
 
 Impact to Other Departments: ${businessBrief.impactToOtherDepartments || 'Not specified'}
 
@@ -533,16 +528,15 @@ async function getMockAssessment(businessBrief: any): Promise<QualityAssessment>
   const themeQuality = assessFieldQuality(businessBrief.primaryStrategicTheme, 'primaryStrategicTheme', businessBrief);
   const scopeQuality = assessFieldQuality(businessBrief.inScope, 'inScope', businessBrief);
   
-  // Calculate overall score focusing on key visible fields (weighted average)
+  // Calculate overall score focusing on key visible V1 fields (weighted average = 100%)
   const overallScore = (
-    (titleQuality.score * 0.12) +
-    (objectiveQuality.score * 0.25) +
-    (outcomesQuality.score * 0.20) +
-    (businessOwnerQuality.score * 0.10) +
-    (leadUnitQuality.score * 0.10) +
-    (themeQuality.score * 0.08) +
-    (scopeQuality.score * 0.10) +
-    (usersQuality.score * 0.05)
+    (titleQuality.score * 0.15) +           // 15% - Clear title
+    (objectiveQuality.score * 0.30) +      // 30% - Most important: business objective
+    (outcomesQuality.score * 0.25) +       // 25% - Quantifiable outcomes critical
+    (businessOwnerQuality.score * 0.10) +  // 10% - Owner assignment
+    (leadUnitQuality.score * 0.10) +       // 10% - Unit responsibility  
+    (themeQuality.score * 0.05) +          // 5%  - Strategic alignment
+    (scopeQuality.score * 0.05)            // 5%  - Scope definition
   );
   
   const overallGrade: 'gold' | 'silver' | 'bronze' = 
@@ -560,9 +554,10 @@ async function getMockAssessment(businessBrief: any): Promise<QualityAssessment>
       quantifiableBusinessOutcomes: outcomesQuality,
       businessOwner: businessOwnerQuality,
       leadBusinessUnit: leadUnitQuality,
-      primaryStrategicTheme: assessFieldQuality(businessBrief.primaryStrategicTheme, 'primaryStrategicTheme', businessBrief),
-      impactedEndUsers: usersQuality,
+      primaryStrategicTheme: themeQuality,
       inScope: scopeQuality,
+      // Optional fields for additional feedback but not heavily weighted
+      impactedEndUsers: usersQuality,
       impactOfDoNothing: assessFieldQuality(businessBrief.impactOfDoNothing, 'impactOfDoNothing', businessBrief),
       happyPath: assessFieldQuality(businessBrief.happyPath, 'happyPath', businessBrief),
       exceptions: assessFieldQuality(businessBrief.exceptions, 'exceptions', businessBrief),
