@@ -578,19 +578,47 @@ async def generate_design_code(request: DesignCodeGenerationRequest):
         # For design code generation, we don't need MCP tools - just direct LLM call
         # This is different from test execution (needs Playwright) or Jira (needs Jira MCP)
         
-        # Combine system and user prompts
+        # Combine system and user prompts with length validation
         full_prompt = f"""
 {request.systemPrompt}
 
 {request.userPrompt}
 """
+        
+        # Validate prompt length for Google Gemini (has stricter limits)
+        if request.llm_provider == "google" and len(full_prompt) > 30000:
+            print(f"[WARNING] Prompt too long for Google Gemini: {len(full_prompt)} chars, truncating...")
+            # Truncate but keep structure
+            system_part = request.systemPrompt[:15000] if len(request.systemPrompt) > 15000 else request.systemPrompt
+            user_part = request.userPrompt[:15000] if len(request.userPrompt) > 15000 else request.userPrompt
+            full_prompt = f"{system_part}\n\n{user_part}"
+        
+        print(f"[PROMPT] Final prompt length: {len(full_prompt)} characters")
 
         # Create LLM directly (no MCP tools needed for design generation)
         try:
             if request.llm_provider == "google":
+                # Get Google API key
+                google_api_key = os.getenv("GOOGLE_API_KEY")
+                if not google_api_key:
+                    raise Exception("GOOGLE_API_KEY environment variable not set")
+                
+                # Use correct Google model name and add parameters
+                model_name = request.model
+                if model_name == "gemini-2.5-pro":
+                    model_name = "gemini-pro"  # Use correct model name
+                elif model_name == "gemini-2.0-flash":
+                    model_name = "gemini-pro"  # Fallback to stable model
+                
+                print(f"[LLM] Using Google model: {model_name} (mapped from {request.model})")
+                print(f"[API] Google API Key present: {bool(google_api_key)}")
+                
                 llm = ChatGoogleGenerativeAI(
-                    model=request.model,
-                    google_api_key=os.getenv("GOOGLE_API_KEY")
+                    model=model_name,
+                    google_api_key=google_api_key,
+                    temperature=0.7,  # Add temperature parameter
+                    max_tokens=4000,  # Add max tokens
+                    convert_system_message_to_human=True  # Important for Gemini compatibility
                 )
             else:
                 llm = ChatOpenAI(
@@ -608,36 +636,55 @@ async def generate_design_code(request: DesignCodeGenerationRequest):
                 error=str(llm_error)
             )
         
-        # Execute the design generation
+        # Execute the design generation with retry logic for Google API
         start_time = time.time()
-        try:
-            print(f"[GENERATE] Starting AI code generation...")
-            result = llm.invoke(full_prompt)
-            execution_time = time.time() - start_time
-            
-            print(f"[OK] Code generation completed in {execution_time:.2f}s")
-            
-            # Extract the content from the LLM response
-            result_content = result.content if hasattr(result, 'content') else str(result)
-            
-            # Parse the result to extract HTML, CSS, JavaScript
-            generated_code = parse_generated_code(result_content, request.framework)
-            
-            return DesignCodeGenerationResponse(
-                success=True,
-                data=generated_code,
-                message=f"Code generated successfully in {execution_time:.2f}s"
-            )
-            
-        except Exception as generation_error:
-            print(f"[ERROR] Code generation failed: {generation_error}")
-            execution_time = time.time() - start_time
-            
-            return DesignCodeGenerationResponse(
-                success=False,
-                message=f"Code generation failed after {execution_time:.2f}s",
-                error=str(generation_error)
-            )
+        max_retries = 3 if request.llm_provider == "google" else 1
+        
+        for attempt in range(max_retries):
+            try:
+                if attempt > 0:
+                    wait_time = 2 ** attempt  # Exponential backoff: 2s, 4s, 8s
+                    print(f"[RETRY] Attempt {attempt + 1}/{max_retries} after {wait_time}s wait...")
+                    await asyncio.sleep(wait_time)
+                
+                print(f"[GENERATE] Starting AI code generation (attempt {attempt + 1})...")
+                result = llm.invoke(full_prompt)
+                execution_time = time.time() - start_time
+                
+                print(f"[OK] Code generation completed in {execution_time:.2f}s")
+                break  # Success, exit retry loop
+                
+            except Exception as generation_error:
+                execution_time = time.time() - start_time
+                error_str = str(generation_error)
+                
+                print(f"[ERROR] Attempt {attempt + 1} failed: {error_str}")
+                
+                # Check if this is a retryable Google API error
+                if (request.llm_provider == "google" and 
+                    ("500" in error_str or "InternalServerError" in error_str or "timeout" in error_str.lower()) and 
+                    attempt < max_retries - 1):
+                    print(f"[RETRY] Google API error detected, will retry...")
+                    continue
+                else:
+                    # Not retryable or max retries reached
+                    print(f"[ERROR] Code generation failed after {execution_time:.2f}s")
+                    raise generation_error
+        else:
+            # This runs if the for loop completes without breaking (all retries failed)
+            raise Exception(f"Code generation failed after {max_retries} attempts")
+        
+        # Extract the content from the LLM response
+        result_content = result.content if hasattr(result, 'content') else str(result)
+        
+        # Parse the result to extract HTML, CSS, JavaScript
+        generated_code = parse_generated_code(result_content, request.framework)
+        
+        return DesignCodeGenerationResponse(
+            success=True,
+            data=generated_code,
+            message=f"Code generated successfully in {execution_time:.2f}s"
+        )
             
     except Exception as e:
         error_msg = str(e)
@@ -661,9 +708,27 @@ async def generate_code(request: CodeGenerationRequest):
         # Create LLM directly (no MCP tools needed for code generation)
         try:
             if request.llm_provider == "google":
+                # Get Google API key
+                google_api_key = os.getenv("GOOGLE_API_KEY")
+                if not google_api_key:
+                    raise Exception("GOOGLE_API_KEY environment variable not set")
+                
+                # Use correct Google model name and add parameters
+                model_name = request.model
+                if model_name == "gemini-2.5-pro":
+                    model_name = "gemini-pro"  # Use correct model name
+                elif model_name == "gemini-2.0-flash":
+                    model_name = "gemini-pro"  # Fallback to stable model
+                
+                print(f"[LLM] Using Google model: {model_name} (mapped from {request.model})")
+                print(f"[API] Google API Key present: {bool(google_api_key)}")
+                
                 llm = ChatGoogleGenerativeAI(
-                    model=request.model,
-                    google_api_key=os.getenv("GOOGLE_API_KEY")
+                    model=model_name,
+                    google_api_key=google_api_key,
+                    temperature=0.7,  # Add temperature parameter
+                    max_tokens=4000,  # Add max tokens
+                    convert_system_message_to_human=True  # Important for Gemini compatibility
                 )
             else:
                 llm = ChatOpenAI(
