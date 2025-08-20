@@ -72,6 +72,13 @@ export default function Version1IdeasPage() {
   const [qualityAssessment, setQualityAssessment] = useState<any>(null);
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<{[fieldKey: string]: {[suggestionIndex: number]: boolean | null}}>({});
   
+  // Document upload states
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [showUploadSection, setShowUploadSection] = useState(true);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -334,6 +341,101 @@ export default function Version1IdeasPage() {
       'Edit Mode', 
       'Make your improvements and click "Submit Business Brief" when ready to save.'
     );
+  };
+
+  // Document upload functions
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setParseError('Please upload a PDF or Word document (.pdf, .docx, .doc)');
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      setParseError('File size must be less than 10MB');
+      return;
+    }
+
+    setUploadedFile(file);
+    setParseError(null);
+    await parseDocument(file);
+  };
+
+  const parseDocument = async (file: File) => {
+    setIsParsing(true);
+    setParseError(null);
+
+    try {
+      const formDataObj = new FormData();
+      formDataObj.append('document', file);
+
+      const response = await fetch('/api/v1/parse-business-brief', {
+        method: 'POST',
+        body: formDataObj,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to parse document: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Map parsed fields to form data with fuzzy matching
+        setFormData(prev => ({
+          ...prev,
+          title: result.data.title || result.data.ideaTitle || result.data.projectName || prev.title,
+          description: result.data.description || result.data.businessAim || result.data.businessDescription || prev.description,
+          businessOwner: result.data.businessOwner || result.data.owner || result.data.submittedPerson || prev.businessOwner,
+          leadBusinessUnit: result.data.leadBusinessUnit || result.data.mainBusinessDepartment || result.data.businessUnit || prev.leadBusinessUnit,
+          primaryStrategicTheme: result.data.primaryStrategicTheme || result.data.strategicDirection || prev.primaryStrategicTheme,
+          businessObjective: result.data.businessObjective || result.data.businessAim || prev.businessObjective,
+          quantifiableBusinessOutcomes: result.data.quantifiableBusinessOutcomes || result.data.expectedResults || prev.quantifiableBusinessOutcomes,
+          inScope: result.data.inScope || result.data.includedScope || prev.inScope,
+          impactOfDoNothing: result.data.impactOfDoNothing || result.data.ifIgnored || prev.impactOfDoNothing,
+          happyPath: result.data.happyPath || result.data.path || result.data.steps || prev.happyPath,
+          exceptions: result.data.exceptions || prev.exceptions,
+          impactedEndUsers: result.data.impactedEndUsers || result.data.affectedUsers || prev.impactedEndUsers,
+          changeImpactExpected: result.data.changeImpactExpected || prev.changeImpactExpected,
+          impactToOtherDepartments: result.data.impactToOtherDepartments || prev.impactToOtherDepartments,
+          technologySolutions: result.data.technologySolutions || result.data.techTools || prev.technologySolutions,
+          relevantBusinessOwners: result.data.relevantBusinessOwners || prev.relevantBusinessOwners,
+          otherTechnologyInfo: result.data.otherTechnologyInfo || prev.otherTechnologyInfo,
+          // Parse array fields
+          additionalBusinessUnits: result.data.additionalBusinessUnits || prev.additionalBusinessUnits,
+          otherDepartmentsImpacted: result.data.otherDepartmentsImpacted || prev.otherDepartmentsImpacted,
+          supportingDocuments: result.data.supportingDocuments || prev.supportingDocuments,
+          priority: result.data.priority || result.data.urgency || prev.priority,
+          impactsExistingTechnology: result.data.impactsExistingTechnology ?? prev.impactsExistingTechnology,
+        }));
+
+        notify.success('Document Parsed', `Successfully extracted fields from ${file.name}`);
+        setShowUploadSection(false);
+      } else {
+        throw new Error(result.message || 'Failed to parse document');
+      }
+    } catch (error) {
+      console.error('Error parsing document:', error);
+      setParseError(error instanceof Error ? error.message : 'Failed to parse document');
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const resetUploadSection = () => {
+    setUploadedFile(null);
+    setParseError(null);
+    setShowUploadSection(true);
   };
 
   const proceedWithSubmission = async () => {
@@ -714,6 +816,99 @@ export default function Version1IdeasPage() {
                 </div>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Document Upload Section */}
+                {showUploadSection && (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50">
+                    <div className="text-center">
+                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="mt-4">
+                        <label htmlFor="file-upload" className="cursor-pointer">
+                          <span className="mt-2 block text-sm font-medium text-gray-900">
+                            Upload Business Brief Document
+                          </span>
+                          <span className="mt-1 block text-sm text-gray-500">
+                            PDF or Word document (.pdf, .docx, .doc)
+                          </span>
+                        </label>
+                        <input
+                          id="file-upload"
+                          name="file-upload"
+                          type="file"
+                          className="sr-only"
+                          accept=".pdf,.docx,.doc"
+                          onChange={handleFileUpload}
+                          disabled={isUploading || isParsing}
+                        />
+                      </div>
+                      <div className="mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => document.getElementById('file-upload')?.click()}
+                          disabled={isUploading || isParsing}
+                          className="bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
+                        >
+                          {isParsing ? (
+                            <>
+                              <RefreshCw className="animate-spin w-4 h-4 mr-2" />
+                              Parsing Document...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Choose File
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Status */}
+                {uploadedFile && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                        <div>
+                          <p className="text-sm font-medium text-green-800">
+                            Document uploaded: {uploadedFile.name}
+                          </p>
+                          {!isParsing && (
+                            <p className="text-sm text-green-600">
+                              Fields have been automatically populated below. Review and adjust as needed.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={resetUploadSection}
+                        className="text-gray-600 hover:text-gray-800"
+                      >
+                        <Upload className="w-4 h-4 mr-1" />
+                        Upload Different File
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Parse Error */}
+                {parseError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800">Upload Error</p>
+                        <p className="text-sm text-red-600">{parseError}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
