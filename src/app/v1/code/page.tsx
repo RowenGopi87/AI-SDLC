@@ -160,6 +160,9 @@ export default function CodePage() {
   const [isReverseEngineering, setIsReverseEngineering] = useState(false);
   const [reverseProgress, setReverseProgress] = useState(0);
   
+  // Real vs Mock LLM toggle for code reverse engineering
+  const [useRealLLMForCode, setUseRealLLMForCode] = useState(false);
+  
   // Viewport dimensions
   const viewportDimensions = {
     desktop: { width: '100%', height: '600px' },
@@ -1521,14 +1524,22 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
         codeContent = reverseConfig.pastedCode;
       }
 
-      console.log('[REVERSE] Starting reverse engineering with:', {
+      console.log('[CODE-REVERSE] Starting reverse engineering with:', {
         inputType: reverseConfig.inputType,
         analysisLevel: reverseConfig.analysisLevel,
         filesCount: reverseConfig.codeFiles.length,
-        codeLength: codeContent.length
+        codeLength: codeContent.length,
+        useRealLLM: useRealLLMForCode
       });
 
-      // Call the reverse engineering API
+      // Show user notification about which mode is being used
+      if (useRealLLMForCode) {
+        console.log('🔥 [CODE-REVERSE] REAL LLM MODE ENABLED - Using Google Gemini with OpenAI fallback');
+      } else {
+        console.log('🎭 [CODE-REVERSE] MOCK MODE ENABLED - Using mock analysis (no API costs)');
+      }
+
+      // Call the reverse engineering API with Real LLM flag
       const response = await fetch('/api/reverse-engineer', {
         method: 'POST',
         headers: {
@@ -1541,18 +1552,19 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
           fileData,
           analysisLevel: reverseConfig.analysisLevel,
           includeTests: reverseConfig.includeTests,
-          includeDocumentation: reverseConfig.includeDocumentation
+          includeDocumentation: reverseConfig.includeDocumentation,
+          useRealLLM: useRealLLMForCode  // Pass the Real LLM flag
         }),
       });
 
-      console.log('[REVERSE] API Response status:', response.status);
+      console.log('[CODE-REVERSE] API Response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`API Error: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('[REVERSE] API Response:', result);
+      console.log('[CODE-REVERSE] API Response:', result);
       
       if (progressInterval) {
         clearInterval(progressInterval);
@@ -2489,6 +2501,29 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                       </div>
                     </div>
 
+                    {/* LLM Mode Toggle */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-yellow-800 mb-2">⚙️ Analysis Mode</h4>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="use-real-llm-code"
+                          checked={useRealLLMForCode}
+                          onChange={(e) => setUseRealLLMForCode(e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="use-real-llm-code" className="text-sm text-yellow-700">
+                          <span className="font-medium">Use Real LLM</span> (requires API key configuration)
+                        </label>
+                      </div>
+                      <p className="text-xs text-yellow-600 mt-1">
+                        {useRealLLMForCode 
+                          ? "🔥 Using real AI for comprehensive code analysis with software architect expertise" 
+                          : "🎭 Using mock analysis for development/testing (no API costs)"
+                        }
+                      </p>
+                    </div>
+
                     {/* Analyze Button */}
                     <Button
                       onClick={reverseEngineerCode}
@@ -2503,12 +2538,12 @@ export default ${workItem?.title.replace(/\\s+/g, '')}Component;`;
                       {isReverseEngineering ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Analyzing Code...
+                          {useRealLLMForCode ? 'Analyzing with AI...' : 'Analyzing Code...'}
                         </>
                       ) : (
                         <>
                           <BrainCircuit className="w-4 h-4 mr-2" />
-                          Reverse Engineer Code
+                          {useRealLLMForCode ? 'Analyze with Real AI' : 'Reverse Engineer Code'}
                         </>
                       )}
                     </Button>

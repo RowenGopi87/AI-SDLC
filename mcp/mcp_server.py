@@ -150,6 +150,20 @@ class ReverseEngineerDesignResponse(BaseModel):
     message: str
     error: Optional[str] = None
 
+class ReverseEngineerCodeRequest(BaseModel):
+    systemPrompt: str
+    userPrompt: str
+    analysisLevel: str
+    codeLength: int
+    llm_provider: str = "google"
+    model: str = "gemini-2.5-pro"
+
+class ReverseEngineerCodeResponse(BaseModel):
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    message: str
+    error: Optional[str] = None
+
 async def create_mcp_client(server_type: str = "playwright"):
     """Create a new MCP client for the specified server type"""
     try:
@@ -578,47 +592,19 @@ async def generate_design_code(request: DesignCodeGenerationRequest):
         # For design code generation, we don't need MCP tools - just direct LLM call
         # This is different from test execution (needs Playwright) or Jira (needs Jira MCP)
         
-        # Combine system and user prompts with length validation
+        # Combine system and user prompts
         full_prompt = f"""
 {request.systemPrompt}
 
 {request.userPrompt}
 """
-        
-        # Validate prompt length for Google Gemini (has stricter limits)
-        if request.llm_provider == "google" and len(full_prompt) > 30000:
-            print(f"[WARNING] Prompt too long for Google Gemini: {len(full_prompt)} chars, truncating...")
-            # Truncate but keep structure
-            system_part = request.systemPrompt[:15000] if len(request.systemPrompt) > 15000 else request.systemPrompt
-            user_part = request.userPrompt[:15000] if len(request.userPrompt) > 15000 else request.userPrompt
-            full_prompt = f"{system_part}\n\n{user_part}"
-        
-        print(f"[PROMPT] Final prompt length: {len(full_prompt)} characters")
 
         # Create LLM directly (no MCP tools needed for design generation)
         try:
             if request.llm_provider == "google":
-                # Get Google API key
-                google_api_key = os.getenv("GOOGLE_API_KEY")
-                if not google_api_key:
-                    raise Exception("GOOGLE_API_KEY environment variable not set")
-                
-                # Use correct Google model name and add parameters
-                model_name = request.model
-                if model_name == "gemini-2.5-pro":
-                    model_name = "gemini-pro"  # Use correct model name
-                elif model_name == "gemini-2.0-flash":
-                    model_name = "gemini-pro"  # Fallback to stable model
-                
-                print(f"[LLM] Using Google model: {model_name} (mapped from {request.model})")
-                print(f"[API] Google API Key present: {bool(google_api_key)}")
-                
                 llm = ChatGoogleGenerativeAI(
-                    model=model_name,
-                    google_api_key=google_api_key,
-                    temperature=0.7,  # Add temperature parameter
-                    max_tokens=4000,  # Add max tokens
-                    convert_system_message_to_human=True  # Important for Gemini compatibility
+                    model=request.model,
+                    google_api_key=os.getenv("GOOGLE_API_KEY")
                 )
             else:
                 llm = ChatOpenAI(
@@ -636,55 +622,80 @@ async def generate_design_code(request: DesignCodeGenerationRequest):
                 error=str(llm_error)
             )
         
-        # Execute the design generation with retry logic for Google API
+        # Execute the design generation
         start_time = time.time()
-        max_retries = 3 if request.llm_provider == "google" else 1
-        
-        for attempt in range(max_retries):
-            try:
-                if attempt > 0:
-                    wait_time = 2 ** attempt  # Exponential backoff: 2s, 4s, 8s
-                    print(f"[RETRY] Attempt {attempt + 1}/{max_retries} after {wait_time}s wait...")
-                    await asyncio.sleep(wait_time)
-                
-                print(f"[GENERATE] Starting AI code generation (attempt {attempt + 1})...")
-                result = llm.invoke(full_prompt)
-                execution_time = time.time() - start_time
-                
-                print(f"[OK] Code generation completed in {execution_time:.2f}s")
-                break  # Success, exit retry loop
-                
-            except Exception as generation_error:
-                execution_time = time.time() - start_time
-                error_str = str(generation_error)
-                
-                print(f"[ERROR] Attempt {attempt + 1} failed: {error_str}")
-                
-                # Check if this is a retryable Google API error
-                if (request.llm_provider == "google" and 
-                    ("500" in error_str or "InternalServerError" in error_str or "timeout" in error_str.lower()) and 
-                    attempt < max_retries - 1):
-                    print(f"[RETRY] Google API error detected, will retry...")
-                    continue
-                else:
-                    # Not retryable or max retries reached
-                    print(f"[ERROR] Code generation failed after {execution_time:.2f}s")
-                    raise generation_error
-        else:
-            # This runs if the for loop completes without breaking (all retries failed)
-            raise Exception(f"Code generation failed after {max_retries} attempts")
-        
-        # Extract the content from the LLM response
-        result_content = result.content if hasattr(result, 'content') else str(result)
-        
-        # Parse the result to extract HTML, CSS, JavaScript
-        generated_code = parse_generated_code(result_content, request.framework)
-        
-        return DesignCodeGenerationResponse(
-            success=True,
-            data=generated_code,
-            message=f"Code generated successfully in {execution_time:.2f}s"
-        )
+        try:
+            print(f"[GENERATE] Starting AI code generation...")
+            result = llm.invoke(full_prompt)
+            execution_time = time.time() - start_time
+            
+            print(f"[OK] Code generation completed in {execution_time:.2f}s")
+            
+            # Extract the content from the LLM response with better error handling
+            print(f"[DEBUG] LLM result type: {type(result)}")
+            print(f"[DEBUG] LLM result attributes: {dir(result)}")
+            
+            # Check both content and text attributes for LangChain AIMessage
+            content_attr = getattr(result, 'content', None)
+            text_attr = getattr(result, 'text', None)
+            
+            print(f"[DEBUG] result.content: {len(str(content_attr)) if content_attr else 'None'} chars")
+            print(f"[DEBUG] result.text: {len(str(text_attr)) if text_attr else 'None'} chars")
+            
+            if content_attr and len(str(content_attr)) > 0:
+                result_content = content_attr
+                print(f"[DEBUG] Using result.content: {len(str(result_content))} chars")
+            elif text_attr and len(str(text_attr)) > 0:
+                result_content = text_attr
+                print(f"[DEBUG] Using result.text: {len(str(result_content))} chars")
+            elif hasattr(result, 'message') and result.message:
+                result_content = result.message
+                print(f"[DEBUG] Using result.message: {len(str(result_content))} chars")
+            else:
+                result_content = str(result)
+                print(f"[DEBUG] Using str(result): {len(str(result_content))} chars")
+            
+            print(f"[DEBUG] Final result_content preview: {str(result_content)[:300]}...")
+            
+            # Check if the result is empty (0 tokens) - treat this as a failure
+            if not result_content or len(str(result_content).strip()) == 0:
+                print(f"[ERROR] LLM returned empty content (0 tokens) - treating as failure")
+                raise Exception(f"LLM returned empty response (0 tokens)")
+            
+            # Parse the result to extract HTML, CSS, JavaScript
+            generated_code = parse_generated_code(str(result_content), request.framework)
+            
+            # Additional validation - if parsed HTML is still empty after having content, use raw result
+            if generated_code.get('html', '').count('<body>') > 0:
+                body_start = generated_code['html'].find('<body>') + 6
+                body_end = generated_code['html'].find('</body>')
+                if body_end > body_start:
+                    body_content = generated_code['html'][body_start:body_end].strip()
+                    if len(body_content) < 10:
+                        print(f"[WARNING] Parsed HTML body is empty, using raw LLM result instead")
+                        generated_code = {
+                            "html": str(result_content),
+                            "css": "/* Embedded in HTML */",
+                            "javascript": "/* Embedded in HTML */",
+                            "framework": request.framework,
+                            "generatedAt": datetime.now().isoformat()
+                        }
+
+            return DesignCodeGenerationResponse(
+                success=True,
+                data=generated_code,
+                message=f"Code generated successfully in {execution_time:.2f}s using {request.llm_provider}"
+            )
+            
+        except Exception as generation_error:
+            print(f"[ERROR] Code generation failed: {generation_error}")
+            execution_time = time.time() - start_time
+            
+            return DesignCodeGenerationResponse(
+                success=False,
+                message=f"Code generation failed after {execution_time:.2f}s",
+                error=str(generation_error)
+            )
             
     except Exception as e:
         error_msg = str(e)
@@ -708,27 +719,9 @@ async def generate_code(request: CodeGenerationRequest):
         # Create LLM directly (no MCP tools needed for code generation)
         try:
             if request.llm_provider == "google":
-                # Get Google API key
-                google_api_key = os.getenv("GOOGLE_API_KEY")
-                if not google_api_key:
-                    raise Exception("GOOGLE_API_KEY environment variable not set")
-                
-                # Use correct Google model name and add parameters
-                model_name = request.model
-                if model_name == "gemini-2.5-pro":
-                    model_name = "gemini-pro"  # Use correct model name
-                elif model_name == "gemini-2.0-flash":
-                    model_name = "gemini-pro"  # Fallback to stable model
-                
-                print(f"[LLM] Using Google model: {model_name} (mapped from {request.model})")
-                print(f"[API] Google API Key present: {bool(google_api_key)}")
-                
                 llm = ChatGoogleGenerativeAI(
-                    model=model_name,
-                    google_api_key=google_api_key,
-                    temperature=0.7,  # Add temperature parameter
-                    max_tokens=4000,  # Add max tokens
-                    convert_system_message_to_human=True  # Important for Gemini compatibility
+                    model=request.model,
+                    google_api_key=os.getenv("GOOGLE_API_KEY")
                 )
             else:
                 llm = ChatOpenAI(
@@ -972,41 +965,65 @@ async def apply_suggestions(request: ApplySuggestionsRequest):
 def parse_generated_code(llm_result: str, framework: str) -> Dict[str, Any]:
     """
     Parse the LLM result to extract HTML, CSS, and JavaScript code
+    For design generation, we want a single HTML file with embedded CSS and JS
     """
     try:
-        # The LLM should return a complete HTML file
-        # We need to extract the different parts for the frontend
-        
         result_str = str(llm_result)
+        print(f"[PARSE] Raw LLM result length: {len(result_str)}")
+        print(f"[PARSE] Raw LLM result preview: {result_str[:500]}...")
         
         # Look for HTML code blocks or complete HTML
+        html_content = ""
         if '```html' in result_str:
             # Extract HTML from code block
             html_start = result_str.find('```html') + 7
             html_end = result_str.find('```', html_start)
             html_content = result_str[html_start:html_end].strip()
+            print(f"[PARSE] Extracted HTML from code block, length: {len(html_content)}")
         elif '<!DOCTYPE html>' in result_str:
-            # Full HTML document
+            # Full HTML document - use as-is
             html_content = result_str.strip()
+            print(f"[PARSE] Using complete HTML document, length: {len(html_content)}")
         else:
             # Fallback - treat entire result as HTML
             html_content = result_str.strip()
+            print(f"[PARSE] Using entire result as HTML fallback, length: {len(html_content)}")
         
-        # Extract CSS from the HTML (between <style> tags)
+        # For single-file HTML generation, we return the complete HTML as-is
+        # and extract CSS/JS only for display purposes in the code tabs
         css_content = ""
+        js_content = ""
+        
+        # Extract CSS from the HTML (between <style> tags) for code view
         if '<style>' in html_content and '</style>' in html_content:
             css_start = html_content.find('<style>') + 7
             css_end = html_content.find('</style>')
             css_content = html_content[css_start:css_end].strip()
+            print(f"[PARSE] Extracted CSS length: {len(css_content)}")
         
-        # Extract JavaScript from the HTML (between <script> tags)
-        js_content = ""
+        # Extract JavaScript from the HTML (between <script> tags) for code view
         if '<script>' in html_content and '</script>' in html_content:
             js_start = html_content.find('<script>') + 8
             js_end = html_content.find('</script>')
             js_content = html_content[js_start:js_end].strip()
+            print(f"[PARSE] Extracted JS length: {len(js_content)}")
         
-        return {
+        # Validate that we have meaningful content
+        if len(html_content) < 100:
+            print(f"[WARNING] HTML content seems too short: {len(html_content)} chars")
+            print(f"[WARNING] HTML content: {html_content}")
+        
+        # Check if body has content
+        if '<body>' in html_content and '</body>' in html_content:
+            body_start = html_content.find('<body>') + 6
+            body_end = html_content.find('</body>')
+            body_content = html_content[body_start:body_end].strip()
+            print(f"[PARSE] Body content length: {len(body_content)}")
+            
+            if len(body_content) < 10:
+                print(f"[WARNING] Body content appears empty: '{body_content}'")
+        
+        result = {
             "html": html_content,
             "css": css_content,
             "javascript": js_content,
@@ -1014,8 +1031,14 @@ def parse_generated_code(llm_result: str, framework: str) -> Dict[str, Any]:
             "generatedAt": datetime.now().isoformat()
         }
         
+        print(f"[PARSE] Final result structure: {list(result.keys())}")
+        print(f"[PARSE] Final HTML length: {len(result['html'])}")
+        
+        return result
+        
     except Exception as e:
         print(f"[ERROR] Failed to parse generated code: {e}")
+        print(f"[ERROR] Raw result was: {str(llm_result)[:1000]}...")
         # Return the raw result if parsing fails
         return {
             "html": str(llm_result),
@@ -1632,6 +1655,136 @@ async def reverse_engineer_design(request: ReverseEngineerDesignRequest):
             success=False,
             message="Unexpected error occurred",
             error=str(e)
+        )
+
+@app.post("/reverse-engineer-code", response_model=ReverseEngineerCodeResponse)
+async def reverse_engineer_code(request: ReverseEngineerCodeRequest):
+    """Reverse engineer code into business requirements using LLM"""
+    try:
+        print(f"[REVERSE-CODE] Starting code reverse engineering")
+        print(f"[LLM] Using {request.llm_provider} model: {request.model}")
+        print(f"[ANALYSIS] Analysis level: {request.analysisLevel}")
+        print(f"[CODE] Code length: {request.codeLength} characters")
+        
+        # Create LLM directly (no MCP tools needed for code reverse engineering)
+        try:
+            if request.llm_provider == "google":
+                llm = ChatGoogleGenerativeAI(
+                    model=request.model,
+                    google_api_key=os.getenv("GOOGLE_API_KEY")
+                )
+            else:
+                llm = ChatOpenAI(
+                    model="gpt-4",
+                    openai_api_key=os.getenv("OPENAI_API_KEY")
+                )
+            
+            print(f"[LLM] LLM created successfully for {request.llm_provider}")
+            
+        except Exception as llm_error:
+            print(f"[ERROR] Failed to create LLM: {llm_error}")
+            return ReverseEngineerCodeResponse(
+                success=False,
+                message="Failed to initialize LLM",
+                error=str(llm_error)
+            )
+        
+        # Execute the code analysis
+        start_time = time.time()
+        try:
+            print(f"[GENERATE] Starting AI code analysis...")
+            
+            # Combine system and user prompts
+            full_prompt = f"""
+{request.systemPrompt}
+
+{request.userPrompt}
+"""
+            
+            result = llm.invoke(full_prompt)
+            execution_time = time.time() - start_time
+            
+            print(f"[OK] Code analysis completed in {execution_time:.2f}s")
+            
+            # Extract the content from the LLM response
+            content_attr = getattr(result, 'content', None)
+            text_attr = getattr(result, 'text', None)
+            
+            if content_attr and len(str(content_attr)) > 0:
+                result_content = content_attr
+                print(f"[DEBUG] Using result.content: {len(str(result_content))} chars")
+            elif text_attr and len(str(text_attr)) > 0:
+                result_content = text_attr
+                print(f"[DEBUG] Using result.text: {len(str(result_content))} chars")
+            else:
+                result_content = str(result)
+                print(f"[DEBUG] Using str(result): {len(str(result_content))} chars")
+            
+            # Check if the result is empty (0 tokens) - treat this as a failure
+            if not result_content or len(str(result_content).strip()) == 0:
+                print(f"[ERROR] LLM returned empty content (0 tokens) - treating as failure")
+                raise Exception(f"LLM returned empty response (0 tokens)")
+            
+            # Parse the JSON response from LLM
+            try:
+                import json
+                # Try to extract JSON from the response
+                result_str = str(result_content)
+                print(f"[DEBUG] Raw result preview: {result_str[:300]}...")
+                
+                # Look for JSON in code blocks or plain JSON
+                if '```json' in result_str:
+                    json_start = result_str.find('```json') + 7
+                    json_end = result_str.find('```', json_start)
+                    json_content = result_str[json_start:json_end].strip()
+                elif '{' in result_str and '}' in result_str:
+                    json_start = result_str.find('{')
+                    json_end = result_str.rfind('}') + 1
+                    json_content = result_str[json_start:json_end]
+                else:
+                    raise Exception("No JSON found in response")
+                
+                print(f"[DEBUG] Attempting to parse JSON of length: {len(json_content)}")
+                parsed_result = json.loads(json_content)
+                
+                # Flatten nested structure for UI compatibility
+                flattened_result = flatten_nested_work_items(parsed_result)
+                
+                return ReverseEngineerCodeResponse(
+                    success=True,
+                    data=flattened_result,
+                    message=f"Code analysis completed successfully in {execution_time:.2f}s"
+                )
+                
+            except json.JSONDecodeError as parse_error:
+                print(f"[ERROR] Failed to parse JSON response: {parse_error}")
+                print(f"[ERROR] Raw response: {result_content}")
+                
+                # Return error with raw content for debugging
+                return ReverseEngineerCodeResponse(
+                    success=False,
+                    message="Failed to parse LLM response as JSON",
+                    error=f"Parse error: {str(parse_error)} | Raw response: {str(result_content)[:500]}..."
+                )
+            
+        except Exception as generation_error:
+            print(f"[ERROR] Code analysis failed: {generation_error}")
+            execution_time = time.time() - start_time
+            
+            return ReverseEngineerCodeResponse(
+                success=False,
+                message=f"Code analysis failed after {execution_time:.2f}s",
+                error=str(generation_error)
+            )
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[ERROR] Code reverse engineering error: {error_msg}")
+        
+        return ReverseEngineerCodeResponse(
+            success=False,
+            message="Code reverse engineering failed",
+            error=error_msg
         )
 
 if __name__ == "__main__":

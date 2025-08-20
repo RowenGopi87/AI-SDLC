@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -127,6 +127,14 @@ export default function DesignPage() {
   const workItemImageRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
   const designUploadRef = useRef<HTMLInputElement>(null);
+
+  // Effect to ensure preview is updated when switching to preview mode
+  useEffect(() => {
+    if (previewMode === 'preview' && generatedCode && generatedCode.html.length > 0) {
+      console.log('🔄 [PREVIEW-MODE] Preview mode activated, refreshing content...');
+      setTimeout(() => updatePreview(generatedCode), 100);
+    }
+  }, [previewMode, generatedCode]);
 
   // Viewport dimensions
   const viewportDimensions = {
@@ -585,22 +593,44 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
 
       const result = await response.json();
       
+      console.log('🎨 [DESIGN-GENERATION] Full API response:', result);
+      console.log('🎨 [DESIGN-GENERATION] Response data structure:', {
+        hasData: !!result.data,
+        hasCode: !!result.data?.code,
+        codeKeys: result.data?.code ? Object.keys(result.data.code) : 'No code object',
+        dataKeys: result.data ? Object.keys(result.data) : 'No data object'
+      });
+      
       clearInterval(progressInterval!);
       setGenerationProgress(100);
       
       // Use the generated code from the API (with retry/fallback handled at API level)
-      if (result.success && result.data) {
+      if (result.success && result.data && result.data.code) {
+        console.log('🎨 [DESIGN-GENERATION] Parsing generated code from API response...');
+        
         const realCode: GeneratedCode = {
           framework: result.data.framework || 'react',
-          html: result.data.html || '',
-          css: result.data.css || '',
-          javascript: result.data.javascript || '',
+          html: result.data.code.html || '',
+          css: result.data.code.css || '',
+          javascript: result.data.code.javascript || '',
         };
+        
+        console.log('🎨 [DESIGN-GENERATION] Parsed code structure:', {
+          htmlLength: realCode.html.length,
+          cssLength: realCode.css.length,
+          jsLength: realCode.javascript.length,
+          framework: realCode.framework,
+          htmlPreview: realCode.html.substring(0, 500) + '...',
+          fullHtmlContent: realCode.html // Log the complete HTML for debugging
+        });
         
         setGeneratedCode(realCode);
         
-        // Update iframe preview
-        setTimeout(() => updatePreview(realCode), 100);
+        // Update iframe preview with enhanced logging
+        setTimeout(() => {
+          console.log('🖼️ [DESIGN-GENERATION] Updating preview iframe...');
+          updatePreview(realCode);
+        }, 100);
         
         // Show success message with provider info
         if (result.data.provider) {
@@ -635,21 +665,48 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
   };
 
   const updatePreview = (code: GeneratedCode) => {
-    if (!previewRef.current) return;
+    console.log('🖼️ [PREVIEW-UPDATE] Starting preview update...', {
+      hasIframe: !!previewRef.current,
+      htmlLength: code.html.length,
+      cssLength: code.css.length,
+      jsLength: code.javascript.length,
+      framework: code.framework
+    });
+    
+    if (!previewRef.current) {
+      console.error('❌ [PREVIEW-UPDATE] No iframe reference found');
+      return;
+    }
     
     const iframe = previewRef.current;
     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
     
-    if (iframeDoc) {
-      // If the generated code is a complete HTML document, use it as is
-      if (code.html.includes('<!DOCTYPE html>') || code.html.includes('<html')) {
-        iframeDoc.open();
-        iframeDoc.write(code.html);
-        iframeDoc.close();
+    if (!iframeDoc) {
+      console.error('❌ [PREVIEW-UPDATE] Cannot access iframe document');
+      return;
+    }
+    
+    console.log('🖼️ [PREVIEW-UPDATE] Iframe document accessible, analyzing HTML content...');
+    
+    // Check if the generated code is a complete HTML document
+    const isCompleteDocument = code.html.includes('<!DOCTYPE html>') || code.html.includes('<html');
+    console.log('🖼️ [PREVIEW-UPDATE] HTML analysis:', {
+      isCompleteDocument,
+      htmlStartsWithDoctype: code.html.startsWith('<!DOCTYPE'),
+      containsHtmlTag: code.html.includes('<html'),
+      htmlPreview: code.html.substring(0, 300)
+    });
+    
+    try {
+      let finalHtml = '';
+      
+      if (isCompleteDocument) {
+        console.log('📄 [PREVIEW-UPDATE] Using complete HTML document as-is');
+        finalHtml = code.html;
       } else {
+        console.log('🔧 [PREVIEW-UPDATE] Wrapping component in HTML structure');
         // If it's just a component, wrap it in a proper HTML structure
-        const wrappedHtml = `
-<!DOCTYPE html>
+        finalHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -670,11 +727,61 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
     ${code.javascript ? `<script>${code.javascript}</script>` : ''}
 </body>
 </html>`;
-        
-        iframeDoc.open();
-        iframeDoc.write(wrappedHtml);
-        iframeDoc.close();
       }
+      
+      console.log('📝 [PREVIEW-UPDATE] Final HTML to be rendered:', {
+        htmlLength: finalHtml.length,
+        htmlPreview: finalHtml.substring(0, 1000),
+        containsBody: finalHtml.includes('<body'),
+        containsContent: finalHtml.includes('</body>') && finalHtml.indexOf('</body>') > finalHtml.indexOf('<body') + 10
+      });
+      
+      // Clear any existing content and write new content
+      iframeDoc.open();
+      iframeDoc.write(finalHtml);
+      iframeDoc.close();
+      
+      // Also try setting srcDoc as a fallback
+      setTimeout(() => {
+        if (iframe.contentDocument?.body?.children.length === 0) {
+          console.log('🔄 [PREVIEW-UPDATE] Iframe body still empty, trying srcDoc fallback...');
+          iframe.srcDoc = finalHtml;
+        }
+      }, 500);
+      
+      console.log('✅ [PREVIEW-UPDATE] Preview updated successfully');
+      
+      // Add iframe load event listener for additional debugging
+      iframe.onload = () => {
+        console.log('🖼️ [PREVIEW-UPDATE] Iframe loaded successfully');
+        try {
+          const iframeBody = iframeDoc.body;
+          const iframeHead = iframeDoc.head;
+          if (iframeBody) {
+            console.log('📊 [PREVIEW-UPDATE] Iframe content stats:', {
+              bodyInnerHTMLLength: iframeBody.innerHTML.length,
+              bodyChildren: iframeBody.children.length,
+              bodyText: iframeBody.textContent?.substring(0, 200) + '...',
+              bodyHTML: iframeBody.innerHTML.substring(0, 300) + '...',
+              headChildren: iframeHead?.children.length || 0,
+              documentTitle: iframeDoc.title,
+              documentReadyState: iframeDoc.readyState
+            });
+            
+            // Check for any script errors in the iframe
+            if (iframe.contentWindow) {
+              iframe.contentWindow.onerror = (msg, url, line, col, error) => {
+                console.error('🚨 [IFRAME-ERROR] Script error in preview:', { msg, url, line, col, error });
+              };
+            }
+          }
+        } catch (e) {
+          console.log('ℹ️ [PREVIEW-UPDATE] Cannot access iframe content (normal for cross-origin)', e);
+        }
+      };
+      
+    } catch (error) {
+      console.error('❌ [PREVIEW-UPDATE] Error updating preview:', error);
     }
   };
 
@@ -999,15 +1106,51 @@ ${generatedCode.html}`;
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {/* Download functionality */}}
+                          onClick={downloadCode}
                         >
                           <Download className="w-4 h-4 mr-1" />
                           Download
                         </Button>
                         <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // Test iframe functionality
+                            if (previewRef.current) {
+                              const testHtml = `<!DOCTYPE html>
+<html><head><title>Test</title></head>
+<body style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 20px; font-family: Arial;">
+<h1>🎉 Iframe Test Success!</h1>
+<p>If you can see this, the iframe is working correctly.</p>
+<div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px; margin-top: 20px;">
+<p>Generated: ${new Date().toLocaleTimeString()}</p>
+</div>
+</body></html>`;
+                              
+                              const iframe = previewRef.current;
+                              const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                              if (iframeDoc) {
+                                iframeDoc.open();
+                                iframeDoc.write(testHtml);
+                                iframeDoc.close();
+                                console.log('🧪 [TEST] Test HTML loaded into iframe');
+                              }
+                            }
+                          }}
+                        >
+                          <Play className="w-4 h-4 mr-1" />
+                          Test Iframe
+                        </Button>
+                        <Button
                           variant={previewMode === 'preview' ? 'default' : 'outline'}
                           size="sm"
-                          onClick={() => setPreviewMode('preview')}
+                          onClick={() => {
+                            setPreviewMode('preview');
+                            // Re-render the preview when switching back to preview mode
+                            if (generatedCode) {
+                              setTimeout(() => updatePreview(generatedCode), 100);
+                            }
+                          }}
                         >
                           <Eye className="w-4 h-4 mr-1" />
                           Preview
@@ -1080,7 +1223,7 @@ ${generatedCode.html}`;
                         {/* Preview Frame */}
                         <div className={`border rounded-lg bg-gray-100 p-4 ${isFullscreen ? 'flex-1' : 'min-h-[400px]'} flex justify-center`}>
                           <div
-                            className="bg-white rounded shadow-lg"
+                            className="bg-white rounded shadow-lg relative"
                             style={{
                               width: viewportDimensions[viewportType].width,
                               height: isFullscreen ? '100%' : viewportDimensions[viewportType].height,
@@ -1092,9 +1235,19 @@ ${generatedCode.html}`;
                               ref={previewRef}
                               className="w-full h-full border-0 rounded"
                               title="Design Preview"
-                              sandbox="allow-scripts allow-same-origin"
-                              srcDoc={generatedCode.html}
+                              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                              style={{ background: 'white' }}
                             />
+                            
+                            {/* Debug overlay - only show when no content is loaded */}
+                            {(!generatedCode || generatedCode.html.length === 0) && (
+                              <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm pointer-events-none bg-white bg-opacity-80">
+                                <div className="text-center">
+                                  <div className="mb-2">🖼️ Generate design to see preview</div>
+                                  <div className="text-xs">Upload an image and click Generate Design Code</div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

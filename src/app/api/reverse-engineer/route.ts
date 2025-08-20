@@ -12,7 +12,8 @@ const ReverseEngineerSchema = z.object({
   })).optional(),
   analysisLevel: z.enum(['story', 'epic', 'feature', 'initiative', 'business-brief']),
   includeTests: z.boolean().default(true),
-  includeDocumentation: z.boolean().default(true)
+  includeDocumentation: z.boolean().default(true),
+  useRealLLM: z.boolean().default(false)  // Add Real LLM flag
 });
 
 export async function POST(request: NextRequest) {
@@ -31,11 +32,13 @@ export async function POST(request: NextRequest) {
       fileData, 
       analysisLevel, 
       includeTests, 
-      includeDocumentation 
+      includeDocumentation,
+      useRealLLM 
     } = validatedData;
 
     console.log('✅ Request validation passed');
     console.log('🔍 Reverse engineering level:', analysisLevel);
+    console.log('🎯 Real LLM Mode:', useRealLLM ? 'ENABLED 🔥' : 'DISABLED (Mock) 🎭');
 
     // Build the comprehensive system prompt for reverse engineering
     const systemPrompt = buildReverseEngineeringPrompt(analysisLevel);
@@ -59,7 +62,8 @@ export async function POST(request: NextRequest) {
       systemPrompt, 
       userPrompt, 
       analysisLevel,
-      codeContent.length
+      codeContent.length,
+      useRealLLM  // Pass the Real LLM flag
     );
 
     console.log('✅ Code analysis completed successfully');
@@ -229,13 +233,51 @@ async function analyzeCodeWithLLM(
   systemPrompt: string,
   userPrompt: string,
   analysisLevel: string,
-  codeLength: number
+  codeLength: number,
+  useRealLLM: boolean = false
 ): Promise<any> {
   try {
-    console.log('🤖 Calling LLM for code analysis...');
+    console.log('🤖 Calling LLM for code analysis...', { useRealLLM, analysisLevel });
     
-    // TODO: Replace with actual LLM service call
-    // For now, return mock data based on analysis level
+    // If Real LLM is enabled, call the MCP Bridge Server
+    if (useRealLLM) {
+      console.log('🔥 Using Real LLM for code reverse engineering...');
+      
+      try {
+        const response = await fetch('http://localhost:8000/reverse-engineer-code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            systemPrompt,
+            userPrompt,
+            analysisLevel,
+            codeLength,
+            llm_provider: 'google',
+            model: 'gemini-2.5-pro'
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`MCP Bridge server responded with ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          console.log('✅ Real LLM analysis completed successfully');
+          return result.data;
+        } else {
+          throw new Error(result.error || 'Real LLM analysis failed');
+        }
+      } catch (llmError) {
+        console.error('❌ Real LLM analysis failed, falling back to mock:', llmError);
+        // Fall through to mock analysis below
+      }
+    }
+    
+    // Mock analysis (default behavior or fallback)
     
     const baseInsights = `Analysis reveals a sophisticated software system with comprehensive business logic. The code demonstrates strong architectural patterns, user authentication flows, data management capabilities, and robust error handling.`;
     
