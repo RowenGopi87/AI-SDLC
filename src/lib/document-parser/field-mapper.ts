@@ -5,6 +5,7 @@
 
 export interface BusinessBriefFields {
   title?: string;
+  submittedBy?: string;
   description?: string;
   businessOwner?: string;
   leadBusinessUnit?: string;
@@ -28,19 +29,23 @@ export interface BusinessBriefFields {
   impactsExistingTechnology?: boolean;
 }
 
-// Field mapping with multiple possible variations
+// Enhanced field mapping with specific document patterns
 const FIELD_MAPPINGS = {
   title: [
-    'title', 'idea title', 'project name', 'initiative title', 'idea name',
+    'idea name', 'idea title', 'title', 'project name', 'initiative title',
     'project title', 'solution name', 'business brief title', 'request title'
   ],
+  submittedBy: [
+    'submitted by', 'submitted person', 'submitter', 'author', 'requester'
+  ],
   description: [
-    'description', 'business aim', 'change description', 'business description',
-    'initiative description', 'project description', 'overview', 'summary'
+    'business objective & description of change', 'description of change', 'business aim', 
+    'change description', 'business description', 'initiative description', 
+    'project description', 'overview', 'summary', 'description'
   ],
   businessOwner: [
-    'business owner', 'owner of business', 'submitted person', 'submitted by',
-    'owner', 'responsible person', 'project owner', 'initiative owner'
+    'business owner', 'owner of business', 'owner', 'responsible person', 
+    'project owner', 'initiative owner'
   ],
   leadBusinessUnit: [
     'lead business unit', 'main business department', 'business unit',
@@ -63,12 +68,12 @@ const FIELD_MAPPINGS = {
     'project scope', 'initiative scope'
   ],
   impactOfDoNothing: [
-    'impact of do nothing', 'if ignored', 'consequences', 'risks',
-    'impact of not proceeding', 'do nothing scenario'
+    'impact of do nothing', 'impact of doing nothing', 'if ignored', 'consequences', 
+    'risks', 'impact of not proceeding', 'do nothing scenario'
   ],
   happyPath: [
     'happy path', 'path', 'steps', 'user journey', 'process flow',
-    'ideal scenario', 'normal flow', 'standard process'
+    'ideal scenario', 'normal flow', 'standard process', 'user experience'
   ],
   exceptions: [
     'exceptions', 'error scenarios', 'edge cases', 'failure scenarios',
@@ -125,34 +130,97 @@ export class FieldMapper {
   }
 
   /**
-   * Find field value using fuzzy matching
+   * Find field value using enhanced table-aware fuzzy matching
    */
   private static findFieldValue(text: string, variations: string[]): string | null {
     for (const variation of variations) {
-      // Try exact match first
-      let pattern = new RegExp(`${this.escapeRegex(variation)}[\\s:]+([^\\n\\r]{10,300})`, 'i');
+      // Pattern 1: Table structure with field name and value (handles table cells)
+      let pattern = new RegExp(`${this.escapeRegex(variation)}[\\s\\t]*([^\\n\\r]+)`, 'i');
       let match = text.match(pattern);
       
       if (match && match[1]) {
-        return match[1].trim();
+        const value = match[1].trim();
+        if (value.length > 3 && !this.isFieldName(value)) {
+          return this.cleanExtractedValue(value);
+        }
       }
 
-      // Try partial match with word boundaries
+      // Pattern 2: Field name followed by colon and value on same or next line
+      pattern = new RegExp(`${this.escapeRegex(variation)}[\\s:]*\\n?([^\\n\\r]{5,500})`, 'i');
+      match = text.match(pattern);
+      
+      if (match && match[1]) {
+        const value = match[1].trim();
+        if (value.length > 3 && !this.isFieldName(value)) {
+          return this.cleanExtractedValue(value);
+        }
+      }
+
+      // Pattern 3: Multi-line content after field name (for longer descriptions)
+      pattern = new RegExp(`${this.escapeRegex(variation)}[\\s:]*\\n([\\s\\S]{10,1000}?)(?=\\n\\s*[A-Z][a-z\\s]+:|\\n\\s*$|$)`, 'i');
+      match = text.match(pattern);
+      
+      if (match && match[1]) {
+        const value = match[1].trim();
+        if (value.length > 10 && !this.isFieldName(value)) {
+          return this.cleanExtractedValue(value);
+        }
+      }
+
+      // Pattern 4: Table row format (Field | Value)
+      pattern = new RegExp(`${this.escapeRegex(variation)}[\\s\\|\\t]+([^\\|\\n\\r]{5,300})`, 'i');
+      match = text.match(pattern);
+      
+      if (match && match[1]) {
+        const value = match[1].trim();
+        if (value.length > 3 && !this.isFieldName(value)) {
+          return this.cleanExtractedValue(value);
+        }
+      }
+
+      // Pattern 5: Partial word matching for flexibility
       const words = variation.split(' ');
       if (words.length > 1) {
         const partialPattern = new RegExp(
-          `\\b${words.map(w => this.escapeRegex(w)).join('[\\s\\W]*')}[\\s:]+([^\\n\\r]{10,300})`, 
+          `\\b${words.map(w => this.escapeRegex(w)).join('[\\s\\W]*')}[\\s:]*([^\\n\\r]{5,300})`, 
           'i'
         );
         match = text.match(partialPattern);
         
         if (match && match[1]) {
-          return match[1].trim();
+          const value = match[1].trim();
+          if (value.length > 3 && !this.isFieldName(value)) {
+            return this.cleanExtractedValue(value);
+          }
         }
       }
     }
 
     return null;
+  }
+
+  /**
+   * Check if extracted text looks like a field name rather than a value
+   */
+  private static isFieldName(text: string): boolean {
+    const fieldIndicators = [
+      'priority', 'status', 'owner', 'unit', 'theme', 'objective', 'outcomes',
+      'scope', 'impact', 'path', 'exceptions', 'users', 'solutions', 'urgency'
+    ];
+    
+    const lowerText = text.toLowerCase();
+    return fieldIndicators.some(indicator => lowerText.includes(indicator)) && text.length < 50;
+  }
+
+  /**
+   * Clean extracted values
+   */
+  private static cleanExtractedValue(value: string): string {
+    return value
+      .replace(/^\s*[-•|\t]+\s*/, '') // Remove leading bullets, dashes, pipes
+      .replace(/\s*[-•|\t]+\s*$/, '') // Remove trailing bullets, dashes, pipes
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
   }
 
   /**

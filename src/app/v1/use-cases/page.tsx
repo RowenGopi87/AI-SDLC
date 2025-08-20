@@ -416,31 +416,64 @@ export default function Version1IdeasPage() {
         setUploadProgressMessage('✨ Preparing your business brief...');
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Map parsed fields to form data with fuzzy matching
+        // Map parsed fields to form data with enhanced field matching
         setFormData(prev => ({
           ...prev,
-          title: result.data.title || result.data.ideaTitle || result.data.projectName || prev.title,
-          description: result.data.description || result.data.businessAim || result.data.businessDescription || prev.description,
-          businessOwner: result.data.businessOwner || result.data.owner || result.data.submittedPerson || prev.businessOwner,
-          leadBusinessUnit: result.data.leadBusinessUnit || result.data.mainBusinessDepartment || result.data.businessUnit || prev.leadBusinessUnit,
-          primaryStrategicTheme: result.data.primaryStrategicTheme || result.data.strategicDirection || prev.primaryStrategicTheme,
-          businessObjective: result.data.businessObjective || result.data.businessAim || prev.businessObjective,
-          quantifiableBusinessOutcomes: result.data.quantifiableBusinessOutcomes || result.data.expectedResults || prev.quantifiableBusinessOutcomes,
-          inScope: result.data.inScope || result.data.includedScope || prev.inScope,
-          impactOfDoNothing: result.data.impactOfDoNothing || result.data.ifIgnored || prev.impactOfDoNothing,
-          happyPath: result.data.happyPath || result.data.path || result.data.steps || prev.happyPath,
+          // Map title from idea name
+          title: result.data.title || prev.title,
+          
+          // Map submitted by
+          submittedBy: result.data.submittedBy || prev.submittedBy,
+          
+          // Map business objective & description to the description field (main content)
+          description: result.data.description || result.data.businessObjective || prev.description,
+          
+          // Map business owner
+          businessOwner: result.data.businessOwner || prev.businessOwner,
+          
+          // Map lead business unit
+          leadBusinessUnit: result.data.leadBusinessUnit || prev.leadBusinessUnit,
+          
+          // Map primary strategic theme
+          primaryStrategicTheme: result.data.primaryStrategicTheme || prev.primaryStrategicTheme,
+          
+          // Map business objective to businessValue field for V1
+          businessValue: result.data.businessObjective || result.data.description || prev.businessValue,
+          
+          // Map quantifiable outcomes
+          quantifiableBusinessOutcomes: result.data.quantifiableBusinessOutcomes || prev.quantifiableBusinessOutcomes,
+          
+          // Map scope
+          inScope: result.data.inScope || prev.inScope,
+          
+          // Map impact of do nothing
+          impactOfDoNothing: result.data.impactOfDoNothing || prev.impactOfDoNothing,
+          
+          // Map user experience/happy path
+          happyPath: result.data.happyPath || prev.happyPath,
+          
+          // Map exceptions
           exceptions: result.data.exceptions || prev.exceptions,
-          impactedEndUsers: result.data.impactedEndUsers || result.data.affectedUsers || prev.impactedEndUsers,
+          
+          // Map impacted end users
+          impactedEndUsers: result.data.impactedEndUsers || prev.impactedEndUsers,
+          
+          // Map other fields
           changeImpactExpected: result.data.changeImpactExpected || prev.changeImpactExpected,
           impactToOtherDepartments: result.data.impactToOtherDepartments || prev.impactToOtherDepartments,
-          technologySolutions: result.data.technologySolutions || result.data.techTools || prev.technologySolutions,
+          technologySolutions: result.data.technologySolutions || prev.technologySolutions,
           relevantBusinessOwners: result.data.relevantBusinessOwners || prev.relevantBusinessOwners,
           otherTechnologyInfo: result.data.otherTechnologyInfo || prev.otherTechnologyInfo,
+          
           // Parse array fields
           additionalBusinessUnits: result.data.additionalBusinessUnits || prev.additionalBusinessUnits,
           otherDepartmentsImpacted: result.data.otherDepartmentsImpacted || prev.otherDepartmentsImpacted,
           supportingDocuments: result.data.supportingDocuments || prev.supportingDocuments,
-          priority: result.data.priority || result.data.urgency || prev.priority,
+          
+          // Map priority
+          priority: result.data.priority || prev.priority,
+          
+          // Map technology impact
           impactsExistingTechnology: result.data.impactsExistingTechnology ?? prev.impactsExistingTechnology,
         }));
 
