@@ -59,8 +59,8 @@ export default function RequirementsPage() {
   const { stories, addGeneratedStories, getStoriesByEpic } = useStoryStore();
   const { llmSettings, validateSettings } = useSettingsStore();
   
-  // State management - Start with everything expanded
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set()); // Will be populated with all IDs
+  // State management - Start with everything collapsed
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set()); // Empty = all collapsed
   const [collapsedLevels, setCollapsedLevels] = useState<Set<string>>(new Set()); // For collapsible hierarchy
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [summaryCardsVisible, setSummaryCardsVisible] = useState(true);
@@ -78,26 +78,9 @@ export default function RequirementsPage() {
   const [useMockData, setUseMockData] = useState(false);
   const [showDebugControls, setShowDebugControls] = useState(false);
   const [isLoadingFromDatabase, setIsLoadingFromDatabase] = useState(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   
-  // Auto-expand all items on load
-  useEffect(() => {
-    const allItemIds = new Set<string>();
-    
-    // Add all initiative IDs
-    initiatives.forEach(initiative => allItemIds.add(initiative.id));
-    
-    // Add all feature IDs
-    features.forEach(feature => allItemIds.add(feature.id));
-    
-    // Add all epic IDs
-    epics.forEach(epic => allItemIds.add(epic.id));
-    
-    // Add all story IDs
-    stories.forEach(story => allItemIds.add(story.id));
-    
-    setExpandedItems(allItemIds);
-  }, [initiatives, features, epics, stories]);
+  // All work items start collapsed by default - users can expand manually
   
   // Helper to set loading state for specific item
   const setItemLoading = (itemId: string, isLoading: boolean) => {
