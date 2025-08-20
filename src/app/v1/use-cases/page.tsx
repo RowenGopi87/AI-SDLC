@@ -78,6 +78,8 @@ export default function Version1IdeasPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [showUploadSection, setShowUploadSection] = useState(true);
+  const [isUploadProgressModalOpen, setIsUploadProgressModalOpen] = useState(false);
+  const [uploadProgressMessage, setUploadProgressMessage] = useState('');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -368,6 +370,14 @@ export default function Version1IdeasPage() {
 
     setUploadedFile(file);
     setParseError(null);
+    
+    // Show upload progress modal
+    setUploadProgressMessage(`Uploading ${file.name}...`);
+    setIsUploadProgressModalOpen(true);
+    
+    // Brief delay for smooth modal transition
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     await parseDocument(file);
   };
 
@@ -376,8 +386,20 @@ export default function Version1IdeasPage() {
     setParseError(null);
 
     try {
+      // Stage 1: Reading document
+      setUploadProgressMessage('🔍 Reading document contents...');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Stage 2: AI thinking
+      setUploadProgressMessage('🧠 AI is analyzing your business brief...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       const formDataObj = new FormData();
       formDataObj.append('document', file);
+
+      // Stage 3: Parsing data
+      setUploadProgressMessage('⚙️ Extracting and mapping fields...');
+      await new Promise(resolve => setTimeout(resolve, 600));
 
       const response = await fetch('/api/v1/parse-business-brief', {
         method: 'POST',
@@ -391,6 +413,10 @@ export default function Version1IdeasPage() {
       const result = await response.json();
 
       if (result.success) {
+        // Stage 4: Finalizing
+        setUploadProgressMessage('✨ Preparing your business brief...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Map parsed fields to form data with fuzzy matching
         setFormData(prev => ({
           ...prev,
@@ -419,14 +445,28 @@ export default function Version1IdeasPage() {
           impactsExistingTechnology: result.data.impactsExistingTechnology ?? prev.impactsExistingTechnology,
         }));
 
-        notify.success('Document Parsed', `Successfully extracted fields from ${file.name}`);
+        // Close progress modal and show success
+        setIsUploadProgressModalOpen(false);
         setShowUploadSection(false);
+        
+        // Auto-open the business brief dialog with populated data
+        setTimeout(() => {
+          setIsDialogOpen(true);
+          notify.success('Document Parsed Successfully!', 
+            `Extracted ${result.metadata?.fieldsExtracted || 'multiple'} fields from ${file.name}. Review and submit when ready.`);
+        }, 300);
+        
       } else {
         throw new Error(result.message || 'Failed to parse document');
       }
     } catch (error) {
       console.error('Error parsing document:', error);
+      
+      // Close progress modal first
+      setIsUploadProgressModalOpen(false);
+      
       setParseError(error instanceof Error ? error.message : 'Failed to parse document');
+      notify.error('Parse Failed', 'Could not extract fields from document. You can still fill the form manually.');
     } finally {
       setIsParsing(false);
     }
@@ -436,6 +476,8 @@ export default function Version1IdeasPage() {
     setUploadedFile(null);
     setParseError(null);
     setShowUploadSection(true);
+    setIsUploadProgressModalOpen(false);
+    setUploadProgressMessage('');
   };
 
   const proceedWithSubmission = async () => {
@@ -1467,6 +1509,40 @@ export default function Version1IdeasPage() {
               <Trash2 className="w-4 h-4 mr-1" />
               Delete Permanently
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Progress Modal */}
+      <Dialog open={isUploadProgressModalOpen} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-center text-lg">
+              <Upload className="w-6 h-6 text-purple-600 mr-2" />
+              Processing Document
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-6 py-6">
+            {/* Animated upload icon */}
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+              <Upload className="w-8 h-8 text-purple-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+            </div>
+            
+            {/* Progress message */}
+            <div className="text-center space-y-2">
+              <p className="text-gray-800 font-medium">{uploadProgressMessage}</p>
+              <div className="flex items-center justify-center space-x-1">
+                <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              </div>
+            </div>
+            
+            {/* Information text */}
+            <p className="text-sm text-gray-600 text-center max-w-xs">
+              Our AI is intelligently extracting business brief fields from your document using advanced pattern recognition...
+            </p>
           </div>
         </DialogContent>
       </Dialog>
