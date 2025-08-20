@@ -38,7 +38,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   currentWorkflowStep: 1,
   sidebarOpen: true,
   sidebarCollapsed: false,
-  sidebarWidth: 320, // Default expanded width
+  sidebarWidth: 200, // Default expanded width
   rightPanelOpen: false,
   rightPanelCollapsed: false,
   rightPanelWidth: 400, // Default right panel width

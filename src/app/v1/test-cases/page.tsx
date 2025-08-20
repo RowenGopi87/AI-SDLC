@@ -116,7 +116,7 @@ export default function TestCasesPage() {
     getTestCasesByWorkItemId 
   } = useTestCaseStore();
 
-  // State management
+  // State management - Start with everything expanded
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [expandedBusinessBriefs, setExpandedBusinessBriefs] = useState<Set<string>>(new Set());
   const [selectedWorkItem, setSelectedWorkItem] = useState<any>(null);
@@ -140,6 +140,25 @@ export default function TestCasesPage() {
   const [useMockLLM, setUseMockLLM] = useState(false);
   const [showDebugControls, setShowDebugControls] = useState(false);
   const [isLoadingTestCases, setIsLoadingTestCases] = useState(false);
+
+  // Auto-expand all items on load
+  useEffect(() => {
+    const allItemIds = new Set<string>();
+    
+    // Add all initiative IDs
+    initiatives.forEach(initiative => allItemIds.add(initiative.id));
+    
+    // Add all feature IDs
+    features.forEach(feature => allItemIds.add(feature.id));
+    
+    // Add all epic IDs
+    epics.forEach(epic => allItemIds.add(epic.id));
+    
+    // Add all story IDs
+    stories.forEach(story => allItemIds.add(story.id));
+    
+    setExpandedItems(allItemIds);
+  }, [initiatives, features, epics, stories]);
 
   // Load test cases from database when component mounts
   const loadTestCasesFromDatabase = async () => {
