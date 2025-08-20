@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     
     const tableExtracted = extractFromTableStructure(extractedText);
     console.log('📊 Table extraction results:', tableExtracted);
+    console.log('📊 Table extracted description length:', tableExtracted.description?.length || 0);
     
     const basicExtraction = FieldMapper.extractFields(extractedText);
     console.log('🔍 Basic extraction results:', basicExtraction);
@@ -165,26 +166,52 @@ function extractFromTableStructure(text: string) {
     });
   }
 
-  // Enhanced multi-line content extraction
+  // Enhanced multi-line content extraction with better patterns
   const multiLinePatterns = {
-    description: /business\s*objective\s*[&\s]*description\s*of\s*change[\s\S]*?(?:the\s*initiative[\s\S]*?)?([\s\S]{30,1500}?)(?=\n\s*(?:key\s*challenges|quantifiable|expected\s*results|scope|impact)|$)/i,
-    quantifiableBusinessOutcomes: /quantifiable\s*business\s*outcomes[\s\S]*?([\s\S]{20,800}?)(?=\n\s*(?:scope|impact|user\s*experience)|$)/i,
-    inScope: /(?:scope\s*&\s*impact|in\s*scope)[\s\S]*?(?:included\s*scope|in\s*scope)[:\s]*([\s\S]{20,800}?)(?=\n\s*(?:impact\s*of|user\s*experience|technology)|$)/i,
-    impactOfDoNothing: /impact\s*of\s*do(?:ing)?\s*nothing[:\s]*([\s\S]{10,500}?)(?=\n\s*(?:user\s*experience|technology|affected)|$)/i,
-    happyPath: /happy\s*path[:\s]*[-\s]*([\s\S]{10,300}?)(?=\n\s*(?:exceptions|technology|affected)|$)/i,
-    exceptions: /exceptions[:\s]*[-\s]*([\s\S]{10,300}?)(?=\n\s*(?:technology|affected|impacted)|$)/i,
-    impactedEndUsers: /impacted\s*end\s*users[:\s]*[-\s]*([\s\S]{10,300}?)(?=\n\s*(?:technology|solutions|tech\s*tools)|$)/i,
-    technologySolutions: /technology\s*solutions[:\s]*[-\s]*([\s\S]{10,400}?)(?=\n\s*$|$)/i
+    description: [
+      // Match the full business objective section
+      /business\s*objective\s*[&\s]*description\s*of\s*change\s*([\s\S]{100,2000}?)(?=\n\s*(?:quantifiable|expected\s*results)|$)/i,
+      // Match content starting with "The initiative proposes"
+      /the\s*initiative\s*proposes\s*the\s*creation[\s\S]{50,2000}?(?=\n\s*(?:quantifiable|expected\s*results)|$)/i,
+      // Fallback: any large content block after business objective header
+      /business\s*objective[\s\S]{0,50}?([\s\S]{100,2000}?)(?=\n\s*(?:quantifiable|key\s*challenges)|$)/i
+    ],
+    quantifiableBusinessOutcomes: [
+      /quantifiable\s*business\s*outcomes\s*([\s\S]{50,800}?)(?=\n\s*(?:scope|impact|user\s*experience)|$)/i,
+      /expected\s*results\s*([\s\S]{50,800}?)(?=\n\s*(?:scope|impact|user\s*experience)|$)/i
+    ],
+    inScope: [
+      /(?:scope\s*&\s*impact|in\s*scope)\s*([\s\S]{50,800}?)(?=\n\s*(?:impact\s*of|user\s*experience|technology)|$)/i,
+      /included\s*scope[:\s]*([\s\S]{50,800}?)(?=\n\s*(?:impact\s*of|user\s*experience)|$)/i
+    ],
+    impactOfDoNothing: [
+      /impact\s*of\s*do(?:ing)?\s*nothing[:\s]*([\s\S]{30,500}?)(?=\n\s*(?:user\s*experience|technology|affected)|$)/i
+    ],
+    happyPath: [
+      /happy\s*path[:\s]*[-\s]*([\s\S]{20,300}?)(?=\n\s*(?:exceptions|technology|affected)|$)/i
+    ],
+    exceptions: [
+      /exceptions[:\s]*[-\s]*([\s\S]{20,300}?)(?=\n\s*(?:technology|affected|impacted)|$)/i
+    ],
+    impactedEndUsers: [
+      /impacted\s*end\s*users[:\s]*[-\s]*([\s\S]{20,300}?)(?=\n\s*(?:technology|solutions|tech\s*tools)|$)/i
+    ],
+    technologySolutions: [
+      /technology\s*solutions[:\s]*[-\s]*([\s\S]{20,400}?)(?=\n\s*$|$)/i
+    ]
   };
 
-  // Extract multi-line content
-  Object.entries(multiLinePatterns).forEach(([fieldName, pattern]) => {
+  // Extract multi-line content using multiple patterns per field
+  Object.entries(multiLinePatterns).forEach(([fieldName, patterns]) => {
     if (!extracted[fieldName]) { // Only if not already found
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        const value = cleanTableValue(match[1]);
-        if (value && value.length > 10) {
-          extracted[fieldName] = value;
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const value = cleanTableValue(match[1] || match[0]);
+          if (value && value.length > 10) {
+            extracted[fieldName] = value;
+            break; // Found a match, stop trying other patterns for this field
+          }
         }
       }
     }
@@ -224,9 +251,34 @@ function extractFromBusinessBriefTemplate(text: string) {
 
   // Extract longer content sections by looking for key indicators
   if (text.includes('consolidates customer interaction data')) {
-    const businessObjMatch = text.match(/consolidates customer interaction data[\s\S]{0,500}?(?=quantifiable|expected results|scope)/i);
+    const businessObjMatch = text.match(/consolidates customer interaction data[\s\S]*?(?=(?:quantifiable|expected results|scope)|$)/i);
     if (businessObjMatch) {
       extracted.description = cleanTableValue(businessObjMatch[0]);
+    }
+  }
+
+  // Enhanced business objective extraction with specific template targeting
+  if (!extracted.description) {
+    // Try to extract the full business objective section from your specific document
+    const fullObjectiveMatch = text.match(/The initiative proposes the creation of an AI-powered dashboard[\s\S]*?(?=Quantifiable Business Outcomes|Key challenges|$)/i);
+    if (fullObjectiveMatch) {
+      extracted.description = cleanTableValue(fullObjectiveMatch[0]);
+    } else {
+      // Fallback patterns
+      const businessObjPatterns = [
+        /the\s*initiative\s*proposes[\s\S]{50,2000}?(?=(?:key\s*challenges|quantifiable|expected\s*results)|$)/i,
+        /proposes\s*the\s*creation[\s\S]{50,2000}?(?=(?:key\s*challenges|quantifiable|expected\s*results)|$)/i,
+        /consolidates\s*customer\s*interaction\s*data[\s\S]{50,2000}?(?=(?:quantifiable|expected\s*results)|$)/i
+      ];
+
+      businessObjPatterns.forEach(pattern => {
+        if (!extracted.description) {
+          const match = text.match(pattern);
+          if (match && match[0]) {
+            extracted.description = cleanTableValue(match[0]);
+          }
+        }
+      });
     }
   }
 
@@ -258,7 +310,8 @@ function cleanTableValue(value: string): string {
   return value
     .replace(/^\s*[-•|\t]+\s*/, '') // Remove table separators
     .replace(/\s*[-•|\t]+\s*$/, '') // Remove trailing separators
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .replace(/\n+/g, ' ') // Replace newlines with spaces
+    .replace(/\s*\n\s*/g, ' ') // Replace newlines with single spaces
+    .replace(/\s{2,}/g, ' ') // Replace multiple spaces with single space
+    .replace(/^\s*(the\s*initiative\s*proposes\s*)/i, '$1') // Clean up beginning
     .trim();
 }

@@ -425,8 +425,8 @@ export default function Version1IdeasPage() {
           // Map submitted by
           submittedBy: result.data.submittedBy || prev.submittedBy,
           
-          // Map business objective & description to the description field (main content)
-          description: result.data.description || result.data.businessObjective || prev.description,
+          // Map business objective & description to the correct businessObjective field in V1
+          businessObjective: result.data.description || result.data.businessObjective || prev.businessObjective,
           
           // Map business owner
           businessOwner: result.data.businessOwner || prev.businessOwner,
@@ -437,8 +437,8 @@ export default function Version1IdeasPage() {
           // Map primary strategic theme
           primaryStrategicTheme: result.data.primaryStrategicTheme || prev.primaryStrategicTheme,
           
-          // Map business objective to businessValue field for V1
-          businessValue: result.data.businessObjective || result.data.description || prev.businessValue,
+          // Map to businessValue field for V1 (shorter summary)
+          businessValue: result.data.quantifiableBusinessOutcomes || result.data.businessObjective || prev.businessValue,
           
           // Map quantifiable outcomes
           quantifiableBusinessOutcomes: result.data.quantifiableBusinessOutcomes || prev.quantifiableBusinessOutcomes,
