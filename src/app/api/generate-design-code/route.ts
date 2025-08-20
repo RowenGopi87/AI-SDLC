@@ -249,15 +249,22 @@ async function generateCodeWithLLM(
   } catch (error) {
     console.error('❌ Error calling MCP Bridge server:', error);
     
-    // Fallback to mock response if MCP Bridge is unavailable
-    console.log('🔄 Falling back to mock response for development...');
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Enhanced fallback handling for various error types
+    if (error instanceof Error && error.message.includes('500')) {
+      console.log('🔄 Google Gemini API experiencing issues - falling back to enhanced mock...');
+    } else {
+      console.log('🔄 MCP Bridge unavailable - falling back to mock response...');
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Reduced wait time
     
     return {
       html: generateEnhancedMockHTML(framework, imageData ? 'image-based' : 'text-based'),
       css: generateEnhancedMockCSS(),
       javascript: generateEnhancedMockJavaScript(framework),
       framework,
+      fallbackReason: 'Google Gemini API temporarily unavailable - using enhanced mock',
+      isManual: true // Indicate this is a fallback response
     };
   }
 }
