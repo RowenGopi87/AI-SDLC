@@ -448,6 +448,8 @@ export default function DesignPage() {
     }
   };
 
+
+
   const generateCodeFromDesign = async () => {
     if (!designImage && !figmaUrl && !selectedWorkItem) {
       return;
@@ -482,9 +484,16 @@ export default function DesignPage() {
           context = `Design file: ${designImage.name}`;
           prompt = `Generate a modern, responsive web component based on the uploaded design image. ${designPrompt || 'Create a clean, professional implementation with proper styling and interactions.'}`;
           
-          // Convert image to base64
-          imageData = await fileToBase64(designImage);
-          imageType = designImage.type;
+          // Convert image to base64 with enhanced error handling
+          try {
+            console.log('🖼️ Converting image to base64...', { name: designImage.name, size: designImage.size, type: designImage.type });
+            imageData = await fileToBase64(designImage);
+            imageType = designImage.type;
+            console.log('✅ Image converted to base64 successfully', { length: imageData.length });
+          } catch (imageError) {
+            console.error('❌ Image conversion failed:', imageError);
+            throw new Error(`Failed to process image: ${imageError instanceof Error ? imageError.message : 'Unknown image error'}`);
+          }
         } else if (figmaUrl) {
           context = `Figma URL: ${figmaUrl}`;
           prompt = `Generate a modern, responsive web component based on the Figma design at the provided URL. ${designPrompt || 'Create a clean, professional implementation with proper styling and interactions.'}`;
@@ -535,9 +544,16 @@ VISUAL REFERENCE & DESIGN ANALYSIS: I have provided a design reference image tha
 
 CRITICAL REQUIREMENT: The generated component MUST visually match the uploaded design image as closely as possible while fulfilling the work item requirements. Prioritize visual fidelity to the design image over generic styling choices.`;
 
-            // Convert work item image to base64
-            imageData = await fileToBase64(workItemImage);
-            imageType = workItemImage.type;
+            // Convert work item image to base64 with enhanced error handling
+            try {
+              console.log('🖼️ Converting work item image to base64...', { name: workItemImage.name, size: workItemImage.size, type: workItemImage.type });
+              imageData = await fileToBase64(workItemImage);
+              imageType = workItemImage.type;
+              console.log('✅ Work item image converted to base64 successfully', { length: imageData.length });
+            } catch (imageError) {
+              console.error('❌ Work item image conversion failed:', imageError);
+              throw new Error(`Failed to process work item image: ${imageError instanceof Error ? imageError.message : 'Unknown image error'}`);
+            }
           }
 
           prompt = workItemPrompt + `
@@ -545,7 +561,7 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
         }
       }
 
-      // Simulate API call to LLM service
+      // Call enhanced API with retry mechanism (Google -> OpenAI fallback)
       const response = await fetch('/api/generate-design-code', {
         method: 'POST',
         headers: {
@@ -559,11 +575,12 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
           includeAccessibility: true,
           imageData: imageData || undefined,
           imageType: imageType || undefined,
+          preferredProvider: 'google' // Always try Google first
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate code');
+        throw new Error(`API call failed: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
@@ -571,22 +588,33 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
       clearInterval(progressInterval!);
       setGenerationProgress(100);
       
-      // Use the real generated code from the LLM instead of mock data
-      if (result.success && result.data && result.data.code) {
+      // Use the generated code from the API (with retry/fallback handled at API level)
+      if (result.success && result.data) {
         const realCode: GeneratedCode = {
-          framework: result.data.code.framework || 'react',
-          html: result.data.code.html || '',
-          css: result.data.code.css || '',
-          javascript: result.data.code.javascript || '',
+          framework: result.data.framework || 'react',
+          html: result.data.html || '',
+          css: result.data.css || '',
+          javascript: result.data.javascript || '',
         };
         
         setGeneratedCode(realCode);
         
         // Update iframe preview
         setTimeout(() => updatePreview(realCode), 100);
+        
+        // Show success message with provider info
+        if (result.data.provider) {
+          console.log(`🎉 Design generated successfully using ${result.data.provider}${result.data.usedFallback ? ' (fallback)' : ''}!`);
+          
+          // Show user notification about which provider was used
+          if (result.data.provider === 'OpenAI') {
+            console.log(`🔄 Used OpenAI as fallback (Google temporarily unavailable). Next retry will attempt Google first again.`);
+          } else if (result.data.provider === 'Mock') {
+            console.log(`⚠️ Used mock response (all LLM providers temporarily unavailable)`);
+          }
+        }
       } else {
-        // Fallback only if API fails
-        throw new Error(result.message || 'Failed to generate code');
+        throw new Error(result.message || 'API returned success but no data');
       }
       
     } catch (error) {
@@ -594,6 +622,10 @@ ${designPrompt || 'Focus on user experience, accessibility, and modern design pa
       if (progressInterval) {
         clearInterval(progressInterval);
       }
+      
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`❌ Design generation failed: ${errorMessage}\n\nThe system will automatically retry with different providers. Please try again or check your API keys in settings.`);
     } finally {
       setTimeout(() => {
         setIsGenerating(false);

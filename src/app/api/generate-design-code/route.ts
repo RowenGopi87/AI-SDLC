@@ -11,6 +11,7 @@ const GenerateDesignCodeSchema = z.object({
   designStyle: z.enum(['modern', 'minimal', 'corporate', 'creative']).optional(),
   imageData: z.string().optional(), // Base64 encoded image data
   imageType: z.string().optional(), // Image MIME type
+  preferredProvider: z.enum(['google', 'openai']).optional().default('google')
 });
 
 export async function POST(request: NextRequest) {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
     console.log('📥 Request body:', body);
 
     const validatedData = GenerateDesignCodeSchema.parse(body);
-    const { prompt, context, framework, includeResponsive, includeAccessibility, designStyle, imageData, imageType } = validatedData;
+    const { prompt, context, framework, includeResponsive, includeAccessibility, designStyle, imageData, imageType, preferredProvider } = validatedData;
 
     console.log('✅ Request validation passed');
     console.log('🔍 Generating code for:', context);
@@ -45,8 +46,8 @@ export async function POST(request: NextRequest) {
     console.log('📋 System prompt length:', systemPrompt.length);
     console.log('📋 User prompt length:', userPrompt.length);
 
-    // Call the LLM service to generate code
-    const generatedCode = await generateCodeWithLLM(systemPrompt, userPrompt, framework, imageData, imageType);
+    // Call the LLM service to generate code with retry mechanism
+    const generatedCode = await generateCodeWithRetryAndFallback(systemPrompt, userPrompt, framework, imageData, imageType, preferredProvider);
 
     console.log('✅ Code generated successfully');
 
@@ -207,66 +208,99 @@ The final result should look virtually identical to the provided design image.` 
 Please provide a complete HTML file with embedded CSS that ${imageData ? 'perfectly recreates the design shown in the image' : 'meets the specified requirements'}.`;
 }
 
-async function generateCodeWithLLM(
+async function generateCodeWithRetryAndFallback(
   systemPrompt: string, 
   userPrompt: string, 
   framework: string,
   imageData?: string,
-  imageType?: string
+  imageType?: string,
+  preferredProvider?: string,
+  maxRetries: number = 3
 ): Promise<any> {
-  console.log('🤖 Calling LLM service for code generation...');
+  console.log('🤖 Starting design code generation with retry mechanism...');
   
-  try {
-    // Call the MCP Bridge Server for actual LLM processing
-    const response = await fetch('http://localhost:8000/generate-design-code', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        systemPrompt,
-        userPrompt,
-        framework,
-        imageData,
-        imageType,
-        llm_provider: 'google', // Default to Google Gemini
-        model: 'gemini-2.5-pro'
-      }),
-    });
+  // Always try Google first (preserves user preference), then OpenAI as fallback
+  const providers = [
+    { name: 'Google', provider: 'google', model: 'gemini-2.5-pro' },
+    { name: 'OpenAI', provider: 'openai', model: 'gpt-4o' }
+  ];
 
-    if (!response.ok) {
-      throw new Error(`MCP Bridge server responded with ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    if (result.success) {
-      return result.data;
-    } else {
-      throw new Error(result.error || 'Failed to generate code via MCP Bridge');
-    }
-    
-  } catch (error) {
-    console.error('❌ Error calling MCP Bridge server:', error);
-    
-    // Enhanced fallback handling for various error types
-    if (error instanceof Error && error.message.includes('500')) {
-      console.log('🔄 Google Gemini API experiencing issues - falling back to enhanced mock...');
-    } else {
-      console.log('🔄 MCP Bridge unavailable - falling back to mock response...');
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Reduced wait time
-    
-    return {
-      html: generateEnhancedMockHTML(framework, imageData ? 'image-based' : 'text-based'),
-      css: generateEnhancedMockCSS(),
-      javascript: generateEnhancedMockJavaScript(framework),
-      framework,
-      fallbackReason: 'Google Gemini API temporarily unavailable - using enhanced mock',
-      isManual: true // Indicate this is a fallback response
-    };
+  // If user has a specific preference, try that first
+  if (preferredProvider === 'openai') {
+    providers.reverse();
   }
+
+  for (const providerConfig of providers) {
+    console.log(`🔄 Trying ${providerConfig.name} provider...`);
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📡 ${providerConfig.name} attempt ${attempt}/${maxRetries}`);
+        
+        // Call the MCP Bridge Server for actual LLM processing
+        const response = await fetch('http://localhost:8000/generate-design-code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            systemPrompt,
+            userPrompt,
+            framework,
+            imageData,
+            imageType,
+            llm_provider: providerConfig.provider,
+            model: providerConfig.model
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`MCP Bridge server responded with ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log(`✅ Success with ${providerConfig.name} on attempt ${attempt}`);
+          return {
+            ...result.data,
+            provider: providerConfig.name,
+            attempt: attempt,
+            usedFallback: providerConfig.name !== 'Google'
+          };
+        } else {
+          throw new Error(result.error || `${providerConfig.name} API returned error`);
+        }
+        
+      } catch (error) {
+        console.error(`❌ ${providerConfig.name} attempt ${attempt} failed:`, error);
+        
+        // If this is the last attempt for this provider, continue to next provider
+        if (attempt === maxRetries) {
+          console.log(`🔄 ${providerConfig.name} failed after ${maxRetries} attempts, trying next provider...`);
+          break;
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const backoffDelay = Math.pow(2, attempt - 1) * 1000;
+        console.log(`⏳ Waiting ${backoffDelay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+    }
+  }
+
+  // If all providers failed, fall back to enhanced mock
+  console.log('🔄 All providers failed - falling back to enhanced mock response...');
+  
+  return {
+    html: generateEnhancedMockHTML(framework, imageData ? 'image-based' : 'text-based'),
+    css: generateEnhancedMockCSS(),
+    javascript: generateEnhancedMockJavaScript(framework),
+    framework,
+    provider: 'Mock',
+    fallbackReason: 'All LLM providers temporarily unavailable - using enhanced mock',
+    isManual: true
+  };
 }
 
 function generateEnhancedMockHTML(framework: string, inputType: string): string {
