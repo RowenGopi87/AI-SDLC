@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useUseCaseStore } from '@/store/use-case-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useInitiativeStore } from '@/store/initiative-store';
+import { useNotificationStore } from '@/store/notification-store';
 import { setSelectedItem } from '@/components/layout/sidebar';
 import { notify } from '@/lib/notification-helper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,6 +54,7 @@ export default function Version1IdeasPage() {
   } = useUseCaseStore();
   const { llmSettings, validateSettings } = useSettingsStore();
   const { addGeneratedInitiatives } = useInitiativeStore();
+  const { addNotification } = useNotificationStore();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -67,7 +69,7 @@ export default function Version1IdeasPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingUseCase, setDeletingUseCase] = useState<any>(null);
-  const [isGeneratingRequirements, setIsGeneratingRequirements] = useState<string | null>(null);
+  const [generatingInitiatives, setGeneratingInitiatives] = useState<Record<string, boolean>>({});
   const [isQualityAssessmentOpen, setIsQualityAssessmentOpen] = useState(false);
   const [qualityAssessment, setQualityAssessment] = useState<any>(null);
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<{[fieldKey: string]: {[suggestionIndex: number]: boolean | null}}>({});
@@ -700,12 +702,32 @@ export default function Version1IdeasPage() {
       return;
     }
 
-    setIsGeneratingRequirements(useCaseId);
+    // Check if already generating for this use case
+    if (generatingInitiatives[useCaseId]) {
+      console.log(`⚠️ Initiative generation already in progress for: ${useCaseId}`);
+      return;
+    }
+
+    // Set generating state for this specific use case
+    setGeneratingInitiatives(prev => ({ ...prev, [useCaseId]: true }));
+
+    // Show start notification via both systems
+    notify.info('Generation Started', `🚀 Starting initiative generation for "${useCase.title}" in background...`);
+    
+    // Add to notification bell for tracking
+    addNotification({
+      title: 'Initiative Generation Started',
+      message: `Generating initiatives for "${useCase.title}" in background...`,
+      type: 'info',
+      autoClose: false
+    });
 
     try {
       if (!validateSettings()) {
         throw new Error('Please configure your LLM provider and API key in Settings');
       }
+
+      console.log(`🔍 Generating initiatives for: ${useCase.title} (${useCaseId})`);
 
       const response = await fetch('/api/generate-initiatives', {
         method: 'POST',
@@ -737,18 +759,41 @@ export default function Version1IdeasPage() {
       const { initiatives } = result.data;
       const savedInitiatives = addGeneratedInitiatives(useCaseId, initiatives);
       
-      notify.success('Initiatives Generated', `Successfully generated ${initiatives.length} initiative${initiatives.length !== 1 ? 's' : ''} from business brief`);
-      
-      setTimeout(() => {
-        window.location.href = `/v1/requirements?filter=initiatives&businessBrief=${useCaseId}`;
-      }, 100);
+      // Success notification without redirect
+      notify.success(
+        'Initiatives Generated!', 
+        `✅ Successfully generated ${initiatives.length} initiative${initiatives.length !== 1 ? 's' : ''} from "${useCase.title}". View them in Work Items when ready.`
+      );
+
+      // Add persistent notification to bell
+      addNotification({
+        title: 'Initiatives Generated Successfully!',
+        message: `Generated ${initiatives.length} initiative${initiatives.length !== 1 ? 's' : ''} from "${useCase.title}". Check Work Items to view them.`,
+        type: 'success',
+        autoClose: false
+      });
+
+      console.log(`✅ Generated ${initiatives.length} initiatives for ${useCase.title}`);
 
     } catch (error) {
       console.error('Error generating initiatives:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      notify.error('Initiative Generation Failed', errorMessage);
+      notify.error('Initiative Generation Failed', `❌ Failed to generate initiatives for "${useCase.title}": ${errorMessage}`);
+      
+      // Add error notification to bell
+      addNotification({
+        title: 'Initiative Generation Failed',
+        message: `Failed to generate initiatives for "${useCase.title}": ${errorMessage}`,
+        type: 'error',
+        autoClose: false
+      });
     } finally {
-      setIsGeneratingRequirements(null);
+      // Remove generating state for this use case
+      setGeneratingInitiatives(prev => {
+        const updated = { ...prev };
+        delete updated[useCaseId];
+        return updated;
+      });
     }
   };
 
@@ -897,6 +942,19 @@ export default function Version1IdeasPage() {
         </div>
         
         <div className="flex space-x-3">
+          {/* Background Generation Indicator */}
+          {Object.keys(generatingInitiatives).length > 0 && (
+            <div className="flex items-center space-x-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <RefreshCw size={16} className="animate-spin text-blue-600" />
+              <span className="text-sm text-blue-700 font-medium">
+                {Object.keys(generatingInitiatives).length} Initiative Generation{Object.keys(generatingInitiatives).length !== 1 ? 's' : ''} Running
+              </span>
+              <Badge variant="outline" className="bg-blue-100 text-blue-700 text-xs">
+                Background
+              </Badge>
+            </div>
+          )}
+
           <div className="relative">
             <input
               type="file"
@@ -1314,6 +1372,13 @@ export default function Version1IdeasPage() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-2">
                   {getStatusIcon(useCase.status)}
+                  {/* Generation indicator badge */}
+                  {generatingInitiatives[useCase.id] && (
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 animate-pulse">
+                      <RefreshCw size={10} className="animate-spin mr-1" />
+                      Generating
+                    </Badge>
+                  )}
                   <div>
                     <Badge variant="outline" className="text-xs mb-1 font-mono">
                       {useCase.businessBriefId}
@@ -1400,10 +1465,11 @@ export default function Version1IdeasPage() {
                         e.stopPropagation();
                         handleGenerateInitiatives(useCase.id);
                       }}
-                      disabled={isGeneratingRequirements === useCase.id}
+                      disabled={generatingInitiatives[useCase.id]}
                       className="flex items-center space-x-1 h-7 px-3 text-xs"
+                      title="Generate initiatives in background - multiple generations can run simultaneously"
                     >
-                      {isGeneratingRequirements === useCase.id ? (
+                      {generatingInitiatives[useCase.id] ? (
                         <>
                           <RefreshCw size={14} className="animate-spin" />
                           <span className="hidden sm:inline">Generating...</span>
